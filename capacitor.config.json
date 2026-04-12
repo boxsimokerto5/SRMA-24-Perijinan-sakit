@@ -1,0 +1,6 @@
+{
+  "appId": "com.srma24kediri.app",
+  "appName": "SRMA 24 KEDIRI",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

@@ -1,0 +1,5 @@
+{
+  "name": "SRMA 24 KEDIRI - Perizinan Siswa Sakit",
+  "description": "Aplikasi Perizinan Siswa Sakit dengan Role-Based Access Control untuk Dokter, Wali Asuh, dan Wali Kelas.",
+  "requestFramePermissions": []
+}

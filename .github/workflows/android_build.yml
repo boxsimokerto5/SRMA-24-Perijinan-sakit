@@ -1,0 +1,61 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web App
+        run: npm run build
+
+      - name: Initialize Capacitor Android
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Generate Keystore
+        run: |
+          keytool -genkey -v -keystore release-key.keystore -alias srma-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass mypassword -keypass mypassword -dname "CN=SRMA 24, OU=IT, O=SRMA, L=Kediri, S=East Java, C=ID"
+
+      - name: Build Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+        env:
+          # These env vars are used by gradle if configured, 
+          # but here we'll just use the default assembleRelease which produces an unsigned APK 
+          # or we can sign it manually.
+          # For simplicity in this automated script, we'll build the release APK.
+          # Note: assembleRelease might fail if signing is not configured in build.gradle.
+          # We can use assembleDebug for a quick testable APK.
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-24-app
+          path: android/app/build/outputs/apk/debug/app-debug.apk

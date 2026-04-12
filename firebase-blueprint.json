@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with role-based access",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["dokter", "wali_asuh", "wali_kelas"] },
+        "name": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "IzinSakit": {
+      "title": "Izin Sakit",
+      "description": "Sick leave permit for students",
+      "type": "object",
+      "properties": {
+        "nomor_surat": { "type": "string" },
+        "nama_siswa": { "type": "string" },
+        "kelas": { "type": "string" },
+        "diagnosa": { "type": "string" },
+        "jumlah_hari": { "type": "number" },
+        "tgl_mulai": { "type": "string", "format": "date-time" },
+        "tgl_selesai": { "type": "string", "format": "date-time" },
+        "tgl_surat": { "type": "string", "format": "date-time" },
+        "lokasi": { "type": "string" },
+        "nama_dokter": { "type": "string" },
+        "nama_wali_kelas": { "type": "string" },
+        "catatan_kamar": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending_asuh", "pending_kelas", "approved"] },
+        "dokter_uid": { "type": "string" },
+        "wali_asuh_uid": { "type": "string" },
+        "wali_kelas_uid": { "type": "string" }
+      },
+      "required": ["nomor_surat", "nama_siswa", "kelas", "diagnosa", "jumlah_hari", "tgl_mulai", "tgl_selesai", "tgl_surat", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles and roles"
+    },
+    "/izin_sakit/{permitId}": {
+      "schema": "IzinSakit",
+      "description": "Sick leave permits"
+    }
+  }
+}
