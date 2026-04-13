@@ -1,5 +1,15 @@
 import React, { useState, useEffect, Component, ReactNode } from 'react';
 import { auth, db } from './firebase';
+
+// Global error handler for Capacitor/Android to prevent force close
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled Promise Rejection:', event.reason);
+    // Prevent the default browser behavior (which might be a crash in some environments)
+    event.preventDefault();
+  });
+}
+
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { AppUser } from './types';
@@ -80,8 +90,12 @@ export default function App() {
             setAppUser(userData);
             setError(null);
             
-            // Setup Push Notifications
-            setupPushNotifications(firebaseUser.uid);
+            // Setup Push Notifications (wrapped in try-catch to prevent crash)
+            try {
+              await setupPushNotifications(firebaseUser.uid);
+            } catch (pushErr) {
+              console.error('Push Notification Setup Error:', pushErr);
+            }
           } else {
             console.warn('User document not found for UID:', firebaseUser.uid);
             // If user exists in Auth but not in Firestore, they might need to sign up again or be created
