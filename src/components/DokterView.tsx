@@ -26,6 +26,7 @@ export default function DokterView({ user }: DokterViewProps) {
   const [tglMulai, setTglMulai] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [waliKelas, setWaliKelas] = useState(WALI_KELAS_LIST[0].name);
 
+  const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
 
   const handleGeneratePDF = async (permit: IzinSakit) => {
@@ -68,6 +69,7 @@ export default function DokterView({ user }: DokterViewProps) {
 
     try {
       await addDoc(collection(db, 'izin_sakit'), {
+        tipe: 'sakit',
         nomor_surat: nomorSurat,
         nama_siswa: namaSiswa,
         kelas: kelas,
@@ -258,9 +260,13 @@ export default function DokterView({ user }: DokterViewProps) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {permits.map((permit) => (
-                <tr key={permit.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr 
+                  key={permit.id} 
+                  onClick={() => setSelectedPermit(permit)}
+                  className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
+                >
                   <td className="px-6 py-4">
-                    <div className="font-bold text-slate-900">{permit.nama_siswa}</div>
+                    <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{permit.nama_siswa}</div>
                     <div className="text-xs text-slate-500">Kelas {permit.kelas}</div>
                   </td>
                   <td className="px-6 py-4">
@@ -269,7 +275,7 @@ export default function DokterView({ user }: DokterViewProps) {
                   <td className="px-6 py-4">
                     <div className="text-sm font-semibold text-slate-900">{permit.jumlah_hari} Hari</div>
                     <div className="text-[10px] text-slate-500 uppercase font-medium">
-                      {format(permit.tgl_mulai.toDate(), 'dd MMM')} - {format(permit.tgl_selesai.toDate(), 'dd MMM')}
+                      {permit.tgl_mulai && typeof permit.tgl_mulai.toDate === 'function' ? format(permit.tgl_mulai.toDate(), 'dd MMM') : '?'} - {permit.tgl_selesai && typeof permit.tgl_selesai.toDate === 'function' ? format(permit.tgl_selesai.toDate(), 'dd MMM') : '?'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -282,28 +288,30 @@ export default function DokterView({ user }: DokterViewProps) {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-500">
-                    {format(permit.tgl_surat.toDate(), 'dd/MM/yyyy HH:mm')}
+                    {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd/MM/yyyy HH:mm') : '-'}
                   </td>
                   <td className="px-6 py-4">
-                    {permit.status === 'approved' && (
-                      <button
-                        onClick={() => handleGeneratePDF(permit)}
-                        disabled={!!pdfLoading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all shadow-md shadow-indigo-100 disabled:opacity-50"
-                      >
-                        {pdfLoading === permit.id ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Memuat...</>
-                        ) : (
-                          <><Printer className="w-3.5 h-3.5" /> Cetak</>
-                        )}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      {permit.status === 'approved' && (
+                        <button
+                          onClick={() => handleGeneratePDF(permit)}
+                          disabled={!!pdfLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all shadow-md shadow-indigo-100 disabled:opacity-50"
+                        >
+                          {pdfLoading === permit.id ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Memuat...</>
+                          ) : (
+                            <><Printer className="w-3.5 h-3.5" /> Cetak</>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
               {permits.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                     Belum ada data perizinan.
                   </td>
                 </tr>
@@ -312,6 +320,115 @@ export default function DokterView({ user }: DokterViewProps) {
           </table>
         </div>
       </div>
+
+      {/* Modal Detail Perizinan */}
+      {selectedPermit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl">
+                  <ClipboardList className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Detail Perizinan</h3>
+                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedPermit.nomor_surat}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPermit(null)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+              >
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Siswa</label>
+                  <p className="font-bold text-slate-900">{selectedPermit.nama_siswa}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas</label>
+                  <p className="font-bold text-slate-900">{selectedPermit.kelas}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diagnosa Medis</label>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-sm text-slate-700 leading-relaxed">{selectedPermit.diagnosa}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Masa Izin</label>
+                  <p className="text-sm font-bold text-slate-900">{selectedPermit.jumlah_hari} Hari</p>
+                  <p className="text-[10px] text-slate-500">
+                    {selectedPermit.tgl_mulai && typeof selectedPermit.tgl_mulai.toDate === 'function' ? format(selectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {selectedPermit.tgl_selesai && typeof selectedPermit.tgl_selesai.toDate === 'function' ? format(selectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
+                  <div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      selectedPermit.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                      selectedPermit.status === 'pending_kelas' ? 'bg-amber-50 text-amber-600' :
+                      'bg-indigo-50 text-indigo-600'
+                    }`}>
+                      {selectedPermit.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Kelas</label>
+                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Asuh</label>
+                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_asuh || '-'}</p>
+                </div>
+              </div>
+
+              {selectedPermit.catatan_kamar && (
+                <div className="space-y-1 pt-4 border-t border-slate-100">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
+                  <div className="flex items-center gap-2 text-indigo-600 font-bold">
+                    <MapPin className="w-4 h-4" />
+                    {selectedPermit.catatan_kamar}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setSelectedPermit(null)}
+                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+              >
+                Tutup
+              </button>
+              {selectedPermit.status === 'approved' && (
+                <button
+                  onClick={() => {
+                    handleGeneratePDF(selectedPermit);
+                    setSelectedPermit(null);
+                  }}
+                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Cetak PDF
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

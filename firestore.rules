@@ -17,20 +17,25 @@ service cloud.firestore {
     // Collection: izin_sakit
     // Document ID: {permitId}
     // Fields:
+    //   - tipe: string (required, enum: ['sakit', 'umum'])
     //   - nomor_surat: string (required)
     //   - nama_siswa: string (required)
     //   - kelas: string (required)
-    //   - diagnosa: string (required)
+    //   - diagnosa: string (optional, for tipe sakit)
+    //   - alasan: string (optional, for tipe umum)
     //   - jumlah_hari: number (required)
     //   - tgl_mulai: timestamp (required)
     //   - tgl_selesai: timestamp (required)
     //   - tgl_surat: timestamp (required)
     //   - lokasi: string (required)
-    //   - nama_dokter: string (required)
+    //   - nama_dokter: string (optional)
     //   - nama_wali_kelas: string (required)
+    //   - nama_wali_asuh: string (optional)
     //   - catatan_kamar: string (optional)
     //   - status: string (required, enum: ['pending_asuh', 'pending_kelas', 'approved'])
-    //   - dokter_uid: string (required)
+    //   - dokter_uid: string (optional)
+    //   - wali_asuh_uid: string (optional)
+    //   - wali_kelas_uid: string (optional)
     // ===============================================================
 
     // ===============================================================
@@ -56,12 +61,12 @@ service cloud.firestore {
       return data.nomor_surat is string &&
              data.nama_siswa is string &&
              data.kelas is string &&
-             data.diagnosa is string &&
              data.jumlah_hari is number &&
              data.tgl_mulai is timestamp &&
              data.tgl_selesai is timestamp &&
              data.tgl_surat is timestamp &&
-             data.status in ['pending_asuh', 'pending_kelas', 'approved'];
+             data.status in ['pending_asuh', 'pending_kelas', 'approved'] &&
+             (data.tipe == 'sakit' || data.tipe == 'umum');
     }
 
     // ===============================================================
@@ -81,11 +86,20 @@ service cloud.firestore {
       // All authenticated users can read permits
       allow read: if isAuthenticated();
 
-      // Only Dokter can create permits
-      allow create: if hasRole('dokter') && 
-                      isValidIzinSakit(request.resource.data) &&
-                      request.resource.data.status == 'pending_asuh' &&
-                      request.resource.data.dokter_uid == request.auth.uid;
+      // Create rules
+      allow create: if isAuthenticated() && isValidIzinSakit(request.resource.data) && (
+        // Dokter can create sickness permits
+        (hasRole('dokter') && 
+         request.resource.data.tipe == 'sakit' &&
+         request.resource.data.status == 'pending_asuh' &&
+         request.resource.data.dokter_uid == request.auth.uid) ||
+        
+        // Wali Asuh can create general permits
+        (hasRole('wali_asuh') && 
+         request.resource.data.tipe == 'umum' &&
+         request.resource.data.status == 'pending_kelas' &&
+         request.resource.data.wali_asuh_uid == request.auth.uid)
+      );
 
       // Update rules based on role
       allow update: if isAuthenticated() && (
@@ -93,7 +107,7 @@ service cloud.firestore {
         (hasRole('wali_asuh') && 
          resource.data.status == 'pending_asuh' &&
          request.resource.data.status == 'pending_kelas' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['catatan_kamar', 'status', 'wali_asuh_uid', 'nama_wali_asuh'])) ||
+         request.resource.data.diff(resource.data).affectedKeys().hasAny(['catatan_kamar', 'status', 'wali_asuh_uid', 'nama_wali_asuh'])) ||
         
         // Wali Kelas can approve
         (hasRole('wali_kelas') && 

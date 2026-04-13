@@ -53,9 +53,10 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('SURAT KETERANGAN SAKIT', 105, 65, { align: 'center' });
+  const title = permit.tipe === 'sakit' ? 'SURAT KETERANGAN SAKIT' : 'SURAT IZIN UMUM / LAINNYA';
+  doc.text(title, 105, 65, { align: 'center' });
   doc.setLineWidth(0.5);
-  doc.line(70, 66.5, 140, 66.5);
+  doc.line(60, 66.5, 150, 66.5);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -73,7 +74,9 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
 
   // --- CONTENT ---
   doc.text('Dengan hormat,', 20, 118);
-  const openingText = `Menerangkan bahwa berdasarkan hasil pemeriksaan medis di Unit Pelayanan Kesehatan Sekolah (UKS) SRMA 24 Kediri, siswa tersebut di bawah ini:`;
+  const openingText = permit.tipe === 'sakit' 
+    ? `Menerangkan bahwa berdasarkan hasil pemeriksaan medis di Unit Pelayanan Kesehatan Sekolah (UKS) SRMA 24 Kediri, siswa tersebut di bawah ini:`
+    : `Menerangkan bahwa berdasarkan permohonan izin yang diajukan kepada Wali Asuh SRMA 24 Kediri, siswa tersebut di bawah ini:`;
   doc.text(openingText, 20, 124, { maxWidth: 170 });
 
   // Details Table-like structure
@@ -85,8 +88,8 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   const details = [
     { label: 'Nama Lengkap', value: permit.nama_siswa.toUpperCase() },
     { label: 'Kelas / Jurusan', value: permit.kelas },
-    { label: 'Diagnosa Medis', value: permit.diagnosa.toUpperCase() },
-    { label: 'Lokasi Istirahat', value: permit.catatan_kamar || 'Kamar Santri' }
+    { label: permit.tipe === 'sakit' ? 'Diagnosa Medis' : 'Alasan Izin', value: (permit.tipe === 'sakit' ? permit.diagnosa : permit.alasan) || '-' },
+    { label: 'Lokasi Istirahat', value: permit.catatan_kamar || (permit.tipe === 'sakit' ? 'Kamar Santri' : 'Luar Sekolah') }
   ];
 
   details.forEach((item, index) => {
@@ -102,7 +105,13 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   // Body Text
   doc.setFont('helvetica', 'normal');
   const bodyY = startY + (details.length * lineGap) + 10;
-  const bodyText = `Dinyatakan dalam kondisi kurang sehat dan memerlukan istirahat total selama ${permit.jumlah_hari} (${terbilang(permit.jumlah_hari)}) hari, terhitung mulai tanggal ${format(permit.tgl_mulai.toDate(), 'dd MMMM yyyy')} sampai dengan ${format(permit.tgl_selesai.toDate(), 'dd MMMM yyyy')}.`;
+  const tglMulaiStr = permit.tgl_mulai && typeof permit.tgl_mulai.toDate === 'function' ? format(permit.tgl_mulai.toDate(), 'dd MMMM yyyy') : '-';
+  const tglSelesaiStr = permit.tgl_selesai && typeof permit.tgl_selesai.toDate === 'function' ? format(permit.tgl_selesai.toDate(), 'dd MMMM yyyy') : '-';
+  
+  const bodyText = permit.tipe === 'sakit'
+    ? `Dinyatakan dalam kondisi kurang sehat dan memerlukan istirahat total selama ${permit.jumlah_hari} (${terbilang(permit.jumlah_hari)}) hari, terhitung mulai tanggal ${tglMulaiStr} sampai dengan ${tglSelesaiStr}.`
+    : `Diberikan izin untuk meninggalkan kegiatan sekolah / beristirahat selama ${permit.jumlah_hari} (${terbilang(permit.jumlah_hari)}) hari, terhitung mulai tanggal ${tglMulaiStr} sampai dengan ${tglSelesaiStr} dikarenakan alasan tersebut di atas.`;
+  
   doc.text(bodyText, 20, bodyY, { maxWidth: 170, align: 'justify', lineHeightFactor: 1.5 });
 
   doc.text('Demikian surat keterangan ini diberikan agar dapat dipergunakan sebagaimana mestinya. Atas perhatian Bapak/Ibu, kami sampaikan terima kasih.', 20, bodyY + 25, { maxWidth: 170, align: 'justify' });
@@ -126,12 +135,13 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   doc.setLineWidth(0.2);
   doc.line(35, footerY + 39, 75, footerY + 39);
   
-  // Perawat
+  // Perawat / Pembuat
   doc.setFont('helvetica', 'normal');
-  doc.text(`Kediri, ${format(permit.tgl_surat.toDate(), 'dd MMMM yyyy')}`, 150, footerY, { align: 'center' });
-  doc.text('Perawat Pemeriksa,', 150, footerY + 5, { align: 'center' });
+  const tglSuratStr = permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMMM yyyy') : '-';
+  doc.text(`Kediri, ${tglSuratStr}`, 150, footerY, { align: 'center' });
+  doc.text(permit.tipe === 'sakit' ? 'Perawat Pemeriksa,' : 'Pembuat Izin,', 150, footerY + 5, { align: 'center' });
   doc.setFont('helvetica', 'bold');
-  doc.text(permit.nama_dokter, 150, footerY + 38, { align: 'center' });
+  doc.text(permit.nama_dokter || permit.nama_wali_asuh || '-', 150, footerY + 38, { align: 'center' });
   doc.line(130, footerY + 39, 170, footerY + 39);
 
   // Security Note

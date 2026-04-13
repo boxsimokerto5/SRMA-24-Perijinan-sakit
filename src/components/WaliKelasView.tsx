@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { AppUser, IzinSakit } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2 } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePermitPDF } from '../pdfUtils';
 
@@ -14,6 +14,8 @@ interface WaliKelasViewProps {
 export default function WaliKelasView({ user }: WaliKelasViewProps) {
   const [permits, setPermits] = useState<IzinSakit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
+  const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
 
   React.useEffect(() => {
     const q = query(
@@ -92,11 +94,15 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {permits.map((permit) => (
-                <tr key={permit.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr 
+                  key={permit.id} 
+                  onClick={() => setSelectedPermit(permit)}
+                  className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
+                >
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
+                    <div className="flex items-center gap-2 text-slate-900 font-medium text-sm group-hover:text-indigo-600 transition-colors">
                       <Calendar className="w-4 h-4 text-indigo-500" />
-                      {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd/MM/yyyy') : '-'}
+                      {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd/MM/yyyy') : '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -106,7 +112,7 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
                   <td className="px-6 py-4">
                     <div className="text-sm text-slate-600 font-medium">{permit.diagnosa}</div>
                     <div className="text-[10px] text-slate-400 uppercase mt-0.5">
-                      {permit.jumlah_hari} Hari ({permit.tgl_mulai ? format(permit.tgl_mulai.toDate(), 'dd/MM') : '?'} - {permit.tgl_selesai ? format(permit.tgl_selesai.toDate(), 'dd/MM') : '?'})
+                      {permit.jumlah_hari} Hari ({permit.tgl_mulai && typeof permit.tgl_mulai.toDate === 'function' ? format(permit.tgl_mulai.toDate(), 'dd/MM') : '?'} - {permit.tgl_selesai && typeof permit.tgl_selesai.toDate === 'function' ? format(permit.tgl_selesai.toDate(), 'dd/MM') : '?'})
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -123,10 +129,10 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       {permit.status === 'pending_kelas' ? (
                         <button
-                          onClick={() => handleApprove(permit.id!)}
+                          onClick={() => setConfirmApproveId(permit.id!)}
                           disabled={loading}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all"
                         >
@@ -160,6 +166,150 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
           </table>
         </div>
       </div>
+
+      {/* Modal Detail Perizinan */}
+      {selectedPermit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl">
+                  <ClipboardList className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Detail Perizinan</h3>
+                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedPermit.nomor_surat}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPermit(null)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+              >
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Siswa</label>
+                  <p className="font-bold text-slate-900">{selectedPermit.nama_siswa}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas</label>
+                  <p className="font-bold text-slate-900">{selectedPermit.kelas}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diagnosa Medis</label>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-sm text-slate-700 leading-relaxed">{selectedPermit.diagnosa}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Masa Izin</label>
+                  <p className="text-sm font-bold text-slate-900">{selectedPermit.jumlah_hari} Hari</p>
+                  <p className="text-[10px] text-slate-500">
+                    {selectedPermit.tgl_mulai && typeof selectedPermit.tgl_mulai.toDate === 'function' ? format(selectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {selectedPermit.tgl_selesai && typeof selectedPermit.tgl_selesai.toDate === 'function' ? format(selectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
+                  <div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      selectedPermit.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                      selectedPermit.status === 'pending_kelas' ? 'bg-amber-50 text-amber-600' :
+                      'bg-indigo-50 text-indigo-600'
+                    }`}>
+                      {selectedPermit.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Kelas</label>
+                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Asuh</label>
+                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_asuh || '-'}</p>
+                </div>
+              </div>
+
+              {selectedPermit.catatan_kamar && (
+                <div className="space-y-1 pt-4 border-t border-slate-100">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
+                  <div className="flex items-center gap-2 text-indigo-600 font-bold">
+                    <MapPin className="w-4 h-4" />
+                    {selectedPermit.catatan_kamar}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setSelectedPermit(null)}
+                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+              >
+                Tutup
+              </button>
+              {selectedPermit.status === 'approved' && (
+                <button
+                  onClick={() => {
+                    handleGeneratePDF(selectedPermit);
+                    setSelectedPermit(null);
+                  }}
+                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Cetak PDF
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Persetujuan */}
+      {confirmApproveId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Konfirmasi Setujui</h3>
+              <p className="text-slate-500 text-sm">
+                Apakah Anda yakin ingin menyetujui perizinan sakit siswa ini? Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setConfirmApproveId(null)}
+                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  handleApprove(confirmApproveId);
+                  setConfirmApproveId(null);
+                }}
+                disabled={loading}
+                className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Setujui'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
