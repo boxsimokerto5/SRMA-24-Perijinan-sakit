@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Perfect Build)
 
 on:
   push:
@@ -25,6 +25,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Dependencies
         run: npm install
 
@@ -36,26 +39,54 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Generate Keystore
-        run: |
-          keytool -genkey -v -keystore release-key.keystore -alias srma-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass mypassword -keypass mypassword -dname "CN=SRMA 24, OU=IT, O=SRMA, L=Kediri, S=East Java, C=ID"
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: Build Android APK
+      - name: Generate Release Keystore
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias srma_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass srma123456 -keypass srma123456 -dname "CN=SRMA 24, OU=IT, O=SRMA, L=Kediri, S=East Java, C=ID"
+
+      - name: Build Release APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease
         env:
-          # These env vars are used by gradle if configured, 
-          # but here we'll just use the default assembleRelease which produces an unsigned APK 
-          # or we can sign it manually.
-          # For simplicity in this automated script, we'll build the release APK.
-          # Note: assembleRelease might fail if signing is not configured in build.gradle.
-          # We can use assembleDebug for a quick testable APK.
+          # We can pass signing info to gradle via project properties if needed
+          # For this automated script, we'll sign it in the next step
+          ORG_GRADLE_PROJECT_signingKeyStore: ../release.keystore
+          ORG_GRADLE_PROJECT_signingKeyAlias: srma_alias
+          ORG_GRADLE_PROJECT_signingKeyPassword: srma123456
+          ORG_GRADLE_PROJECT_signingStorePassword: srma123456
+
+      - name: Sign APK
+        run: |
+          # Find the unsigned release APK
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          # Sign it using apksigner (part of Android SDK)
+          # Note: In a real production environment, you'd use secrets for passwords
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign --ks release.keystore --ks-key-alias srma_alias --ks-pass pass:srma123456 --key-pass pass:srma123456 --out srma-24-release-signed.apk $APK_PATH
+
+      - name: Build Debug APK (Optional)
+        run: |
+          cd android
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: srma-24-app
+          name: SRMA-24-Release-APK
+          path: srma-24-release-signed.apk
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SRMA-24-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
