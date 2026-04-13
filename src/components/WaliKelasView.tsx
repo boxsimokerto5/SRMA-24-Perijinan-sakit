@@ -96,7 +96,7 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
                       <Calendar className="w-4 h-4 text-indigo-500" />
-                      {format(permit.tgl_surat.toDate(), 'dd/MM/yyyy')}
+                      {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd/MM/yyyy') : '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -106,7 +106,7 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
                   <td className="px-6 py-4">
                     <div className="text-sm text-slate-600 font-medium">{permit.diagnosa}</div>
                     <div className="text-[10px] text-slate-400 uppercase mt-0.5">
-                      {permit.jumlah_hari} Hari ({format(permit.tgl_mulai.toDate(), 'dd/MM')} - {format(permit.tgl_selesai.toDate(), 'dd/MM')})
+                      {permit.jumlah_hari} Hari ({permit.tgl_mulai ? format(permit.tgl_mulai.toDate(), 'dd/MM') : '?'} - {permit.tgl_selesai ? format(permit.tgl_selesai.toDate(), 'dd/MM') : '?'})
                     </div>
                   </td>
                   <td className="px-6 py-4">

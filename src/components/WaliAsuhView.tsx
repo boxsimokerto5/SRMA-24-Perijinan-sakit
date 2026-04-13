@@ -117,7 +117,7 @@ export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
                   </p>
                   <div className="flex items-center gap-4 mt-3 text-xs text-slate-500 font-medium">
                     <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" /> {format(permit.tgl_surat.toDate(), 'dd/MM/yyyy')}
+                      <Calendar className="w-3.5 h-3.5" /> {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd/MM/yyyy') : '-'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" /> {permit.jumlah_hari} Hari
