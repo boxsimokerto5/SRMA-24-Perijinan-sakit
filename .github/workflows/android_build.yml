@@ -37,7 +37,10 @@ jobs:
       - name: Generate App Assets (Icons & Splash)
         run: |
           if [ -f "logo.png" ]; then
+            mkdir -p resources
             npm run cap:assets
+            # Copy generated assets to android project
+            cp -r resources/android/* android/app/src/main/res/ || true
           else
             echo "logo.png not found, skipping asset generation"
           fi
