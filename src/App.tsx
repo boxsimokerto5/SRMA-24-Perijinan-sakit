@@ -90,12 +90,14 @@ export default function App() {
             setAppUser(userData);
             setError(null);
             
-            // Setup Push Notifications (wrapped in try-catch to prevent crash)
+            // Setup Push Notifications (DISABLED TEMPORARILY TO PREVENT CRASH)
+            /*
             try {
               await setupPushNotifications(firebaseUser.uid);
             } catch (pushErr) {
               console.error('Push Notification Setup Error:', pushErr);
             }
+            */
           } else {
             console.warn('User document not found for UID:', firebaseUser.uid);
             // If user exists in Auth but not in Firestore, they might need to sign up again or be created

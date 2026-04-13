@@ -6,10 +6,14 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// Messaging instance (lazy initialized)
+// Messaging instance (lazy initialized and safe)
 export const getFCM = async () => {
-  if (await isSupported()) {
-    return getMessaging(app);
+  try {
+    if (typeof window !== 'undefined' && await isSupported()) {
+      return getMessaging(app);
+    }
+  } catch (err) {
+    console.warn('FCM not supported or failed to initialize:', err);
   }
   return null;
 };
