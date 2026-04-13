@@ -1,9 +1,18 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getMessaging, isSupported } from 'firebase/messaging';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+
+// Messaging instance (lazy initialized)
+export const getFCM = async () => {
+  if (await isSupported()) {
+    return getMessaging(app);
+  }
+  return null;
+};
 
 // Use initializeFirestore with long-polling to be more resilient in iframe/restricted environments
 export const db = initializeFirestore(app, {

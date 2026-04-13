@@ -1,5 +1,6 @@
 import React from 'react';
-import { LogOut, User, Stethoscope, Home, CheckSquare } from 'lucide-react';
+import { LogOut, User, Home, CheckSquare } from 'lucide-react';
+import Logo from './Logo';
 import { auth } from '../firebase';
 import { AppUser } from '../types';
 
@@ -11,7 +12,7 @@ interface LayoutProps {
 export default function Layout({ children, user }: LayoutProps) {
   const getRoleIcon = () => {
     switch (user.role) {
-      case 'dokter': return <Stethoscope className="w-5 h-5" />;
+      case 'dokter': return <Logo size="sm" showText={false} />;
       case 'wali_asuh': return <Home className="w-5 h-5" />;
       case 'wali_kelas': return <CheckSquare className="w-5 h-5" />;
     }
@@ -30,9 +31,7 @@ export default function Layout({ children, user }: LayoutProps) {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-lg">
-              <Stethoscope className="w-6 h-6 text-white" />
-            </div>
+            <Logo size="sm" showText={false} />
             <div>
               <h1 className="text-lg font-bold text-slate-900 leading-tight">SRMA 24 KEDIRI</h1>
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Perizinan Siswa Sakit</p>

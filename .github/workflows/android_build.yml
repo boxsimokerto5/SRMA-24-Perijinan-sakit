@@ -34,6 +34,14 @@ jobs:
       - name: Build Web App
         run: npm run build
 
+      - name: Generate App Assets (Icons & Splash)
+        run: |
+          if [ -f "logo.png" ]; then
+            npm run cap:assets
+          else
+            echo "logo.png not found, skipping asset generation"
+          fi
+
       - name: Initialize Capacitor Android
         run: |
           npx cap add android

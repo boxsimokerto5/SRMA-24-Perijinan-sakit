@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Stethoscope, HeartPulse } from 'lucide-react';
+import { HeartPulse } from 'lucide-react';
+import Logo from './Logo';
 
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [isVisible, setIsVisible] = useState(true);
@@ -47,22 +48,22 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                 damping: 20,
                 delay: 0.2 
               }}
-              className="bg-white p-6 rounded-3xl shadow-2xl mb-8 relative"
+              className="mb-8 relative"
             >
-              <Stethoscope className="w-16 h-16 text-indigo-600" />
+              <Logo size="lg" />
               
               {/* Pulse Effect */}
               <motion.div
                 animate={{ 
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 0, 0.5]
+                  scale: [1, 1.1, 1],
+                  opacity: [0.3, 0, 0.3]
                 }}
                 transition={{ 
-                  duration: 1.5,
+                  duration: 2,
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
-                className="absolute inset-0 border-4 border-white rounded-3xl"
+                className="absolute inset-0 border-4 border-white/30 rounded-[25%]"
               />
             </motion.div>
 

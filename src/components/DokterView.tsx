@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { AppUser, WALI_KELAS_LIST, IzinSakit } from '../types';
+import { notifyUserByRole } from '../services/fcmService';
 import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2 } from 'lucide-react';
+import Logo from './Logo';
 import { format, addDays } from 'date-fns';
 import { generatePermitPDF } from '../pdfUtils';
 
@@ -80,6 +82,10 @@ export default function DokterView({ user }: DokterViewProps) {
         status: 'pending_asuh',
         dokter_uid: user.uid,
       });
+
+      // Notify Wali Asuh
+      notifyUserByRole('wali_asuh', 'Permintaan Izin Baru', `Siswa ${namaSiswa} memerlukan izin sakit.`);
+
       setShowForm(false);
       // Reset form
       setNomorSurat(`SRMA-${Date.now().toString().slice(-6)}`);
@@ -98,7 +104,10 @@ export default function DokterView({ user }: DokterViewProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard Dokter</h2>
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Logo size="sm" showText={false} />
+            Dashboard Dokter
+          </h2>
           <p className="text-slate-500 text-sm">Kelola perizinan sakit siswa</p>
         </div>
         <button

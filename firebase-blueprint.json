@@ -8,7 +8,8 @@
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "role": { "type": "string", "enum": ["dokter", "wali_asuh", "wali_kelas"] },
-        "name": { "type": "string" }
+        "name": { "type": "string" },
+        "fcmToken": { "type": "string" }
       },
       "required": ["uid", "email", "role"]
     },

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { AppUser, IzinSakit } from '../types';
+import { notifyUserByRole } from '../services/fcmService';
 import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePermitPDF } from '../pdfUtils';
@@ -56,6 +57,10 @@ export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
         wali_asuh_uid: user.uid,
         nama_wali_asuh: user.name,
       });
+
+      // Notify Wali Kelas
+      notifyUserByRole('wali_kelas', 'Persetujuan Izin Dibutuhkan', `Siswa di kelas Anda memerlukan persetujuan izin sakit.`);
+
       // Clear note for this permit
       const newNotes = { ...catatanKamar };
       delete newNotes[permitId];
@@ -111,6 +116,9 @@ export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
                     <span className="font-semibold text-slate-700">Diagnosa:</span> {permit.diagnosa}
                   </p>
                   <div className="flex items-center gap-4 mt-3 text-xs text-slate-500 font-medium">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" /> {format(permit.tgl_surat.toDate(), 'dd/MM/yyyy')}
+                    </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" /> {permit.jumlah_hari} Hari
                     </span>

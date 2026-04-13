@@ -12,6 +12,7 @@ service cloud.firestore {
     //   - email: string (required)
     //   - role: string (required, enum: ['dokter', 'wali_asuh', 'wali_kelas'])
     //   - name: string (optional)
+    //   - fcmToken: string (optional)
     //
     // Collection: izin_sakit
     // Document ID: {permitId}

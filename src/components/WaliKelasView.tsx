@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { AppUser, IzinSakit } from '../types';
+import { notifyUserByRole } from '../services/fcmService';
 import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePermitPDF } from '../pdfUtils';
@@ -35,6 +36,9 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
         status: 'approved',
         wali_kelas_uid: user.uid,
       });
+
+      // Notify Dokter
+      notifyUserByRole('dokter', 'Izin Disetujui', `Izin sakit siswa telah disetujui oleh Wali Kelas.`);
     } catch (err) {
       console.error(err);
       alert('Gagal menyetujui perizinan');
@@ -78,6 +82,7 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50">
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tanggal Surat</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Siswa</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Detail Sakit</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Kamar</th>
@@ -88,6 +93,12 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
             <tbody className="divide-y divide-slate-100">
               {permits.map((permit) => (
                 <tr key={permit.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
+                      <Calendar className="w-4 h-4 text-indigo-500" />
+                      {format(permit.tgl_surat.toDate(), 'dd/MM/yyyy')}
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="font-bold text-slate-900">{permit.nama_siswa}</div>
                     <div className="text-xs text-slate-500">Kelas {permit.kelas}</div>
@@ -140,7 +151,7 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
               ))}
               {permits.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                     Belum ada data perizinan untuk disetujui.
                   </td>
                 </tr>

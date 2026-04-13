@@ -3,7 +3,8 @@ import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
-import { Stethoscope, Home, CheckSquare, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Home, CheckSquare, Mail, Lock, User as UserIcon } from 'lucide-react';
+import Logo from './Logo';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -55,8 +56,8 @@ export default function Auth() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="bg-indigo-600 p-8 text-center">
-          <div className="inline-flex p-3 bg-white/10 rounded-xl mb-4">
-            <Stethoscope className="w-8 h-8 text-white" />
+          <div className="inline-flex mb-4">
+            <Logo size="md" />
           </div>
           <h2 className="text-2xl font-bold text-white">SRMA 24 KEDIRI</h2>
           <p className="text-indigo-100 text-sm font-medium uppercase tracking-widest mt-1">Perizinan Siswa Sakit</p>

@@ -9,6 +9,7 @@ import DokterView from './components/DokterView';
 import WaliAsuhView from './components/WaliAsuhView';
 import WaliKelasView from './components/WaliKelasView';
 import SplashScreen from './components/SplashScreen';
+import { setupPushNotifications } from './services/notificationService';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 // Error Boundary Component
@@ -75,8 +76,12 @@ export default function App() {
           // Attempt to fetch user data
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
-            setAppUser(userDoc.data() as AppUser);
+            const userData = userDoc.data() as AppUser;
+            setAppUser(userData);
             setError(null);
+            
+            // Setup Push Notifications
+            setupPushNotifications(firebaseUser.uid);
           } else {
             console.warn('User document not found for UID:', firebaseUser.uid);
             // If user exists in Auth but not in Firestore, they might need to sign up again or be created
