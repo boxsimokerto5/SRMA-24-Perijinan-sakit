@@ -18,6 +18,7 @@ import Layout from './components/Layout';
 import DokterView from './components/DokterView';
 import WaliAsuhView from './components/WaliAsuhView';
 import WaliKelasView from './components/WaliKelasView';
+import KepalaSekolahView from './components/KepalaSekolahView';
 import SplashScreen from './components/SplashScreen';
 import { setupPushNotifications } from './services/notificationService';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -172,6 +173,7 @@ export default function App() {
         {appUser.role === 'dokter' && <DokterView user={appUser} />}
         {appUser.role === 'wali_asuh' && <WaliAsuhView user={appUser} />}
         {appUser.role === 'wali_kelas' && <WaliKelasView user={appUser} />}
+        {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} />}
       </Layout>
     </ErrorBoundary>
   );

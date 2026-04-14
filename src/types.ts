@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'dokter' | 'wali_asuh' | 'wali_kelas';
+export type UserRole = 'dokter' | 'wali_asuh' | 'wali_kelas' | 'kepala_sekolah';
 
 export interface AppUser {
   uid: string;
@@ -9,8 +9,15 @@ export interface AppUser {
   name: string;
 }
 
-export type PermitStatus = 'pending_asuh' | 'pending_kelas' | 'approved';
-export type PermitType = 'sakit' | 'umum';
+export type PermitStatus = 'pending_asuh' | 'pending_kelas' | 'approved' | 'pending_ack' | 'acknowledged';
+export type PermitType = 'sakit' | 'umum' | 'catatan';
+
+export interface LogTindakan {
+  waktu: Timestamp;
+  oleh: string;
+  peran: string;
+  pesan: string;
+}
 
 export interface IzinSakit {
   id?: string;
@@ -20,11 +27,13 @@ export interface IzinSakit {
   kelas: string;
   diagnosa?: string; // Untuk tipe sakit
   alasan?: string;   // Untuk tipe umum
-  jumlah_hari: number;
-  tgl_mulai: Timestamp;
-  tgl_selesai: Timestamp;
+  isi_catatan?: string; // Untuk tipe catatan
+  jumlah_hari?: number;
+  tgl_mulai?: Timestamp;
+  tgl_selesai?: Timestamp;
   tgl_surat: Timestamp;
-  lokasi: string;
+  tgl_disetujui?: Timestamp;
+  lokasi?: string;
   nama_dokter?: string;
   nama_wali_kelas: string;
   nama_wali_asuh?: string;
@@ -33,6 +42,18 @@ export interface IzinSakit {
   dokter_uid?: string;
   wali_asuh_uid?: string;
   wali_kelas_uid?: string;
+  tindakan?: LogTindakan[];
+}
+
+export interface Memorandum {
+  id?: string;
+  nomor_memo: string;
+  perihal: string;
+  isi: string;
+  tgl_memo: Timestamp;
+  penerima: UserRole[];
+  pengirim_name: string;
+  pengirim_uid: string;
 }
 
 export const WALI_KELAS_LIST = [

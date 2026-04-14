@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, User, Home, CheckSquare } from 'lucide-react';
+import { LogOut, User, Home, CheckSquare, ShieldCheck } from 'lucide-react';
 import Logo from './Logo';
 import { auth } from '../firebase';
 import { AppUser } from '../types';
@@ -15,6 +15,7 @@ export default function Layout({ children, user }: LayoutProps) {
       case 'dokter': return <Logo size="sm" showText={false} />;
       case 'wali_asuh': return <Home className="w-5 h-5" />;
       case 'wali_kelas': return <CheckSquare className="w-5 h-5" />;
+      case 'kepala_sekolah': return <ShieldCheck className="w-5 h-5" />;
     }
   };
 
@@ -23,32 +24,37 @@ export default function Layout({ children, user }: LayoutProps) {
       case 'dokter': return 'Dokter';
       case 'wali_asuh': return 'Wali Asuh';
       case 'wali_kelas': return 'Wali Kelas';
+      case 'kepala_sekolah': return 'Kepala Sekolah';
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-indigo-600 sticky top-0 z-10 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Logo size="sm" showText={false} />
+            <div className="bg-white p-1.5 rounded-xl shadow-sm">
+              <Logo size="sm" showText={false} />
+            </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900 leading-tight">SRMA 24 KEDIRI</h1>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Perizinan Siswa Sakit</p>
+              <h1 className="text-lg font-black text-white leading-tight tracking-tight">SRMA 24 KEDIRI</h1>
+              <p className="text-[10px] text-indigo-100 font-bold uppercase tracking-widest opacity-80">Perizinan Siswa Sakit</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-sm font-semibold text-slate-900">{user.name || user.email}</span>
-              <div className="flex items-center gap-1 text-xs text-indigo-600 font-bold uppercase tracking-tighter">
-                {getRoleIcon()}
+              <span className="text-sm font-bold text-white">{user.name || user.email}</span>
+              <div className="flex items-center gap-1 text-[10px] text-indigo-200 font-black uppercase tracking-tighter">
+                <div className="w-4 h-4 flex items-center justify-center">
+                  {getRoleIcon()}
+                </div>
                 {getRoleLabel()}
               </div>
             </div>
             <button
               onClick={() => auth.signOut()}
-              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+              className="p-2.5 text-indigo-100 hover:text-white hover:bg-white/10 rounded-xl transition-all"
               title="Logout"
             >
               <LogOut className="w-5 h-5" />

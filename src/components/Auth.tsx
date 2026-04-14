@@ -3,7 +3,7 @@ import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
-import { Home, CheckSquare, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck } from 'lucide-react';
 import Logo from './Logo';
 
 export default function Auth() {
@@ -116,7 +116,7 @@ export default function Auth() {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pilih Role</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {(['wali_asuh', 'wali_kelas'] as UserRole[]).map((r) => (
+                  {(['wali_asuh', 'wali_kelas', 'kepala_sekolah'] as UserRole[]).map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -129,6 +129,7 @@ export default function Auth() {
                     >
                       {r === 'wali_asuh' && <Home className="w-5 h-5" />}
                       {r === 'wali_kelas' && <CheckSquare className="w-5 h-5" />}
+                      {r === 'kepala_sekolah' && <ShieldCheck className="w-4 h-4" />}
                       <span className="text-[10px] font-bold uppercase tracking-tighter">{r.replace('_', ' ')}</span>
                     </button>
                   ))}
