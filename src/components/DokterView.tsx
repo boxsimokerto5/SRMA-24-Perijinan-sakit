@@ -3,16 +3,18 @@ import { db } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3 } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import ProfileView from './ProfileView';
 
 interface DokterViewProps {
   user: AppUser;
+  activeTab: string;
 }
 
-export default function DokterView({ user }: DokterViewProps) {
+export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [permits, setPermits] = useState<IzinSakit[]>([]);
@@ -147,6 +149,31 @@ export default function DokterView({ user }: DokterViewProps) {
     selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
     memos: memos.length
   };
+
+  if (activeTab === 'profil') {
+    return <ProfileView user={user} />;
+  }
+
+  if (activeTab === 'statistik') {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900">Statistik Klinik</h2>
+            <p className="text-sm text-slate-500">Data pemeriksaan kesehatan siswa.</p>
+          </div>
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+            <Activity className="w-6 h-6" />
+          </div>
+        </div>
+        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center py-20">
+          <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+          <h3 className="text-slate-900 font-bold text-xl">Statistik Segera Hadir</h3>
+          <p className="text-slate-500 mt-2">Fitur analisis mendalam sedang dalam pengembangan.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

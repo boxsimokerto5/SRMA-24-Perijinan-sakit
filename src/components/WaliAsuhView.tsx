@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
 import { format, addDays } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import ProfileView from './ProfileView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
+  activeTab: string;
 }
 
-export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
+export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [permits, setPermits] = useState<IzinSakit[]>([]);
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
@@ -188,6 +190,31 @@ export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
     selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
     memos: memos.length
   };
+
+  if (activeTab === 'profil') {
+    return <ProfileView user={user} />;
+  }
+
+  if (activeTab === 'statistik') {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900">Statistik Wali Asuh</h2>
+            <p className="text-sm text-slate-500">Data kesehatan siswa asuhan Anda.</p>
+          </div>
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+            <BarChart3 className="w-6 h-6" />
+          </div>
+        </div>
+        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center py-20">
+          <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+          <h3 className="text-slate-900 font-bold text-xl">Statistik Segera Hadir</h3>
+          <p className="text-slate-500 mt-2">Fitur analisis mendalam sedang dalam pengembangan.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

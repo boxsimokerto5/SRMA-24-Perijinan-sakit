@@ -122,6 +122,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const [activeTab, setActiveTab] = useState('dashboard');
+
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
@@ -169,11 +171,15 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <Layout user={appUser}>
-        {appUser.role === 'dokter' && <DokterView user={appUser} />}
-        {appUser.role === 'wali_asuh' && <WaliAsuhView user={appUser} />}
-        {appUser.role === 'wali_kelas' && <WaliKelasView user={appUser} />}
-        {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} />}
+      <Layout 
+        user={appUser} 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab}
+      >
+        {appUser.role === 'dokter' && <DokterView user={appUser} activeTab={activeTab} />}
+        {appUser.role === 'wali_asuh' && <WaliAsuhView user={appUser} activeTab={activeTab} />}
+        {appUser.role === 'wali_kelas' && <WaliKelasView user={appUser} activeTab={activeTab} />}
+        {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} activeTab={activeTab} />}
       </Layout>
     </ErrorBoundary>
   );

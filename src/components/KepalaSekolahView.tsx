@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, addDoc } from 'firebase/firestore';
 import { IzinSakit, AppUser, Memorandum, UserRole } from '../types';
 import { format } from 'date-fns';
@@ -22,15 +22,19 @@ import {
   Activity,
   Send,
   Mail,
-  ShieldCheck
+  ShieldCheck,
+  LogOut,
+  Bell
 } from 'lucide-react';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import ProfileView from './ProfileView';
 
 interface KepalaSekolahViewProps {
   user: AppUser;
+  activeTab: string;
 }
 
-export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
+export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahViewProps) {
   const [permits, setPermits] = useState<IzinSakit[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,7 +45,7 @@ export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   
   // Memorandum States
-  const [activeTab, setActiveTab] = useState<'perizinan' | 'memorandum'>('perizinan');
+  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum'>('perizinan');
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
@@ -164,157 +168,252 @@ export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
     );
   }
 
+  if (activeTab === 'statistik') {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900">Statistik Perizinan</h2>
+            <p className="text-sm text-slate-500">Analisis data kesehatan siswa secara real-time.</p>
+          </div>
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+            <BarChart3 className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
+                <Activity className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Izin Sakit</p>
+                <h3 className="text-2xl font-black text-slate-900">{stats.sakit}</h3>
+              </div>
+            </div>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div className="bg-rose-500 h-full" style={{ width: `${(stats.sakit / stats.total) * 100}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Izin Umum</p>
+                <h3 className="text-2xl font-black text-slate-900">{stats.umum}</h3>
+              </div>
+            </div>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div className="bg-blue-500 h-full" style={{ width: `${(stats.umum / stats.total) * 100}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tingkat Kesembuhan</p>
+                <h3 className="text-2xl font-black text-slate-900">{Math.round((stats.selesai / stats.total) * 100) || 0}%</h3>
+              </div>
+            </div>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full" style={{ width: `${(stats.selesai / stats.total) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+          <h3 className="font-black text-slate-900 mb-6">Tren Mingguan</h3>
+          <div className="h-64 flex items-end justify-between gap-2">
+            {[40, 70, 45, 90, 65, 80, 55].map((h, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                <div className="w-full bg-indigo-50 rounded-t-xl relative group">
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 bg-indigo-500 rounded-t-xl transition-all group-hover:bg-indigo-600" 
+                    style={{ height: `${h}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">H-{6-i}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === 'profil') {
+    return <ProfileView user={user} />;
+  }
+
   return (
     <div className="space-y-8">
       {/* Tabs */}
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 self-start">
         <button
-          onClick={() => setActiveTab('perizinan')}
+          onClick={() => setSubTab('perizinan')}
           className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-            activeTab === 'perizinan' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+            subTab === 'perizinan' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
           <ClipboardList className="w-4 h-4" /> Perizinan
         </button>
         <button
-          onClick={() => setActiveTab('memorandum')}
+          onClick={() => setSubTab('memorandum')}
           className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-            activeTab === 'memorandum' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+            subTab === 'memorandum' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
           <Mail className="w-4 h-4" /> Memorandum
         </button>
       </div>
 
-      {activeTab === 'perizinan' ? (
+      {subTab === 'perizinan' ? (
         <>
           {/* Header & Stats */}
-      {/* Dashboard Grid - Styled to match banner */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Card 1: Siswa Sakit */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.sakit}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
-                <Activity className="w-6 h-6" />
+          {/* Header & Stats */}
+          {activeTab === 'dashboard' && (
+            <div className="grid grid-cols-2 gap-4">
+              {/* Card 1: Siswa Sakit */}
+              <div 
+                onClick={() => { setFilterType('sakit'); setFilterStatus('all'); setSubTab('perizinan'); }}
+                className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black">{stats.sakit}</h3>
+                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Siswa Sakit<br />Hari Ini</p>
+                </div>
+              </div>
+
+              {/* Card 2: Izin Disetujui */}
+              <div 
+                onClick={() => { setFilterType('all'); setFilterStatus('selesai'); setSubTab('perizinan'); }}
+                className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black">{stats.selesai}</h3>
+                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Disetujui</p>
+                </div>
+              </div>
+
+              {/* Card 3: Dokter UKS */}
+              <div 
+                onClick={() => { setFilterType('all'); setFilterStatus('pending_asuh'); setSubTab('perizinan'); }}
+                className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black">{stats.pending}</h3>
+                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Dokter UKS<br />- Periksa</p>
+                </div>
+              </div>
+
+              {/* Card 4: Memorandum */}
+              <div 
+                onClick={() => setSubTab('memorandum')}
+                className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black">{memos.length}</h3>
+                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Kepala Sekolah<br />- Memo</p>
+                </div>
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Siswa Sakit<br />Hari Ini</p>
-          </div>
-        </div>
+          )}
 
-        {/* Card 2: Izin Disetujui */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.selesai}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Disetujui</p>
-          </div>
-        </div>
-
-        {/* Card 3: Dokter UKS */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.pending}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Dokter UKS<br />- Periksa</p>
-          </div>
-        </div>
-
-        {/* Card 4: Memorandum */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{memos.length}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
-                <Mail className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Kepala Sekolah<br />- Memo</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Riwayat Terakhir Header */}
-      <div className="flex items-center justify-between mt-4">
-        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Terakhir</h2>
-        <button className="text-xs font-bold text-indigo-600">Lihat Semua</button>
-      </div>
-
-      {/* Filters & Search */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Cari nama siswa atau nomor surat..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <input 
-                type="date" 
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
-              />
-              <span className="text-slate-300">→</span>
-              <input 
-                type="date" 
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
-              />
-              {(startDate || endDate) && (
-                <button 
-                  onClick={() => { setStartDate(''); setEndDate(''); }}
-                  className="p-1 hover:bg-slate-200 rounded-full transition-colors"
-                >
-                  <Plus className="w-3 h-3 rotate-45 text-slate-400" />
-                </button>
-              )}
-            </div>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
+          {/* Riwayat Terakhir Header */}
+          <div className="flex items-center justify-between mt-4">
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">
+              {activeTab === 'dashboard' ? 'Riwayat Terakhir' : 'Daftar Perizinan'}
+            </h2>
+            <button 
+              onClick={() => {
+                setSearchTerm('');
+                setFilterType('all');
+                setFilterStatus('all');
+                setStartDate('');
+                setEndDate('');
+              }}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
             >
-              <option value="all">Semua Tipe</option>
-              <option value="sakit">Izin Sakit</option>
-              <option value="umum">Izin Umum</option>
-              <option value="catatan">Catatan</option>
-            </select>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="all">Semua Status</option>
-              <option value="pending_asuh">Menunggu Wali Asuh</option>
-              <option value="pending_kelas">Menunggu Wali Kelas</option>
-              <option value="selesai">Selesai</option>
-            </select>
+              Lihat Semua
+            </button>
           </div>
-        </div>
-      </div>
+
+          {/* Filters & Search - Show in Riwayat tab or if searching in Dashboard */}
+          {(activeTab === 'riwayat' || searchTerm) && (
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama siswa atau nomor surat..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+                    />
+                    <span className="text-slate-300">→</span>
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+                    />
+                  </div>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">Semua Tipe</option>
+                    <option value="sakit">Izin Sakit</option>
+                    <option value="umum">Izin Umum</option>
+                    <option value="catatan">Catatan</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
       {/* List Perizinan - Banner Style */}
       <div className="grid grid-cols-1 gap-3">
@@ -332,7 +431,14 @@ export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
               <User className="w-6 h-6" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
+                <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black text-slate-500 rounded uppercase tracking-tighter shrink-0">
+                  {permit.tipe === 'sakit' ? 'Dokter → Wali Asuh → Wali Kelas' : 
+                   permit.tipe === 'umum' ? 'Wali Asuh → Wali Kelas' : 
+                   'Wali Kelas → Wali Asuh'}
+                </span>
+              </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                 {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
               </p>

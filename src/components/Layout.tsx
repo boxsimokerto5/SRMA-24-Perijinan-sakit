@@ -7,9 +7,18 @@ import { AppUser } from '../types';
 interface LayoutProps {
   children: React.ReactNode;
   user: AppUser;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export default function Layout({ children, user }: LayoutProps) {
+export default function Layout({ children, user, activeTab = 'dashboard', onTabChange }: LayoutProps) {
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'riwayat', label: 'Riwayat', icon: History },
+    { id: 'statistik', label: 'Statistik', icon: BarChart3 },
+    { id: 'profil', label: 'Profil', icon: User },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-20">
       {/* Header - Styled to match banner */}
@@ -49,22 +58,18 @@ export default function Layout({ children, user }: LayoutProps) {
       {/* Bottom Navigation - Styled to match banner */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-around">
-          <button className="flex flex-col items-center gap-1 text-indigo-600">
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Dashboard</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-600 transition-colors">
-            <History className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Riwayat</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-600 transition-colors">
-            <BarChart3 className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Statistik</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-600 transition-colors">
-            <User className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Profil</span>
-          </button>
+          {tabs.map((tab) => (
+            <button 
+              key={tab.id}
+              onClick={() => onTabChange?.(tab.id)}
+              className={`flex flex-col items-center gap-1 transition-colors ${
+                activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-600'
+              }`}
+            >
+              <tab.icon className="w-5 h-5" />
+              <span className="text-[10px] font-bold">{tab.label}</span>
+            </button>
+          ))}
         </div>
       </nav>
     </div>
