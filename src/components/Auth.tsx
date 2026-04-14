@@ -57,7 +57,7 @@ export default function Auth() {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="bg-indigo-600 p-8 text-center">
           <div className="inline-flex mb-4">
-            <Logo size="md" />
+            <Logo size="lg" />
           </div>
           <h2 className="text-2xl font-bold text-white">SRMA 24 KEDIRI</h2>
           <p className="text-indigo-100 text-sm font-medium uppercase tracking-widest mt-1">Perizinan Siswa Sakit</p>
@@ -116,7 +116,7 @@ export default function Auth() {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pilih Role</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {(['wali_asuh', 'wali_kelas', 'kepala_sekolah'] as UserRole[]).map((r) => (
+                  {(['wali_asuh', 'wali_kelas'] as UserRole[]).map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -129,7 +129,6 @@ export default function Auth() {
                     >
                       {r === 'wali_asuh' && <Home className="w-5 h-5" />}
                       {r === 'wali_kelas' && <CheckSquare className="w-5 h-5" />}
-                      {r === 'kepala_sekolah' && <ShieldCheck className="w-4 h-4" />}
                       <span className="text-[10px] font-bold uppercase tracking-tighter">{r.replace('_', ' ')}</span>
                     </button>
                   ))}

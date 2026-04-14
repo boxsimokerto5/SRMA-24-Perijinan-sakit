@@ -182,25 +182,77 @@ export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
     }
   };
 
+  const stats = {
+    total: permits.length,
+    pending: permits.filter(p => p.status === 'pending_asuh').length,
+    selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
+    memos: memos.length
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard Wali Asuh</h2>
-          <p className="text-slate-500 text-sm">Kelola perizinan anak asuh</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-100"
-          >
-            {showForm ? 'Batal' : <><Plus className="w-5 h-5" /> Izin Umum</>}
-          </button>
-          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-indigo-600">
-            <Home className="w-4 h-4" />
-            {permits.filter(p => p.status === 'pending_asuh').length} Antrean
+    <div className="space-y-8">
+      {/* Dashboard Grid - Styled to match banner */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Card 1: Total Perizinan */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.total}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Total<br />Perizinan</p>
           </div>
         </div>
+
+        {/* Card 2: Izin Selesai */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.selesai}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Selesai</p>
+          </div>
+        </div>
+
+        {/* Card 3: Perlu Persetujuan */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.pending}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <Clock className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Perlu<br />Persetujuan</p>
+          </div>
+        </div>
+
+        {/* Card 4: Memorandum */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.memos}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <Mail className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Memo<br />Kepala Sekolah</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Riwayat Terakhir Header */}
+      <div className="flex items-center justify-between mt-4">
+        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
       </div>
 
       {showForm && (
@@ -354,153 +406,50 @@ export default function WaliAsuhView({ user }: WaliAsuhViewProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4">
+      {/* List Perizinan - Banner Style */}
+      <div className="grid grid-cols-1 gap-3">
         {permits.map((permit) => (
           <div 
-            key={permit.id} 
+            key={permit.id}
             onClick={() => setSelectedPermit(permit)}
-            className={`rounded-3xl border shadow-sm overflow-hidden transition-all cursor-pointer group ${
-              permit.tipe === 'sakit' ? 'bg-rose-50 border-rose-100' :
-              permit.tipe === 'umum' ? 'bg-blue-50 border-blue-100' :
-              'bg-purple-50 border-purple-100'
+            className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
+              permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
+              'bg-purple-100 text-purple-600'
             }`}>
-            <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-2xl group-hover:scale-110 transition-transform ${
-                  permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
-                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
-                  'bg-purple-100 text-purple-600'
-                }`}>
-                  {permit.tipe === 'catatan' ? (
-                    <ClipboardList className="w-6 h-6" />
-                  ) : permit.tipe === 'umum' ? (
-                    <FileText className="w-6 h-6" />
-                  ) : (
-                    <Activity className="w-6 h-6" />
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-black text-slate-900 text-lg">{permit.nama_siswa}</h3>
-                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-lg ${
-                      permit.tipe === 'catatan' ? 'bg-amber-200 text-amber-800' :
-                      permit.tipe === 'umum' ? 'bg-blue-200 text-blue-800' : 
-                      'bg-rose-200 text-rose-800'
-                    }`}>
-                      {permit.tipe === 'catatan' ? 'Catatan Wali Kelas' : (permit.tipe === 'umum' ? 'Izin Umum' : 'Izin Sakit')}
-                    </span>
-                    <span className="px-2 py-0.5 bg-white/60 text-slate-600 text-[9px] font-black uppercase rounded-lg border border-white/20">
-                      Kelas {permit.kelas}
-                    </span>
-                    {(permit.status === 'approved' || permit.status === 'acknowledged') && (
-                      <span className="px-2 py-0.5 bg-emerald-500 text-white text-[9px] font-black uppercase rounded-lg shadow-sm">
-                        Selesai
-                      </span>
-                    )}
-                    {permit.status === 'pending_kelas' && (
-                      <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase rounded-lg shadow-sm">
-                        Menunggu Wali Kelas
-                      </span>
-                    )}
-                    {permit.status === 'pending_ack' && (
-                      <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black uppercase rounded-lg shadow-sm animate-pulse">
-                        Perlu Perhatian
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-600 mt-1 line-clamp-1 font-medium italic">
-                    <span className="font-black text-slate-700 not-italic">
-                      {permit.tipe === 'catatan' ? 'Catatan:' : (permit.tipe === 'umum' ? 'Alasan:' : 'Diagnosa:')}
-                    </span> {permit.tipe === 'catatan' ? permit.isi_catatan : (permit.tipe === 'umum' ? permit.alasan : permit.diagnosa)}
-                  </p>
-                  <div className="flex items-center gap-4 mt-3 text-[10px] font-black text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" /> {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd/MM/yyyy') : '-'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" /> {permit.jumlah_hari} Hari
-                    </span>
-                    {permit.tipe === 'sakit' && (
-                      <span className="flex items-center gap-1">
-                        <Activity className="w-3.5 h-3.5" /> Dr. {permit.nama_dokter}
-                      </span>
-                    )}
-                    {permit.catatan_kamar && (
-                      <span className="flex items-center gap-1 text-indigo-600">
-                        <Home className="w-3.5 h-3.5" /> {permit.catatan_kamar}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col md:items-end gap-3 w-full md:w-auto" onClick={(e) => e.stopPropagation()}>
-                {permit.status === 'pending_asuh' ? (
-                  <>
-                    <div className="w-full md:w-64">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Catatan Kamar</label>
-                      <div className="relative">
-                        <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Contoh: Kamar A25"
-                          value={catatanKamar[permit.id!] || ''}
-                          onChange={(e) => setCatatanKamar({ ...catatanKamar, [permit.id!]: e.target.value })}
-                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleUpdateStatus(permit.id!)}
-                      disabled={loading}
-                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-indigo-100"
-                    >
-                      <Send className="w-4 h-4" />
-                      Kirim ke Wali Kelas
-                    </button>
-                  </>
-                ) : permit.status === 'pending_ack' ? (
-                  <button
-                    onClick={() => handleAcknowledgeCatatan(permit.id!)}
-                    disabled={loading}
-                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-rose-100"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Setujui & Baca
-                  </button>
-                ) : permit.status === 'pending_kelas' ? (
-                  <div className="flex items-center gap-2 px-6 py-2.5 bg-amber-50 border border-amber-200 text-amber-600 font-bold rounded-xl text-sm italic">
-                    <Clock className="w-4 h-4" />
-                    Menunggu Persetujuan Wali Kelas
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleGeneratePDF(permit)}
-                    disabled={!!pdfLoading}
-                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-emerald-100"
-                  >
-                    {pdfLoading === permit.id ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Memuat...</>
-                    ) : (
-                      <><Printer className="w-4 h-4" /> Cetak PDF</>
-                    )}
-                  </button>
-                )}
-              </div>
+              <User className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
+              </p>
+            </div>
+            <div className="text-slate-300">
+              <Plus className="w-5 h-5 rotate-45" />
             </div>
           </div>
         ))}
 
         {permits.length === 0 && (
-          <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-            <div className="inline-flex p-4 bg-slate-50 rounded-full mb-4">
-              <Home className="w-8 h-8 text-slate-300" />
-            </div>
-            <h3 className="text-slate-900 font-bold">Tidak Ada Antrean</h3>
-            <p className="text-slate-500 text-sm mt-1">Semua perizinan telah diproses.</p>
+          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+            <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+            <h3 className="text-slate-900 font-bold">Tidak Ada Data</h3>
+            <p className="text-slate-500 text-sm mt-1">Belum ada perizinan yang dibuat.</p>
           </div>
         )}
       </div>
+
+      {/* Floating Action Button (FAB) */}
+      <button 
+        onClick={() => setShowForm(true)}
+        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
+      >
+        <Plus className="w-5 h-5" />
+        <span className="text-xs font-black uppercase tracking-widest">Buat Izin Umum</span>
+      </button>
 
       {/* Modal Detail Perizinan */}
       {selectedPermit && (

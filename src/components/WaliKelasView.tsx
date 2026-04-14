@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 
@@ -115,25 +115,77 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
     }
   };
 
+  const stats = {
+    total: permits.length,
+    pending: permits.filter(p => p.status === 'pending_kelas').length,
+    selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
+    memos: memos.length
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard Wali Kelas</h2>
-          <p className="text-slate-500 text-sm">Persetujuan akhir dan cetak surat izin</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCatatanForm(!showCatatanForm)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-100"
-          >
-            {showCatatanForm ? 'Batal' : <><Plus className="w-5 h-5" /> Catatan Penting</>}
-          </button>
-          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-indigo-600">
-            <CheckSquare className="w-4 h-4" />
-            {permits.filter(p => p.status === 'pending_kelas').length} Menunggu
+    <div className="space-y-8">
+      {/* Dashboard Grid - Styled to match banner */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Card 1: Total Perizinan */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.total}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Total<br />Perizinan</p>
           </div>
         </div>
+
+        {/* Card 2: Izin Selesai */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.selesai}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Selesai</p>
+          </div>
+        </div>
+
+        {/* Card 3: Perlu Persetujuan */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.pending}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <Clock className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Perlu<br />Persetujuan</p>
+          </div>
+        </div>
+
+        {/* Card 4: Memorandum */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.memos}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <Mail className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Memo<br />Kepala Sekolah</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Riwayat Terakhir Header */}
+      <div className="flex items-center justify-between mt-4">
+        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
       </div>
 
       {showCatatanForm && (
@@ -232,110 +284,50 @@ export default function WaliKelasView({ user }: WaliKelasViewProps) {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-black text-slate-900">Daftar Perizinan</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipe</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Siswa</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Detail / Alasan</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {permits.map((permit) => (
-                <tr 
-                  key={permit.id} 
-                  onClick={() => setSelectedPermit(permit)}
-                  className="hover:bg-indigo-50/30 transition-colors cursor-pointer group"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                        {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM') : '-'}
-                      </span>
-                      <span className={`mt-1 px-2 py-0.5 text-[9px] font-black uppercase rounded-lg w-fit shadow-sm ${
-                        permit.tipe === 'catatan' ? 'bg-purple-500 text-white' :
-                        permit.tipe === 'umum' ? 'bg-blue-500 text-white' :
-                        'bg-rose-500 text-white'
-                      }`}>
-                        {permit.tipe}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <User className="w-5 h-5 text-slate-500" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-900">{permit.nama_siswa}</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Kelas {permit.kelas}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-xs text-slate-600 line-clamp-1 max-w-[200px] font-medium italic">
-                      "{permit.tipe === 'catatan' ? permit.isi_catatan : (permit.tipe === 'umum' ? permit.alasan : permit.diagnosa)}"
-                    </p>
-                    {permit.tipe !== 'catatan' && (
-                      <p className="text-[9px] font-black text-slate-400 mt-1 uppercase tracking-widest">
-                        {permit.jumlah_hari} Hari
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${
-                      permit.status === 'approved' || permit.status === 'acknowledged' ? 'bg-emerald-500 text-white' :
-                      'bg-amber-500 text-white'
-                    }`}>
-                      {permit.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2">
-                      {permit.status === 'pending_kelas' && (
-                        <button
-                          onClick={() => setConfirmApproveId(permit.id!)}
-                          className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
-                          title="Setujui"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                      )}
-                      {(permit.status === 'approved' || permit.status === 'acknowledged') && (
-                        <button
-                          onClick={() => handleGeneratePDF(permit)}
-                          disabled={!!pdfLoading}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all disabled:opacity-50"
-                        >
-                          {pdfLoading === permit.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <><Printer className="w-3.5 h-3.5" /> Cetak PDF</>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {permits.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
-                    Belum ada data perizinan atau catatan.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* List Perizinan - Banner Style */}
+      <div className="grid grid-cols-1 gap-3">
+        {permits.map((permit) => (
+          <div 
+            key={permit.id}
+            onClick={() => setSelectedPermit(permit)}
+            className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
+              permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
+              'bg-purple-100 text-purple-600'
+            }`}>
+              <User className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
+              </p>
+            </div>
+            <div className="text-slate-300">
+              <Plus className="w-5 h-5 rotate-45" />
+            </div>
+          </div>
+        ))}
+
+        {permits.length === 0 && (
+          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+            <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+            <h3 className="text-slate-900 font-bold">Tidak Ada Data</h3>
+            <p className="text-slate-500 text-sm mt-1">Belum ada perizinan yang dibuat.</p>
+          </div>
+        )}
       </div>
+
+      {/* Floating Action Button (FAB) */}
+      <button 
+        onClick={() => setShowCatatanForm(true)}
+        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
+      >
+        <Plus className="w-5 h-5" />
+        <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
+      </button>
 
       {/* Modal Detail Perizinan */}
       {selectedPermit && (

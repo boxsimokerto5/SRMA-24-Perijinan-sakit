@@ -189,66 +189,69 @@ export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
       {activeTab === 'perizinan' ? (
         <>
           {/* Header & Stats */}
-      <div className="flex overflow-x-auto pb-4 gap-4 custom-scrollbar snap-x">
-        <div className="flex-none w-40 bg-blue-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all snap-start">
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center mb-1">
-              <BarChart3 className="w-5 h-5 text-blue-700" />
+      {/* Dashboard Grid - Styled to match banner */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Card 1: Siswa Sakit */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.sakit}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <Activity className="w-6 h-6" />
+              </div>
             </div>
-            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Total</p>
-            <h3 className="text-2xl font-black text-blue-900">{stats.total}</h3>
-          </div>
-        </div>
-        
-        <div className="flex-none w-40 bg-rose-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all snap-start">
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center mb-1">
-              <TrendingUp className="w-5 h-5 text-rose-700" />
-            </div>
-            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Sakit</p>
-            <h3 className="text-2xl font-black text-rose-900">{stats.sakit}</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Siswa Sakit<br />Hari Ini</p>
           </div>
         </div>
 
-        <div className="flex-none w-40 bg-indigo-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all snap-start">
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center mb-1">
-              <FileText className="w-5 h-5 text-indigo-700" />
+        {/* Card 2: Izin Disetujui */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.selesai}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
             </div>
-            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Umum</p>
-            <h3 className="text-2xl font-black text-indigo-900">{stats.umum}</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Disetujui</p>
           </div>
         </div>
 
-        <div className="flex-none w-40 bg-amber-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all snap-start">
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center mb-1">
-              <ClipboardList className="w-5 h-5 text-amber-700" />
+        {/* Card 3: Dokter UKS */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{stats.pending}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
             </div>
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Catatan</p>
-            <h3 className="text-2xl font-black text-amber-900">{stats.catatan}</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Dokter UKS<br />- Periksa</p>
           </div>
         </div>
 
-        <div className="flex-none w-40 bg-orange-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all snap-start">
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center mb-1">
-              <AlertTriangle className="w-5 h-5 text-orange-700" />
+        {/* Card 4: Memorandum */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-4xl font-black">{memos.length}</h3>
+              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                <Mail className="w-6 h-6" />
+              </div>
             </div>
-            <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Pending</p>
-            <h3 className="text-2xl font-black text-orange-900">{stats.pending}</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Kepala Sekolah<br />- Memo</p>
           </div>
         </div>
+      </div>
 
-        <div className="flex-none w-40 bg-emerald-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all snap-start">
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center mb-1">
-              <CheckCircle2 className="w-5 h-5 text-emerald-700" />
-            </div>
-            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Selesai</p>
-            <h3 className="text-2xl font-black text-emerald-900">{stats.selesai}</h3>
-          </div>
-        </div>
+      {/* Riwayat Terakhir Header */}
+      <div className="flex items-center justify-between mt-4">
+        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Terakhir</h2>
+        <button className="text-xs font-bold text-indigo-600">Lihat Semua</button>
       </div>
 
       {/* Filters & Search */}
@@ -313,69 +316,29 @@ export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
         </div>
       </div>
 
-      {/* List Perizinan */}
-      <div className="grid grid-cols-1 gap-4">
+      {/* List Perizinan - Banner Style */}
+      <div className="grid grid-cols-1 gap-3">
         {filteredPermits.map((permit) => (
           <div 
             key={permit.id}
             onClick={() => setSelectedPermit(permit)}
-            className={`group p-6 rounded-3xl shadow-sm border transition-all cursor-pointer ${
-              permit.tipe === 'sakit' ? 'bg-rose-50 border-rose-100 hover:border-rose-300' :
-              permit.tipe === 'umum' ? 'bg-blue-50 border-blue-100 hover:border-blue-300' :
-              'bg-purple-50 border-purple-100 hover:border-purple-300'
-            }`}
+            className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
           >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl group-hover:scale-110 transition-transform ${
-                  permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
-                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
-                  'bg-purple-100 text-purple-600'
-                }`}>
-                  {permit.tipe === 'sakit' ? <Activity className="w-6 h-6" /> :
-                   permit.tipe === 'umum' ? <FileText className="w-6 h-6" /> :
-                   <ClipboardList className="w-6 h-6" />}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-slate-900">{permit.nama_siswa}</h3>
-                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-lg ${
-                      permit.tipe === 'sakit' ? 'bg-rose-200 text-rose-800' :
-                      permit.tipe === 'umum' ? 'bg-blue-200 text-blue-800' :
-                      'bg-purple-200 text-purple-800'
-                    }`}>
-                      {permit.tipe}
-                    </span>
-                    <span className="px-2 py-0.5 bg-white/60 text-slate-600 text-[9px] font-black uppercase rounded-lg border border-white/20">
-                      Kelas {permit.kelas}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-1 font-medium">
-                    {permit.nomor_surat} • {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy') : '-'}
-                  </p>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-tight border ${
-                      permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600 border-rose-200' :
-                      permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600 border-blue-200' :
-                      'bg-purple-100 text-purple-600 border-purple-200'
-                    }`}>
-                      {permit.tipe === 'umum' ? 'Wali Asuh → Wali Kelas' :
-                       permit.tipe === 'catatan' ? 'Wali Kelas → Wali Asuh' :
-                       'Dokter → Wali Asuh → Wali Kelas'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm ${
-                  permit.status === 'approved' || permit.status === 'acknowledged' ? 'bg-emerald-500 text-white' :
-                  permit.status.startsWith('pending') ? 'bg-amber-500 text-white' :
-                  'bg-white text-slate-500 border border-slate-100'
-                }`}>
-                  {permit.status.replace('_', ' ')}
-                </span>
-                <Plus className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
-              </div>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
+              permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
+              'bg-purple-100 text-purple-600'
+            }`}>
+              <User className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
+              </p>
+            </div>
+            <div className="text-slate-300">
+              <Plus className="w-5 h-5 rotate-45" />
             </div>
           </div>
         ))}
@@ -388,6 +351,15 @@ export default function KepalaSekolahView({ user }: KepalaSekolahViewProps) {
           </div>
         )}
       </div>
+
+      {/* Floating Action Button (FAB) */}
+      <button 
+        onClick={() => setShowMemoModal(true)}
+        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
+      >
+        <Plus className="w-5 h-5" />
+        <span className="text-xs font-black uppercase tracking-widest">Buat Memo Baru</span>
+      </button>
       </>
       ) : (
         <div className="space-y-6">

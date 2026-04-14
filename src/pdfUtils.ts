@@ -34,7 +34,10 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
   doc.setFontSize(12);
   doc.setTextColor(79, 70, 229); // Indigo color
-  doc.text('UNIT PELAYANAN KESEHATAN SEKOLAH (UKS)', 105, 32, { align: 'center' });
+  const headerSubTitle = permit.tipe === 'umum' ? 'WALI ASUH' : 
+                        permit.tipe === 'catatan' ? 'WALI KELAS / GURU MAPEL' :
+                        'UNIT PELAYANAN KESEHATAN SEKOLAH (UKS)';
+  doc.text(headerSubTitle, 105, 32, { align: 'center' });
   
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(9);
@@ -69,11 +72,10 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   if (permit.tipe === 'catatan') {
     doc.text('Kepada Yth.', 20, 85);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Bapak/Ibu ${permit.nama_wali_asuh || 'Wali Asuh'}`, 20, 91);
-    doc.text(`Wali Asuh Siswa`, 20, 96);
+    doc.text(`Bapak/Ibu Wali Asuh ananda ${permit.nama_siswa}`, 20, 91);
     doc.setFont('helvetica', 'normal');
-    doc.text('SRMA 24 Kediri', 20, 101);
-    doc.text('di Tempat', 20, 106);
+    doc.text('SRMA 24 Kediri', 20, 96);
+    doc.text('di Tempat', 20, 101);
   } else {
     doc.text('Kepada Yth.', 20, 85);
     doc.setFont('helvetica', 'bold');
@@ -105,9 +107,15 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
     { 
       label: permit.tipe === 'sakit' ? 'Diagnosa Medis' : (permit.tipe === 'umum' ? 'Alasan Izin' : 'Isi Catatan'), 
       value: (permit.tipe === 'sakit' ? permit.diagnosa : (permit.tipe === 'umum' ? permit.alasan : permit.isi_catatan)) || '-' 
-    },
-    { label: 'Lokasi / Catatan', value: permit.catatan_kamar || (permit.tipe === 'sakit' ? 'Kamar Santri' : (permit.tipe === 'umum' ? 'Luar Sekolah' : 'Akademik/Kedisiplinan')) }
+    }
   ];
+
+  if (permit.tipe === 'sakit') {
+    details.push({ 
+      label: 'Lokasi / Catatan', 
+      value: permit.catatan_kamar || 'Kamar Santri' 
+    });
+  }
 
   details.forEach((item, index) => {
     const y = startY + (index * lineGap);
@@ -181,31 +189,17 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
     doc.setLineWidth(0.2);
     doc.line(130, footerY + 39, 170, footerY + 39);
   } else if (permit.tipe === 'catatan') {
-    // Two Signatures for Catatan (Wali Kelas & Wali Asuh)
-    const qrWaliAsuh = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=VERIFIED_WALI_ASUH_${permit.id}_${permit.nama_wali_asuh}`;
+    // Single Signature for Catatan (Wali Kelas only)
     const qrWaliKelas = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=VERIFIED_WALI_KELAS_${permit.id}_${permit.nama_wali_kelas}`;
-    
-    if (permit.status === 'acknowledged') {
-      doc.addImage(qrWaliAsuh, 'PNG', 45, footerY + 10, 20, 20);
-    }
     doc.addImage(qrWaliKelas, 'PNG', 140, footerY + 10, 20, 20);
 
-    // Wali Asuh (Mengetahui)
-    doc.setFont('helvetica', 'normal');
-    doc.text('Mengetahui,', 55, footerY, { align: 'center' });
-    doc.text('Wali Asuh', 55, footerY + 5, { align: 'center' });
-    doc.setFont('helvetica', 'bold');
-    doc.text(permit.nama_wali_asuh || '(Belum Disetujui)', 55, footerY + 38, { align: 'center' });
-    doc.setLineWidth(0.2);
-    doc.line(35, footerY + 39, 75, footerY + 39);
-    
-    // Wali Kelas
     doc.setFont('helvetica', 'normal');
     const tglSuratStr = permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMMM yyyy') : '-';
     doc.text(`Kediri, ${tglSuratStr}`, 150, footerY, { align: 'center' });
     doc.text('Wali Kelas,', 150, footerY + 5, { align: 'center' });
     doc.setFont('helvetica', 'bold');
     doc.text(permit.nama_wali_kelas || '-', 150, footerY + 38, { align: 'center' });
+    doc.setLineWidth(0.2);
     doc.line(130, footerY + 39, 170, footerY + 39);
   }
 
