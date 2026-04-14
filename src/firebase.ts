@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence, browserSessionPersistence, indexedDBLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -36,9 +36,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export const auth = getAuth(app);
-
-// Ensure local persistence for Auth
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.error('Auth persistence error:', err);
+// Use initializeAuth with a list of persistence options for better reliability across different browser environments
+export const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
 });

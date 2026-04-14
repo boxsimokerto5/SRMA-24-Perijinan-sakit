@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3 } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
 import { format, addDays } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
@@ -23,8 +23,33 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   const [catatanKamar, setCatatanKamar] = useState<{ [key: string]: string }>({});
   const [newTindakan, setNewTindakan] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp'>('perizinan');
+  const [showMenu, setShowMenu] = useState(false);
+  const [pinjamHPList, setPinjamHPList] = useState<PinjamHP[]>([]);
+  const [showPinjamForm, setShowPinjamForm] = useState(false);
+  
+  // Pinjam HP Form states
+  const [phNamaSiswa, setPhNamaSiswa] = useState('');
+  const [phKelas, setPhKelas] = useState('X-1');
+  const [phKeperluan, setPhKeperluan] = useState('');
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
+
+  const filteredPermits = permits.filter(p => {
+    const matchesSearch = 
+      p.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const permitDate = p.tgl_surat?.toDate();
+    const matchesDate = (!startDate || (permitDate && permitDate >= new Date(startDate))) &&
+                        (!endDate || (permitDate && permitDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999))));
+
+    return matchesSearch && matchesDate;
+  });
 
   // Form states for Izin Umum
   const [nomorSurat, setNomorSurat] = useState(`SRMA-U-${Date.now().toString().slice(-6)}`);
@@ -57,6 +82,18 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memorandum));
       setMemos(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'pinjam_hp'),
+      orderBy('tgl_pinjam', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PinjamHP));
+      setPinjamHPList(data);
     });
     return () => unsubscribe();
   }, []);
@@ -146,6 +183,45 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     }
   };
 
+  const handleSubmitPinjamHP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'pinjam_hp'), {
+        nama_siswa: phNamaSiswa,
+        kelas: phKelas,
+        keperluan: phKeperluan,
+        tgl_pinjam: Timestamp.now(),
+        status: 'dipinjam',
+        wali_asuh_name: user.name,
+        wali_asuh_uid: user.uid,
+      });
+      setShowPinjamForm(false);
+      setPhNamaSiswa('');
+      setPhKeperluan('');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mencatat peminjaman HP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKembalikanHP = async (id: string) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'pinjam_hp', id), {
+        status: 'dikembalikan',
+        tgl_kembali: Timestamp.now(),
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mencatat pengembalian HP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddTindakan = async (permitId: string) => {
     if (!newTindakan.trim()) return;
     setLoading(true);
@@ -217,8 +293,61 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Dashboard Grid - Styled to match banner */}
+    <div className="space-y-6 pb-24 animate-in fade-in duration-500 relative">
+      {/* Top Menu Bar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="relative">
+          <button 
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 transition-all"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
+          {showMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowMenu(false)}
+              />
+              <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 py-3 z-50 animate-in slide-in-from-top-2 duration-200">
+                <button
+                  onClick={() => { setViewMode('perizinan'); setShowMenu(false); }}
+                  className={`w-full flex items-center gap-3 px-6 py-3 text-sm font-bold transition-colors ${
+                    viewMode === 'perizinan' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <ClipboardList className="w-5 h-5" />
+                  Perizinan Siswa
+                </button>
+                <button
+                  onClick={() => { setViewMode('pinjam_hp'); setShowMenu(false); }}
+                  className={`w-full flex items-center gap-3 px-6 py-3 text-sm font-bold transition-colors ${
+                    viewMode === 'pinjam_hp' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Smartphone className="w-5 h-5" />
+                  Pinjam Handphone
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Asuh</p>
+            <p className="text-sm font-black text-slate-900">{user.name}</p>
+          </div>
+          <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-indigo-100">
+            {user.name.charAt(0)}
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'perizinan' ? (
+        <>
+          {/* Dashboard Grid - Styled to match banner */}
       <div className="grid grid-cols-2 gap-4">
         {/* Card 1: Total Perizinan */}
         <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
@@ -280,6 +409,50 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       {/* Riwayat Terakhir Header */}
       <div className="flex items-center justify-between mt-4">
         <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+        <button 
+          onClick={() => {
+            setSearchTerm('');
+            setStartDate('');
+            setEndDate('');
+          }}
+          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+        >
+          Lihat Semua
+        </button>
+      </div>
+
+      {/* Filters & Search */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nama siswa atau nomor surat..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
+              <Clock className="w-4 h-4 text-slate-400" />
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+              />
+              <span className="text-slate-300">→</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {showForm && (
@@ -435,7 +608,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       {/* List Perizinan - Banner Style */}
       <div className="grid grid-cols-1 gap-3">
-        {permits.map((permit) => (
+        {filteredPermits.map((permit) => (
           <div 
             key={permit.id}
             onClick={() => setSelectedPermit(permit)}
@@ -453,6 +626,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                 {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
               </p>
+              <p className="text-[9px] font-bold text-indigo-500 mt-0.5">
+                {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+              </p>
             </div>
             <div className="text-slate-300">
               <Plus className="w-5 h-5 rotate-45" />
@@ -468,14 +644,83 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           </div>
         )}
       </div>
+      </>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">Pinjam Handphone</h2>
+              <p className="text-sm text-slate-500">Monitoring peminjaman HP siswa asuhan.</p>
+            </div>
+            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+              <Smartphone className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {pinjamHPList.map((item) => (
+              <div 
+                key={item.id}
+                className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-md transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                    item.status === 'dipinjam' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                  }`}>
+                    {item.status === 'dipinjam' ? <Smartphone className="w-6 h-6" /> : <History className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900">{item.nama_siswa} ({item.kelas})</h3>
+                    <p className="text-xs text-slate-500 font-medium">{item.keperluan}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <p className="text-[10px] font-bold text-indigo-500">
+                        Pinjam: {format(item.tgl_pinjam.toDate(), 'dd MMM, HH:mm')}
+                      </p>
+                      {item.tgl_kembali && (
+                        <p className="text-[10px] font-bold text-emerald-500">
+                          Kembali: {format(item.tgl_kembali.toDate(), 'dd MMM, HH:mm')}
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">
+                      Oleh: {item.wali_asuh_name}
+                    </p>
+                  </div>
+                </div>
+                
+                {item.status === 'dipinjam' && (
+                  <button
+                    onClick={() => handleKembalikanHP(item.id!)}
+                    disabled={loading}
+                    className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                    title="Kembalikan HP"
+                  >
+                    <Check className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {pinjamHPList.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Smartphone className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <h3 className="text-slate-900 font-bold">Belum Ada Data</h3>
+                <p className="text-slate-500 text-sm mt-1">Belum ada catatan peminjaman HP.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Floating Action Button (FAB) */}
       <button 
-        onClick={() => setShowForm(true)}
+        onClick={() => viewMode === 'perizinan' ? setShowForm(true) : setShowPinjamForm(true)}
         className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
       >
         <Plus className="w-5 h-5" />
-        <span className="text-xs font-black uppercase tracking-widest">Buat Izin Umum</span>
+        <span className="text-xs font-black uppercase tracking-widest">
+          {viewMode === 'perizinan' ? 'Buat Izin Baru' : 'Catat Pinjam HP'}
+        </span>
       </button>
 
       {/* Modal Detail Perizinan */}
@@ -559,6 +804,29 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     <MapPin className="w-4 h-4" />
                     {currentSelectedPermit.catatan_kamar}
                   </div>
+                </div>
+              )}
+
+              {currentSelectedPermit.status === 'pending_asuh' && (
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Konfirmasi & Catatan Kamar</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                    <textarea
+                      value={catatanKamar[currentSelectedPermit.id!] || ''}
+                      onChange={(e) => setCatatanKamar({ ...catatanKamar, [currentSelectedPermit.id!]: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[80px]"
+                      placeholder="Contoh: Kamar 302, Kondisi stabil"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleUpdateStatus(currentSelectedPermit.id!)}
+                    disabled={loading}
+                    className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Konfirmasi & Kirim ke Wali Kelas
+                  </button>
                 </div>
               )}
 
@@ -692,6 +960,80 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 <Printer className="w-4 h-4" /> Cetak PDF
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Form Pinjam HP */}
+      {showPinjamForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl">
+                  <Smartphone className="w-5 h-5 text-indigo-600" />
+                </div>
+                <h3 className="font-black text-slate-900">Catat Pinjam HP</h3>
+              </div>
+              <button onClick={() => setShowPinjamForm(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitPinjamHP} className="p-8 space-y-5">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={phNamaSiswa}
+                    onChange={(e) => setPhNamaSiswa(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    placeholder="Nama lengkap siswa"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
+                <div className="relative">
+                  <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <select
+                    value={phKelas}
+                    onChange={(e) => setPhKelas(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all"
+                  >
+                    {['X-1', 'X-2', 'X-3', 'X-4'].map(k => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Keperluan Pinjam</label>
+                <div className="relative">
+                  <MessageSquare className="absolute left-3 top-4 w-4 h-4 text-slate-400" />
+                  <textarea
+                    required
+                    value={phKeperluan}
+                    onChange={(e) => setPhKeperluan(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[100px]"
+                    placeholder="Contoh: Menghubungi orang tua"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all disabled:opacity-50"
+              >
+                {loading ? 'Menyimpan...' : 'Simpan Catatan'}
+              </button>
+            </form>
           </div>
         </div>
       )}

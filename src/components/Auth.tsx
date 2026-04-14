@@ -20,22 +20,36 @@ export default function Auth() {
     setError('');
     setLoading(true);
 
-    try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
-          uid: userCredential.user.uid,
-          email,
-          name,
-          role,
-        });
+    const performAuth = async (retries = 2): Promise<void> => {
+      try {
+        if (isLogin) {
+          await signInWithEmailAndPassword(auth, email, password);
+        } else {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            uid: userCredential.user.uid,
+            email,
+            name,
+            role,
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (err: any) {
+        if (err.code === 'auth/network-request-failed' && retries > 0) {
+          console.warn(`Auth network error, retrying... (${retries} left)`);
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          return performAuth(retries - 1);
+        }
+        throw err;
       }
+    };
+
+    try {
+      await performAuth();
     } catch (err: any) {
       console.error('Auth Error:', err);
       if (err.code === 'auth/network-request-failed') {
-        setError('Koneksi internet terganggu. Silakan periksa jaringan Anda dan coba lagi.');
+        setError('Koneksi ke server identitas gagal. Ini biasanya disebabkan oleh pemblokir iklan, VPN, atau gangguan jaringan. Silakan coba matikan VPN/Ad-blocker atau gunakan jaringan lain.');
       } else if (err.code === 'auth/invalid-credential') {
         setError('Email atau password salah. Jika Anda belum punya akun, silakan klik "Create Account" di bawah.');
       } else if (err.code === 'auth/email-already-in-use') {

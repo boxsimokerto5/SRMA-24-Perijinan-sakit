@@ -442,6 +442,9 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                 {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
               </p>
+              <p className="text-[9px] font-bold text-indigo-500 mt-0.5">
+                {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+              </p>
             </div>
             <div className="text-slate-300">
               <Plus className="w-5 h-5 rotate-45" />

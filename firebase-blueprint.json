@@ -36,6 +36,22 @@
         "wali_kelas_uid": { "type": "string" }
       },
       "required": ["nomor_surat", "nama_siswa", "kelas", "diagnosa", "jumlah_hari", "tgl_mulai", "tgl_selesai", "tgl_surat", "status"]
+    },
+    "PinjamHP": {
+      "title": "Pinjam HP",
+      "description": "Phone borrowing records for students",
+      "type": "object",
+      "properties": {
+        "nama_siswa": { "type": "string" },
+        "kelas": { "type": "string" },
+        "keperluan": { "type": "string" },
+        "tgl_pinjam": { "type": "string", "format": "date-time" },
+        "tgl_kembali": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["dipinjam", "dikembalikan"] },
+        "wali_asuh_name": { "type": "string" },
+        "wali_asuh_uid": { "type": "string" }
+      },
+      "required": ["nama_siswa", "kelas", "keperluan", "tgl_pinjam", "status", "wali_asuh_uid"]
     }
   },
   "firestore": {
@@ -46,6 +62,10 @@
     "/izin_sakit/{permitId}": {
       "schema": "IzinSakit",
       "description": "Sick leave permits"
+    },
+    "/pinjam_hp/{pinjamId}": {
+      "schema": "PinjamHP",
+      "description": "Phone borrowing records"
     }
   }
 }

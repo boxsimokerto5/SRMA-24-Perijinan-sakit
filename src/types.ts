@@ -56,6 +56,18 @@ export interface Memorandum {
   pengirim_uid: string;
 }
 
+export interface PinjamHP {
+  id?: string;
+  nama_siswa: string;
+  kelas: string;
+  keperluan: string;
+  tgl_pinjam: Timestamp;
+  tgl_kembali?: Timestamp;
+  status: 'dipinjam' | 'dikembalikan';
+  wali_asuh_name: string;
+  wali_asuh_uid: string;
+}
+
 export const WALI_KELAS_LIST = [
   { name: "Nadhifa Is'ad, S.Pd", kelas: "X-1" },
   { name: "Diyah Maruti Handayani, S.Pd", kelas: "X-2" },

@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3 } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
@@ -21,6 +21,21 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
   const [showCatatanForm, setShowCatatanForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const filteredPermits = permits.filter(p => {
+    const matchesSearch = 
+      p.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const permitDate = p.tgl_surat?.toDate();
+    const matchesDate = (!startDate || (permitDate && permitDate >= new Date(startDate))) &&
+                        (!endDate || (permitDate && permitDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999))));
+
+    return matchesSearch && matchesDate;
+  });
 
   // Form states for Catatan Siswa
   const [namaSiswa, setNamaSiswa] = useState('');
@@ -213,6 +228,50 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       {/* Riwayat Terakhir Header */}
       <div className="flex items-center justify-between mt-4">
         <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+        <button 
+          onClick={() => {
+            setSearchTerm('');
+            setStartDate('');
+            setEndDate('');
+          }}
+          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+        >
+          Lihat Semua
+        </button>
+      </div>
+
+      {/* Filters & Search */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nama siswa atau nomor surat..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
+              <Clock className="w-4 h-4 text-slate-400" />
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+              />
+              <span className="text-slate-300">→</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {showCatatanForm && (
@@ -313,7 +372,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
 
       {/* List Perizinan - Banner Style */}
       <div className="grid grid-cols-1 gap-3">
-        {permits.map((permit) => (
+        {filteredPermits.map((permit) => (
           <div 
             key={permit.id}
             onClick={() => setSelectedPermit(permit)}
@@ -330,6 +389,9 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
               <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                 {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
+              </p>
+              <p className="text-[9px] font-bold text-indigo-500 mt-0.5">
+                {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
               </p>
             </div>
             <div className="text-slate-300">
