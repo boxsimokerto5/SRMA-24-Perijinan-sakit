@@ -90,9 +90,24 @@ export interface Siswa {
   ibu?: string;
 }
 
+export const normalizeKelas = (kelas: string): string => {
+  if (!kelas) return '';
+  const mapping: { [key: string]: string } = {
+    'X-A': 'X-4',
+    'X-B': 'X-3',
+    'X-C': 'X-2',
+    'X-D': 'X-1',
+    'x-a': 'X-4',
+    'x-b': 'X-3',
+    'x-c': 'X-2',
+    'x-d': 'X-1'
+  };
+  return mapping[kelas] || kelas;
+};
+
 export const WALI_KELAS_LIST = [
-  { name: "Nadhifa Is'ad, S.Pd", kelas: "X-1" },
-  { name: "Diyah Maruti Handayani, S.Pd", kelas: "X-2" },
-  { name: "Nella Puji Rahayu, S.Pd", kelas: "X-3" },
-  { name: "Ida Fitriana, S.Pd", kelas: "X-4" },
+  { name: "Nadhifa Is'ad, S.Pd", kelas: "X-4" },
+  { name: "Diyah Maruti Handayani, S.Pd", kelas: "X-3" },
+  { name: "Nella Puji Rahayu, S.Pd", kelas: "X-2" },
+  { name: "Ida Fitriana, S.Pd", kelas: "X-1" },
 ];

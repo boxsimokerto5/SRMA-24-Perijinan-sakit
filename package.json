@@ -12,7 +12,7 @@
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
     "cap:add": "npx cap add android",
-    "cap:assets": "npx cordova-res android --icon logo.png --splash logo.png"
+    "cap:assets": "npx @capacitor/assets generate --android"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",

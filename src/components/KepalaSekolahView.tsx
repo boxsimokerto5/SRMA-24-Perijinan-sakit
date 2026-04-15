@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, addDoc } from 'firebase/firestore';
-import { IzinSakit, AppUser, Memorandum, UserRole } from '../types';
-import { format } from 'date-fns';
+import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas } from '../types';
+import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { 
   ClipboardList, 
   Search, 
@@ -44,6 +44,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   
   // Memorandum States
@@ -65,10 +66,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     );
 
     const unsubscribePermits = onSnapshot(qPermits, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as IzinSakit[];
+      const data = snapshot.docs.map(doc => {
+        const rawData = doc.data() as IzinSakit;
+        return { 
+          id: doc.id, 
+          ...rawData,
+          kelas: normalizeKelas(rawData.kelas)
+        } as IzinSakit;
+      });
       setPermits(data);
       setLoading(false);
     });
@@ -139,6 +144,16 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   };
 
   const filteredPermits = permits.filter(p => {
+    const permitDate = p.tgl_surat?.toDate();
+    if (!permitDate) return false;
+
+    // Time Filter Logic
+    let matchesTime = true;
+    if (timeFilter === 'hari_ini') matchesTime = isToday(permitDate);
+    else if (timeFilter === 'kemarin') matchesTime = isYesterday(permitDate);
+    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(permitDate, { weekStartsOn: 1 });
+    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(permitDate);
+
     const matchesSearch = 
       p.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase());
@@ -146,11 +161,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     const matchesStatus = filterStatus === 'all' || 
       (filterStatus === 'selesai' ? (p.status === 'approved' || p.status === 'acknowledged') : p.status === filterStatus);
     
-    const permitDate = p.tgl_surat?.toDate();
     const matchesDate = (!startDate || (permitDate && permitDate >= new Date(startDate))) &&
                         (!endDate || (permitDate && permitDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999))));
 
-    return matchesSearch && matchesType && matchesStatus && matchesDate;
+    return matchesSearch && matchesType && matchesStatus && matchesDate && matchesTime;
   });
 
   const stats = {
@@ -367,54 +381,64 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 setFilterStatus('all');
                 setStartDate('');
                 setEndDate('');
+                setTimeFilter('hari_ini');
               }}
               className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
             >
-              Lihat Semua
+              Reset Filter
             </button>
           </div>
 
           {/* Filters & Search - Show in Riwayat tab or if searching in Dashboard */}
           {(activeTab === 'riwayat' || searchTerm) && (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Cari nama siswa atau nomor surat..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
-                    <Clock className="w-4 h-4 text-slate-400" />
-                    <input 
-                      type="date" 
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-slate-600 outline-none"
-                    />
-                    <span className="text-slate-300">→</span>
-                    <input 
-                      type="date" 
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+            <div className="space-y-6">
+              {/* Horizontal Time Categories */}
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {[ 
+                  { id: 'hari_ini', label: 'Hari Ini' },
+                  { id: 'kemarin', label: 'Kemarin' },
+                  { id: 'minggu_ini', label: 'Minggu Ini' },
+                  { id: 'bulan_ini', label: 'Bulan Ini' },
+                  { id: 'semua', label: 'Semua' }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTimeFilter(cat.id as any)}
+                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                      timeFilter === cat.id
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari nama siswa atau nomor surat..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="all">Semua Tipe</option>
-                    <option value="sakit">Izin Sakit</option>
-                    <option value="umum">Izin Umum</option>
-                    <option value="catatan">Catatan</option>
-                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="all">Semua Tipe</option>
+                      <option value="sakit">Izin Sakit</option>
+                      <option value="umum">Izin Umum</option>
+                      <option value="catatan">Catatan</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>

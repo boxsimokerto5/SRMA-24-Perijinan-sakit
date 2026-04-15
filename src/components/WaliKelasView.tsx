@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
 import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
+import { getDocs } from 'firebase/firestore';
+import { Siswa } from '../types';
 
 interface WaliKelasViewProps {
   user: AppUser;
@@ -25,17 +27,30 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
+  const [students, setStudents] = useState<Siswa[]>([]);
+  const [filteredStudentsList, setFilteredStudentsList] = useState<Siswa[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const filteredPermits = permits.filter(p => {
+    const permitDate = p.tgl_surat?.toDate();
+    if (!permitDate) return false;
+
+    // Time Filter Logic
+    let matchesTime = true;
+    if (timeFilter === 'hari_ini') matchesTime = isToday(permitDate);
+    else if (timeFilter === 'kemarin') matchesTime = isYesterday(permitDate);
+    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(permitDate, { weekStartsOn: 1 });
+    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(permitDate);
+
     const matchesSearch = 
       p.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const permitDate = p.tgl_surat?.toDate();
     const matchesDate = (!startDate || (permitDate && permitDate >= new Date(startDate))) &&
                         (!endDate || (permitDate && permitDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999))));
 
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesTime;
   });
 
   // Form states for Catatan Siswa
@@ -44,13 +59,73 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [isiCatatan, setIsiCatatan] = useState('');
 
   React.useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => {
+          const rawData = doc.data() as Siswa;
+          return { 
+            id: doc.id, 
+            ...rawData,
+            kelas: normalizeKelas(rawData.kelas)
+          } as Siswa;
+        });
+        setStudents(data);
+      } catch (err) {
+        console.error("Error fetching students:", err);
+      }
+    };
+    fetchStudents();
+  }, []);
+
+  const handleNamaSiswaChange = (value: string) => {
+    setNamaSiswa(value);
+    if (value.length > 1) {
+      const filtered = students.filter(s => 
+        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setFilteredStudentsList(filtered);
+      setShowSuggestions(true);
+    } else {
+      setFilteredStudentsList([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectStudent = (student: Siswa) => {
+    setNamaSiswa(student.nama_lengkap);
+    setKelas(student.kelas);
+    setShowSuggestions(false);
+  };
+
+  // Close suggestions on click outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  React.useEffect(() => {
     const q = query(
       collection(db, 'izin_sakit'),
       where('status', 'in', ['pending_kelas', 'approved', 'pending_ack', 'acknowledged']),
       orderBy('tgl_surat', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IzinSakit));
+      const data = snapshot.docs.map(doc => {
+        const rawData = doc.data() as IzinSakit;
+        return { 
+          id: doc.id, 
+          ...rawData,
+          kelas: normalizeKelas(rawData.kelas)
+        } as IzinSakit;
+      });
       // Filter by wali kelas name if user has one (or just show all for demo)
       setPermits(data);
     });
@@ -282,6 +357,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
             setSearchTerm('');
             setStartDate('');
             setEndDate('');
+            setTimeFilter('hari_ini');
           }}
           className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
         >
@@ -290,33 +366,40 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
-        <div className="flex flex-col gap-4">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-            <input
-              type="text"
-              placeholder="Cari nama siswa atau nomor surat..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
-            />
-          </div>
-          <div className="flex items-center gap-3 bg-slate-50 px-5 py-3 rounded-[1.5rem] border border-slate-100">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <div className="flex items-center gap-2 flex-1">
-              <input 
-                type="date" 
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
-              />
-              <span className="text-slate-300">→</span>
-              <input 
-                type="date" 
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
+      <div className="space-y-6">
+        {/* Horizontal Time Categories */}
+        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+          {[ 
+            { id: 'hari_ini', label: 'Hari Ini' },
+            { id: 'kemarin', label: 'Kemarin' },
+            { id: 'minggu_ini', label: 'Minggu Ini' },
+            { id: 'bulan_ini', label: 'Bulan Ini' },
+            { id: 'semua', label: 'Semua' }
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setTimeFilter(cat.id as any)}
+              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                timeFilter === cat.id
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                  : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
+          <div className="flex flex-col gap-4">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="Cari nama siswa atau nomor surat..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
               />
             </div>
           </div>
@@ -348,10 +431,35 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                       type="text"
                       required
                       value={namaSiswa}
-                      onChange={(e) => setNamaSiswa(e.target.value)}
+                      onChange={(e) => handleNamaSiswaChange(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
                       placeholder="Nama lengkap siswa"
                     />
+                    <AnimatePresence>
+                      {showSuggestions && filteredStudentsList.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                        >
+                          {filteredStudentsList.map((student) => (
+                            <button
+                              key={student.id}
+                              type="button"
+                              onClick={() => selectStudent(student)}
+                              className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                            >
+                              <div>
+                                <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                              </div>
+                              <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
                 <div>

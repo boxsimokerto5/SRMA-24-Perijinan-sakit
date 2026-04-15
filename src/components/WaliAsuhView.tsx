@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { format, addDays } from 'date-fns';
+import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { Contact, GraduationCap, IdCard, Info } from 'lucide-react';
@@ -28,6 +28,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
   const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp' | 'kartu_siswa'>('perizinan');
   const [showMenu, setShowMenu] = useState(false);
@@ -37,6 +38,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [selectedClass, setSelectedClass] = useState<string>('Semua');
   const [showPinjamForm, setShowPinjamForm] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
+  const [filteredStudentsList, setFilteredStudentsList] = useState<Siswa[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
+  const [showStudentSuggestions, setShowStudentSuggestions] = useState(false);
   
   // Pinjam HP Form states
   const [phNamaSiswa, setPhNamaSiswa] = useState('');
@@ -46,15 +51,40 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
 
   const filteredPermits = permits.filter(p => {
+    const permitDate = p.tgl_surat?.toDate();
+    if (!permitDate) return false;
+
+    // Time Filter Logic
+    let matchesTime = true;
+    if (timeFilter === 'hari_ini') matchesTime = isToday(permitDate);
+    else if (timeFilter === 'kemarin') matchesTime = isYesterday(permitDate);
+    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(permitDate, { weekStartsOn: 1 });
+    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(permitDate);
+
     const matchesSearch = 
       p.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const permitDate = p.tgl_surat?.toDate();
     const matchesDate = (!startDate || (permitDate && permitDate >= new Date(startDate))) &&
                         (!endDate || (permitDate && permitDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999))));
 
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesTime;
+  });
+
+  const filteredPinjamHP = pinjamHPList.filter(item => {
+    const pinjamDate = item.tgl_pinjam?.toDate();
+    if (!pinjamDate) return false;
+
+    // Time Filter Logic
+    let matchesTime = true;
+    if (timeFilter === 'hari_ini') matchesTime = isToday(pinjamDate);
+    else if (timeFilter === 'kemarin') matchesTime = isYesterday(pinjamDate);
+    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(pinjamDate, { weekStartsOn: 1 });
+    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(pinjamDate);
+
+    const matchesSearch = item.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesSearch && matchesTime;
   });
 
   const filteredStudents = students.filter(s => {
@@ -65,6 +95,60 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   });
 
   const classes = ['Semua', ...Array.from(new Set(students.map(s => s.kelas))).sort()];
+
+  const handleNamaSiswaChange = (value: string) => {
+    setNamaSiswa(value);
+    if (value.length > 1) {
+      const filtered = students.filter(s => 
+        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setFilteredStudentsList(filtered);
+      setShowSuggestions(true);
+    } else {
+      setFilteredStudentsList([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectStudent = (student: Siswa) => {
+    setNamaSiswa(student.nama_lengkap);
+    setKelas(student.kelas);
+    
+    // Auto-select Wali Kelas based on class
+    const wk = WALI_KELAS_LIST.find(w => w.kelas === student.kelas);
+    if (wk) {
+      setWaliKelas(wk.name);
+    }
+    
+    setShowSuggestions(false);
+  };
+
+  const handleStudentCardSearchChange = (value: string) => {
+    setStudentSearchTerm(value);
+    if (value.length > 1) {
+      const filtered = students.filter(s => 
+        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setStudentSuggestions(filtered);
+      setShowStudentSuggestions(true);
+    } else {
+      setStudentSuggestions([]);
+      setShowStudentSuggestions(false);
+    }
+  };
+
+  // Close suggestions on click outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowSuggestions(false);
+        setShowStudentSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Form states for Izin Umum
   const [nomorSurat, setNomorSurat] = useState(`SRMA-U-${Date.now().toString().slice(-6)}`);
@@ -82,7 +166,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       orderBy('tgl_surat', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IzinSakit));
+      const data = snapshot.docs.map(doc => {
+        const rawData = doc.data() as IzinSakit;
+        return { 
+          id: doc.id, 
+          ...rawData,
+          kelas: normalizeKelas(rawData.kelas)
+        } as IzinSakit;
+      });
       setPermits(data);
     });
     return () => unsubscribe();
@@ -107,7 +198,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       orderBy('tgl_pinjam', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PinjamHP));
+      const data = snapshot.docs.map(doc => {
+        const rawData = doc.data() as PinjamHP;
+        return { 
+          id: doc.id, 
+          ...rawData,
+          kelas: normalizeKelas(rawData.kelas)
+        } as PinjamHP;
+      });
       setPinjamHPList(data);
     });
     return () => unsubscribe();
@@ -116,7 +214,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   React.useEffect(() => {
     const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Siswa));
+      const data = snapshot.docs.map(doc => {
+        const rawData = doc.data() as Siswa;
+        return { 
+          id: doc.id, 
+          ...rawData,
+          kelas: normalizeKelas(rawData.kelas)
+        } as Siswa;
+      });
       setStudents(data);
     });
     return () => unsubscribe();
@@ -464,6 +569,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 setSearchTerm('');
                 setStartDate('');
                 setEndDate('');
+                setTimeFilter('hari_ini');
               }}
               className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
             >
@@ -472,33 +578,40 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           </div>
 
           {/* Filters & Search */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama siswa atau nomor surat..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
-                  <Clock className="w-4 h-4 text-slate-400" />
-                  <input 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-transparent text-xs font-bold text-slate-600 outline-none"
-                  />
-                  <span className="text-slate-300">→</span>
-                  <input 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+          <div className="space-y-6">
+            {/* Horizontal Time Categories */}
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {[ 
+                { id: 'hari_ini', label: 'Hari Ini' },
+                { id: 'kemarin', label: 'Kemarin' },
+                { id: 'minggu_ini', label: 'Minggu Ini' },
+                { id: 'bulan_ini', label: 'Bulan Ini' },
+                { id: 'semua', label: 'Semua' }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setTimeFilter(cat.id as any)}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                    timeFilter === cat.id
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                      : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama siswa atau nomor surat..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   />
                 </div>
               </div>
@@ -532,10 +645,35 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         type="text"
                         required
                         value={namaSiswa}
-                        onChange={(e) => setNamaSiswa(e.target.value)}
+                        onChange={(e) => handleNamaSiswaChange(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                         placeholder="Masukkan nama siswa"
                       />
+                      <AnimatePresence>
+                        {showSuggestions && filteredStudentsList.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                          >
+                            {filteredStudentsList.map((student) => (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => selectStudent(student)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                              >
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                                </div>
+                                <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -709,16 +847,66 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Pinjam Handphone</h2>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Monitoring Penggunaan Gadget</p>
             </div>
-            <button 
-              onClick={() => setShowPinjamForm(true)}
-              className="p-4 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setTimeFilter('hari_ini');
+                }}
+                className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Reset
+              </button>
+              <button 
+                onClick={() => setShowPinjamForm(true)}
+                className="p-4 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Filters & Search */}
+          <div className="space-y-6">
+            {/* Horizontal Time Categories */}
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {[ 
+                { id: 'hari_ini', label: 'Hari Ini' },
+                { id: 'kemarin', label: 'Kemarin' },
+                { id: 'minggu_ini', label: 'Minggu Ini' },
+                { id: 'bulan_ini', label: 'Bulan Ini' },
+                { id: 'semua', label: 'Semua' }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setTimeFilter(cat.id as any)}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                    timeFilter === cat.id
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                      : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {pinjamHPList.map((item) => (
+            {filteredPinjamHP.map((item) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -795,9 +983,37 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   type="text"
                   placeholder="Cari nama atau NIK siswa..."
                   value={studentSearchTerm}
-                  onChange={(e) => setStudentSearchTerm(e.target.value)}
+                  onChange={(e) => handleStudentCardSearchChange(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
                 />
+                <AnimatePresence>
+                  {showStudentSuggestions && studentSuggestions.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                    >
+                      {studentSuggestions.map((student) => (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onClick={() => {
+                            setStudentSearchTerm(student.nama_lengkap);
+                            setShowStudentSuggestions(false);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                          </div>
+                          <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
@@ -818,31 +1034,39 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
 
             {/* Student Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredStudents.map((student) => (
                 <motion.div
                   key={student.id}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                  whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedStudent(student)}
-                  className="bg-white p-5 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex items-center gap-5 group cursor-pointer hover:border-indigo-200 transition-all"
+                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
                 >
-                  <div className="w-16 h-16 bg-indigo-50 rounded-[1.5rem] flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
-                    {student.nama_lengkap.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-black text-slate-900 truncate font-display">{student.nama_lengkap}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black rounded-md uppercase tracking-widest">
-                        Kelas {student.kelas}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400 font-mono">
-                        {student.nik}
-                      </span>
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-600 transition-colors duration-500" />
+                  
+                  <div className="flex items-center gap-4 relative">
+                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500">
+                      {student.nama_lengkap.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black rounded-md uppercase tracking-widest">
+                          Kelas {student.kelas}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
-                    <ChevronRight className="w-5 h-5" />
+
+                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">NIK Siswa</p>
+                      <p className="text-xs font-bold text-slate-600 font-mono">{student.nik}</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-indigo-600 transition-all shadow-sm">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -896,7 +1120,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
             
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</label>
                   <p className="font-black text-slate-900 font-display">{currentSelectedPermit.nama_siswa}</p>
@@ -914,7 +1138,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Masa Izin</label>
                   <p className="text-sm font-black text-slate-900 font-display">{currentSelectedPermit.jumlah_hari} Hari</p>
@@ -936,7 +1160,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas</label>
                   <p className="text-xs font-bold text-slate-700">{currentSelectedPermit.nama_wali_kelas}</p>
@@ -1210,120 +1434,148 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </button>
             </div>
             
-            <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
               <div className="flex flex-col items-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-100 mb-4">
-                  <User className="w-12 h-12" />
+                <div className="relative">
+                  <div className="w-28 h-28 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-200 mb-4 rotate-3 hover:rotate-0 transition-transform duration-500">
+                    <User className="w-14 h-14" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-white rounded-2xl shadow-lg flex items-center justify-center text-indigo-600 border-4 border-white">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
                 </div>
-                <h2 className="text-xl font-black text-slate-900 text-center">{selectedStudent.nama_lengkap}</h2>
-                <p className="text-sm font-bold text-indigo-600 uppercase tracking-widest mt-1">Kelas {selectedStudent.kelas}</p>
+                <h2 className="text-2xl font-black text-slate-900 text-center font-display leading-tight mt-2">{selectedStudent.nama_lengkap}</h2>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="px-4 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase tracking-[0.2em]">
+                    Kelas {selectedStudent.kelas}
+                  </span>
+                </div>
               </div>
 
-              {/* Section: Data Pribadi */}
+              {/* Section: Identitas Utama */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-indigo-600">
-                  <User className="w-4 h-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Data Pribadi</h4>
+                <div className="flex items-center gap-3 px-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+                    <IdCard className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Identitas Utama</h4>
                 </div>
-                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-2 gap-y-4 gap-x-6">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">NIK</label>
-                    <p className="text-sm font-bold text-slate-900 font-mono">{selectedStudent.nik}</p>
+                <div className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 space-y-5">
+                  <div className="grid grid-cols-1 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <div className="w-1 h-1 bg-indigo-400 rounded-full" /> Nomor Induk Kependudukan (NIK)
+                      </label>
+                      <p className="text-base font-black text-slate-900 font-mono tracking-wider bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-sm">{selectedStudent.nik}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <div className="w-1 h-1 bg-purple-400 rounded-full" /> Nomor Kartu Keluarga (KK)
+                      </label>
+                      <p className="text-base font-black text-slate-900 font-mono tracking-wider bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-sm">{selectedStudent.nomor_kk}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Nomor KK</label>
-                    <p className="text-sm font-bold text-slate-900 font-mono">{selectedStudent.nomor_kk}</p>
+                  
+                  <div className="grid grid-cols-2 gap-6 pt-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tempat Lahir</label>
+                      <p className="text-sm font-bold text-slate-900">{selectedStudent.tempat_lahir}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Lahir</label>
+                      <p className="text-sm font-bold text-slate-900">{selectedStudent.tanggal_lahir}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Jenis Kelamin</label>
+                      <p className="text-sm font-bold text-slate-900">{selectedStudent.jenis_kelamin}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Agama</label>
+                      <p className="text-sm font-bold text-slate-900">{selectedStudent.agama}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tempat Lahir</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.tempat_lahir}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Lahir</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.tanggal_lahir}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Jenis Kelamin</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.jenis_kelamin}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Agama</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.agama}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Umur</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.umur} Tahun</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Anak Ke / Saudara</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} Bersaudara</p>
-                  </div>
+                </div>
+              </div>
+
+              {/* Section: Detail Tambahan */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-amber-50/50 p-5 rounded-[2rem] border border-amber-100 space-y-1">
+                  <label className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Umur</label>
+                  <p className="text-base font-black text-slate-900">{selectedStudent.umur} <span className="text-[10px] text-slate-400">Tahun</span></p>
+                </div>
+                <div className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 space-y-1">
+                  <label className="text-[9px] font-bold text-cyan-500 uppercase tracking-widest">Status Anak</label>
+                  <p className="text-xs font-black text-slate-900">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'}</p>
                 </div>
               </div>
 
               {/* Section: Data Orang Tua */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-rose-600">
-                  <Contact className="w-4 h-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Data Orang Tua</h4>
+                <div className="flex items-center gap-3 px-2">
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+                    <Contact className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Data Orang Tua</h4>
                 </div>
-                <div className="bg-rose-50/50 p-6 rounded-[2rem] border border-rose-100 grid grid-cols-2 gap-6">
+                <div className="bg-rose-50/30 p-6 rounded-[2.5rem] border border-rose-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">Nama Ayah</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.ayah || '-'}</p>
+                    <p className="text-sm font-black text-slate-900">{selectedStudent.ayah || '-'}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">Nama Ibu</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedStudent.ibu || '-'}</p>
+                    <p className="text-sm font-black text-slate-900">{selectedStudent.ibu || '-'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Section: Alamat Lengkap */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-emerald-600">
-                  <MapPin className="w-4 h-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Alamat Lengkap</h4>
+                <div className="flex items-center gap-3 px-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Alamat Lengkap</h4>
                 </div>
-                <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100 space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Alamat</label>
-                    <p className="text-sm font-bold text-slate-900 leading-relaxed">
+                <div className="bg-emerald-50/30 p-6 rounded-[2.5rem] border border-emerald-100 space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Alamat Domisili</label>
+                    <p className="text-sm font-medium text-slate-700 leading-relaxed bg-white/50 p-4 rounded-2xl border border-emerald-50">
                       {selectedStudent.alamat || '-'}
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">RT / RW</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.rt || '00'} / {selectedStudent.rw || '00'}</p>
+                      <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">RT/RW</label>
+                      <p className="text-xs font-black text-slate-900">{selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</p>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Kelurahan</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.kelurahan || '-'}</p>
+                      <p className="text-xs font-black text-slate-900 truncate">{selectedStudent.kelurahan || '-'}</p>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Kecamatan</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.kecamatan || '-'}</p>
+                      <p className="text-xs font-black text-slate-900 truncate">{selectedStudent.kecamatan || '-'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-100">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-white/20 rounded-xl">
-                    <ShieldCheck className="w-4 h-4" />
+              <div className="relative overflow-hidden bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl shadow-slate-200">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full -mr-16 -mt-16 blur-3xl" />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-md">
+                      <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status Verifikasi</h4>
+                      <p className="text-sm font-black">Siswa Aktif Terdaftar</p>
+                    </div>
                   </div>
-                  <h4 className="text-xs font-black uppercase tracking-widest">Status Keaktifan</h4>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                    <span className="text-sm font-bold">Siswa Aktif Terdaftar</span>
+                  <div className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Verified</span>
                   </div>
-                  <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-full uppercase tracking-widest">
-                    Verified
-                  </span>
                 </div>
               </div>
             </div>

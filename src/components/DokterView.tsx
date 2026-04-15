@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs } from 'firebase/firestore';
-import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa } from '../types';
+import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
 import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check } from 'lucide-react';
 import Logo from './Logo';
-import { format, addDays } from 'date-fns';
+import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
@@ -40,6 +40,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
 
@@ -48,7 +49,14 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       try {
         const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
         const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Siswa));
+        const data = snapshot.docs.map(doc => {
+          const rawData = doc.data() as Siswa;
+          return { 
+            id: doc.id, 
+            ...rawData,
+            kelas: normalizeKelas(rawData.kelas)
+          } as Siswa;
+        });
         setStudents(data);
       } catch (err) {
         console.error("Error fetching students:", err);
@@ -97,15 +105,24 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   }, []);
 
   const filteredPermits = permits.filter(p => {
+    const permitDate = p.tgl_surat?.toDate();
+    if (!permitDate) return false;
+
+    // Time Filter Logic
+    let matchesTime = true;
+    if (timeFilter === 'hari_ini') matchesTime = isToday(permitDate);
+    else if (timeFilter === 'kemarin') matchesTime = isYesterday(permitDate);
+    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(permitDate, { weekStartsOn: 1 });
+    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(permitDate);
+
     const matchesSearch = 
       p.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const permitDate = p.tgl_surat?.toDate();
     const matchesDate = (!startDate || (permitDate && permitDate >= new Date(startDate))) &&
                         (!endDate || (permitDate && permitDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999))));
 
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesTime;
   });
 
   const handleGeneratePDF = async (permit: IzinSakit) => {
@@ -148,7 +165,14 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       orderBy('tgl_surat', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IzinSakit));
+      const data = snapshot.docs.map(doc => {
+        const rawData = doc.data() as IzinSakit;
+        return { 
+          id: doc.id, 
+          ...rawData,
+          kelas: normalizeKelas(rawData.kelas)
+        } as IzinSakit;
+      });
       setPermits(data);
     });
     return () => unsubscribe();
@@ -523,6 +547,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             setSearchTerm('');
             setStartDate('');
             setEndDate('');
+            setTimeFilter('hari_ini');
           }}
           className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
         >
@@ -531,33 +556,40 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
-        <div className="flex flex-col gap-4">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-            <input
-              type="text"
-              placeholder="Cari nama siswa atau nomor surat..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
-            />
-          </div>
-          <div className="flex items-center gap-3 bg-slate-50 px-5 py-3 rounded-[1.5rem] border border-slate-100">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <div className="flex items-center gap-2 flex-1">
-              <input 
-                type="date" 
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
-              />
-              <span className="text-slate-300">→</span>
-              <input 
-                type="date" 
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
+      <div className="space-y-6">
+        {/* Horizontal Time Categories */}
+        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+          {[ 
+            { id: 'hari_ini', label: 'Hari Ini' },
+            { id: 'kemarin', label: 'Kemarin' },
+            { id: 'minggu_ini', label: 'Minggu Ini' },
+            { id: 'bulan_ini', label: 'Bulan Ini' },
+            { id: 'semua', label: 'Semua' }
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setTimeFilter(cat.id as any)}
+              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                timeFilter === cat.id
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                  : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
+          <div className="flex flex-col gap-4">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="Cari nama siswa atau nomor surat..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
               />
             </div>
           </div>
