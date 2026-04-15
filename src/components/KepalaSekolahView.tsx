@@ -24,10 +24,12 @@ import {
   Mail,
   ShieldCheck,
   LogOut,
-  Bell
+  Bell,
+  ChevronRight
 } from 'lucide-react';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface KepalaSekolahViewProps {
   user: AppUser;
@@ -253,12 +255,12 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Tabs */}
-      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 self-start">
+      <div className="flex bg-white p-1.5 rounded-[1.5rem] shadow-sm border border-slate-200/60 self-start">
         <button
           onClick={() => setSubTab('perizinan')}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
             subTab === 'perizinan' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -266,7 +268,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         </button>
         <button
           onClick={() => setSubTab('memorandum')}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
             subTab === 'memorandum' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -277,76 +279,79 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       {subTab === 'perizinan' ? (
         <>
           {/* Header & Stats */}
-          {/* Header & Stats */}
           {activeTab === 'dashboard' && (
             <div className="grid grid-cols-2 gap-4">
               {/* Card 1: Siswa Sakit */}
-              <div 
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
                 onClick={() => { setFilterType('sakit'); setFilterStatus('all'); setSubTab('perizinan'); }}
-                className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+                className="relative overflow-hidden bg-slate-900 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black">{stats.sakit}</h3>
-                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.sakit}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                       <Activity className="w-6 h-6" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Siswa Sakit<br />Hari Ini</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Siswa Sakit<br />Hari Ini</p>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Card 2: Izin Disetujui */}
-              <div 
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
                 onClick={() => { setFilterType('all'); setFilterStatus('selesai'); setSubTab('perizinan'); }}
-                className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+                className="relative overflow-hidden bg-indigo-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black">{stats.selesai}</h3>
-                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Disetujui</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Disetujui</p>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Card 3: Dokter UKS */}
-              <div 
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
                 onClick={() => { setFilterType('all'); setFilterStatus('pending_asuh'); setSubTab('perizinan'); }}
-                className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+                className="relative overflow-hidden bg-rose-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black">{stats.pending}</h3>
-                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
-                      <ShieldCheck className="w-5 h-5" />
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                      <ShieldCheck className="w-6 h-6" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Dokter UKS<br />- Periksa</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Dokter UKS<br />- Periksa</p>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Card 4: Memorandum */}
-              <div 
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
                 onClick={() => setSubTab('memorandum')}
-                className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02] cursor-pointer"
+                className="relative overflow-hidden bg-amber-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black">{memos.length}</h3>
-                    <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{memos.length}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                       <Mail className="w-6 h-6" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Kepala Sekolah<br />- Memo</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Kepala Sekolah<br />- Memo</p>
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -418,8 +423,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       {/* List Perizinan - Banner Style */}
       <div className="grid grid-cols-1 gap-3">
         {filteredPermits.map((permit) => (
-          <div 
+          <motion.div 
             key={permit.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             onClick={() => setSelectedPermit(permit)}
             className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
           >
@@ -446,10 +453,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
               </p>
             </div>
-            <div className="text-slate-300">
-              <Plus className="w-5 h-5 rotate-45" />
+            <div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
+              <ChevronRight className="w-5 h-5" />
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {filteredPermits.length === 0 && (
@@ -462,13 +469,15 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       </div>
 
       {/* Floating Action Button (FAB) */}
-      <button 
+      <motion.button 
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={() => setShowMemoModal(true)}
-        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
+        className="fixed bottom-24 right-6 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30"
       >
         <Plus className="w-5 h-5" />
         <span className="text-xs font-black uppercase tracking-widest">Buat Memo Baru</span>
-      </button>
+      </motion.button>
       </>
       ) : (
         <div className="space-y-6">
@@ -487,33 +496,37 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {memos.map((memo) => (
-              <div 
+              <motion.div 
                 key={memo.id}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedMemo(memo)}
-                className="group bg-cyan-50 p-6 rounded-3xl shadow-sm border border-cyan-100 hover:shadow-md transition-all cursor-pointer"
+                className="group bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
                       <Mail className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-black text-slate-900">{memo.perihal}</h3>
-                      <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-wider">
+                      <h3 className="font-black text-slate-900 font-display">{memo.perihal}</h3>
+                      <p className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">
                         {memo.nomor_memo} • {memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
                       </p>
                       <div className="flex gap-1.5 mt-2">
                         {memo.penerima.map(r => (
-                          <span key={r} className="px-2 py-0.5 bg-white/60 border border-white/20 text-cyan-700 text-[9px] font-black rounded uppercase">
+                          <span key={r} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black rounded uppercase tracking-tighter">
                             {r.replace('_', ' ')}
                           </span>
                         ))}
                       </div>
                     </div>
                   </div>
-                  <Plus className="w-5 h-5 text-slate-300 group-hover:text-cyan-500 transition-colors" />
+                  <div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
             {memos.length === 0 && (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
@@ -529,13 +542,13 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       {/* Modal Buat Memo */}
       {showMemoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <Mail className="w-5 h-5 text-indigo-600" />
                 </div>
-                <h3 className="font-bold text-slate-900">Buat Memorandum Baru</h3>
+                <h3 className="font-black text-slate-900">Buat Memorandum Baru</h3>
               </div>
               <button onClick={() => setShowMemoModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
                 <Plus className="w-6 h-6 rotate-45" />
@@ -543,14 +556,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             </div>
             
             <form onSubmit={handleSendMemo} className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Penerima</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Penerima Instruksi</label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={selectAllPenerima}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
-                      newMemo.penerima.length === 3 ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-500'
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black border transition-all tracking-widest ${
+                      newMemo.penerima.length === 3 ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500'
                     }`}
                   >
                     SEMUA STAF
@@ -560,8 +573,8 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                       key={role}
                       type="button"
                       onClick={() => togglePenerima(role)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
-                        newMemo.penerima.includes(role) ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'bg-white border-slate-200 text-slate-500'
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black border transition-all tracking-widest ${
+                        newMemo.penerima.includes(role) ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-white border-slate-200 text-slate-500'
                       }`}
                     >
                       {role.replace('_', ' ').toUpperCase()}
@@ -571,24 +584,24 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Perihal / Subjek</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perihal / Subjek</label>
                 <input
                   required
                   value={newMemo.perihal}
                   onChange={e => setNewMemo(prev => ({ ...prev, perihal: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-900"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-black text-slate-900 font-display"
                   placeholder="Contoh: Instruksi Kebersihan UKS"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Isi Memorandum</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Isi Memorandum</label>
                 <textarea
                   required
                   rows={6}
                   value={newMemo.isi}
                   onChange={e => setNewMemo(prev => ({ ...prev, isi: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm text-slate-700 leading-relaxed"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm text-slate-700 leading-relaxed font-medium"
                   placeholder="Tuliskan pesan atau instruksi Bapak di sini..."
                 />
               </div>
@@ -597,14 +610,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 <button
                   type="button"
                   onClick={() => setShowMemoModal(false)}
-                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+                  className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={memoLoading}
-                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {memoLoading ? 'Mengirim...' : <><Send className="w-4 h-4" /> Kirim Memo</>}
                 </button>
@@ -617,14 +630,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       {/* Modal Detail Memo */}
       {selectedMemo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <Mail className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Detail Memorandum</h3>
+                  <h3 className="font-black text-slate-900">Detail Memorandum</h3>
                   <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedMemo.nomor_memo}</p>
                 </div>
               </div>
@@ -636,24 +649,24 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dari</label>
-                  <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dari</label>
+                  <p className="font-black text-slate-900 flex items-center gap-1.5 font-display">
                     <ShieldCheck className="w-4 h-4 text-indigo-600" /> {selectedMemo.pengirim_name}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal</label>
-                  <p className="font-bold text-slate-900">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</label>
+                  <p className="font-black text-slate-900 font-display">
                     {selectedMemo.tgl_memo && typeof selectedMemo.tgl_memo.toDate === 'function' ? format(selectedMemo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Penerima</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Penerima</label>
                 <div className="flex flex-wrap gap-2">
                   {selectedMemo.penerima.map(r => (
-                    <span key={r} className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded-lg uppercase">
+                    <span key={r} className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-lg uppercase tracking-widest">
                       {r.replace('_', ' ')}
                     </span>
                   ))}
@@ -661,14 +674,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Perihal</label>
-                <p className="text-lg font-black text-slate-900 leading-tight">{selectedMemo.perihal}</p>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perihal</label>
+                <p className="text-xl font-black text-slate-900 leading-tight font-display">{selectedMemo.perihal}</p>
               </div>
 
               <div className="space-y-1 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Isi Pesan</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Isi Pesan</label>
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedMemo.isi}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">{selectedMemo.isi}</p>
                 </div>
               </div>
             </div>
@@ -676,7 +689,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
               <button
                 onClick={() => setSelectedMemo(null)}
-                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
               >
                 Tutup
               </button>
@@ -685,7 +698,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   generateMemorandumPDF(selectedMemo);
                   setSelectedMemo(null);
                 }}
-                className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
               >
                 <Printer className="w-4 h-4" /> Cetak PDF
               </button>
@@ -697,14 +710,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       {/* Modal Detail Perizinan */}
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <ClipboardList className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Detail Perizinan</h3>
+                  <h3 className="font-black text-slate-900">Detail Perizinan</h3>
                   <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedPermit.nomor_surat}</p>
                 </div>
               </div>
@@ -719,21 +732,21 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Siswa</label>
-                  <p className="font-bold text-slate-900">{selectedPermit.nama_siswa}</p>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</label>
+                  <p className="font-black text-slate-900 font-display">{selectedPermit.nama_siswa}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas</label>
-                  <p className="font-bold text-slate-900">{selectedPermit.kelas}</p>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</label>
+                  <p className="font-black text-slate-900 font-display">{selectedPermit.kelas}</p>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   {selectedPermit.tipe === 'sakit' ? 'Diagnosa Medis' : (selectedPermit.tipe === 'umum' ? 'Alasan Izin' : 'Isi Catatan')}
                 </label>
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-sm text-slate-700 leading-relaxed">
+                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium">
                     {selectedPermit.tipe === 'sakit' ? selectedPermit.diagnosa : (selectedPermit.tipe === 'umum' ? selectedPermit.alasan : selectedPermit.isi_catatan)}
                   </p>
                 </div>
@@ -742,18 +755,18 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               {selectedPermit.tipe !== 'catatan' && (
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Masa Izin</label>
-                    <p className="text-sm font-bold text-slate-900">{selectedPermit.jumlah_hari} Hari</p>
-                    <p className="text-[10px] text-slate-500">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Masa Izin</label>
+                    <p className="text-sm font-black text-slate-900 font-display">{selectedPermit.jumlah_hari} Hari</p>
+                    <p className="text-[10px] font-bold text-slate-500">
                       {selectedPermit.tgl_mulai && typeof selectedPermit.tgl_mulai.toDate === 'function' ? format(selectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {selectedPermit.tgl_selesai && typeof selectedPermit.tgl_selesai.toDate === 'function' ? format(selectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
                     <div>
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged' ? 'bg-emerald-50 text-emerald-600' :
-                        'bg-indigo-50 text-indigo-600'
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged' ? 'bg-emerald-100 text-emerald-700' :
+                        'bg-indigo-100 text-indigo-700'
                       }`}>
                         {selectedPermit.status.replace('_', ' ')}
                       </span>
@@ -764,19 +777,19 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
               <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Kelas</label>
-                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas</label>
+                  <p className="text-xs font-bold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Asuh</label>
-                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_asuh || '-'}</p>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Asuh</label>
+                  <p className="text-xs font-bold text-slate-700">{selectedPermit.nama_wali_asuh || '-'}</p>
                 </div>
               </div>
 
               {selectedPermit.catatan_kamar && (
                 <div className="space-y-1 pt-4 border-t border-slate-100">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
-                  <div className="flex items-center gap-2 text-indigo-600 font-bold">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
+                  <div className="flex items-center gap-2 text-indigo-600 font-black">
                     <MapPin className="w-4 h-4" />
                     {selectedPermit.catatan_kamar}
                   </div>
@@ -785,23 +798,23 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
               {/* Log Tindakan Section */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <ClipboardList className="w-3 h-3" /> Log Tindakan & Perkembangan
                 </label>
                 
                 <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                   {selectedPermit.tindakan && selectedPermit.tindakan.length > 0 ? (
                     selectedPermit.tindakan.map((t, idx) => (
-                      <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-[10px] font-bold text-indigo-600 uppercase">{t.peran}: {t.oleh}</span>
-                          <span className="text-[9px] text-slate-400">{t.waktu && typeof t.waktu.toDate === 'function' ? format(t.waktu.toDate(), 'HH:mm, dd MMM') : '-'}</span>
+                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">{t.peran}: {t.oleh}</span>
+                          <span className="text-[9px] font-bold text-slate-400">{t.waktu && typeof t.waktu.toDate === 'function' ? format(t.waktu.toDate(), 'HH:mm, dd MMM') : '-'}</span>
                         </div>
-                        <p className="text-xs text-slate-700 leading-relaxed">{t.pesan}</p>
+                        <p className="text-xs text-slate-700 leading-relaxed font-medium">{t.pesan}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-slate-400 italic text-center py-2">Belum ada catatan tindakan</p>
+                    <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Belum ada catatan tindakan</p>
                   )}
                 </div>
               </div>
@@ -810,7 +823,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
               <button
                 onClick={() => setSelectedPermit(null)}
-                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
               >
                 Tutup
               </button>
@@ -820,7 +833,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                     generatePermitPDF(selectedPermit);
                     setSelectedPermit(null);
                   }}
-                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
                   Cetak PDF

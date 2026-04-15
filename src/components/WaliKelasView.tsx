@@ -3,10 +3,11 @@ import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliKelasViewProps {
   user: AppUser;
@@ -165,109 +166,157 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Dashboard Grid - Styled to match banner */}
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Dashboard Grid - Bento Style */}
       <div className="grid grid-cols-2 gap-4">
         {/* Card 1: Total Perizinan */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.total}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <ClipboardList className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Total<br />Perizinan</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 2: Izin Selesai */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.selesai}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Selesai</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 3: Perlu Persetujuan */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-rose-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.pending}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <Clock className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Perlu<br />Persetujuan</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Perlu<br />Persetujuan</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 4: Memorandum */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.memos}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <Mail className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Memo<br />Kepala Sekolah</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
           </div>
-        </div>
+        </motion.div>
       </div>
 
+      {/* Memorandum Section */}
+      {memos.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <Mail className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Memorandum Intern</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            {memos.map(memo => (
+              <motion.div 
+                key={memo.id}
+                whileHover={{ scale: 1.01 }}
+                onClick={() => setSelectedMemo(memo)}
+                className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 font-display group-hover:text-cyan-700 transition-colors">{memo.perihal}</h4>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
+                  </div>
+                </div>
+                <div className="p-2 bg-white rounded-xl text-cyan-400 group-hover:text-cyan-600 transition-all">
+                  <Plus className="w-4 h-4" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Riwayat Terakhir Header */}
-      <div className="flex items-center justify-between mt-4">
-        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monitoring Kesehatan Siswa</p>
+        </div>
         <button 
           onClick={() => {
             setSearchTerm('');
             setStartDate('');
             setEndDate('');
           }}
-          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+          className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
         >
-          Lihat Semua
+          Reset Filter
         </button>
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
+        <div className="flex flex-col gap-4">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
             <input
               type="text"
               placeholder="Cari nama siswa atau nomor surat..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
-              <Clock className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center gap-3 bg-slate-50 px-5 py-3 rounded-[1.5rem] border border-slate-100">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center gap-2 flex-1">
               <input 
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
               />
               <span className="text-slate-300">→</span>
               <input 
                 type="date" 
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
               />
             </div>
           </div>
@@ -275,68 +324,72 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       </div>
 
       {showCatatanForm && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-indigo-600" />
-              Input Catatan Penting Siswa
-            </h3>
-          </div>
-          <form onSubmit={handleSubmitCatatan} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Siswa</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    value={namaSiswa}
-                    onChange={(e) => setNamaSiswa(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                    placeholder="Masukkan nama siswa"
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl">
+                  <MessageSquare className="w-5 h-5 text-indigo-600" />
+                </div>
+                <h3 className="font-black text-slate-900">Input Catatan Siswa</h3>
+              </div>
+              <button onClick={() => setShowCatatanForm(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitCatatan} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={namaSiswa}
+                      onChange={(e) => setNamaSiswa(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      placeholder="Nama lengkap siswa"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
+                  <select
+                    value={kelas}
+                    onChange={(e) => setKelas(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all text-sm"
+                  >
+                    {WALI_KELAS_LIST.map(wk => (
+                      <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Isi Catatan / Perkembangan</label>
+                  <div className="relative">
+                    <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                    <textarea
+                      required
+                      value={isiCatatan}
+                      onChange={(e) => setIsiCatatan(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm min-h-[120px]"
+                      placeholder="Tuliskan perkembangan atau catatan penting siswa..."
+                    />
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kelas</label>
-                <select
-                  value={kelas}
-                  onChange={(e) => setKelas(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                >
-                  {WALI_KELAS_LIST.map(wk => (
-                    <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Isi Catatan / Perkembangan</label>
-                <div className="relative">
-                  <ClipboardList className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                  <textarea
-                    required
-                    value={isiCatatan}
-                    onChange={(e) => setIsiCatatan(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[100px]"
-                    placeholder="Contoh: Siswa mengalami penurunan fokus belajar..."
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-5 h-5" /> Kirim ke Wali Asuh</>}
-                </button>
-              </div>
-            </div>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Kirim ke Wali Asuh</>}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -370,65 +423,78 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {/* List Perizinan - Banner Style */}
-      <div className="grid grid-cols-1 gap-3">
+      {/* List Perizinan - Modern Cards */}
+      <div className="grid grid-cols-1 gap-4">
         {filteredPermits.map((permit) => (
-          <div 
+          <motion.div 
             key={permit.id}
+            whileHover={{ scale: 1.01 }}
             onClick={() => setSelectedPermit(permit)}
-            className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
+            className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 hover:border-indigo-200 transition-all cursor-pointer"
           >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-              permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
-              permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
-              'bg-purple-100 text-purple-600'
+            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
+              permit.tipe === 'sakit' ? 'bg-rose-50 text-rose-600' :
+              permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
+              'bg-purple-50 text-purple-600'
             }`}>
-              <User className="w-6 h-6" />
+              <User className="w-8 h-8" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
-              </p>
-              <p className="text-[9px] font-bold text-indigo-500 mt-0.5">
-                {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
-              </p>
+              <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
+                  permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {permit.tipe}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Clock className="w-3 h-3 text-indigo-500" />
+                <span className="text-[10px] font-bold text-indigo-600">
+                  {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
+                </span>
+              </div>
             </div>
-            <div className="text-slate-300">
-              <Plus className="w-5 h-5 rotate-45" />
+            <div className="flex flex-col items-end gap-2">
+              <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
+                <ChevronRight className="w-5 h-5" />
+              </div>
+              {permit.status === 'pending_kelas' && (
+                <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              )}
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {permits.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+          <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
             <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <h3 className="text-slate-900 font-bold">Tidak Ada Data</h3>
-            <p className="text-slate-500 text-sm mt-1">Belum ada perizinan yang dibuat.</p>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada data perizinan</p>
           </div>
         )}
       </div>
 
       {/* Floating Action Button (FAB) */}
-      <button 
+      <motion.button 
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={() => setShowCatatanForm(true)}
-        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
+        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-6 h-6" />
         <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
-      </button>
-
-      {/* Modal Detail Perizinan */}
+      </motion.button>      {/* Modal Detail Perizinan */}
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <ClipboardList className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Detail Perizinan</h3>
+                  <h3 className="font-black text-slate-900">Detail Perizinan</h3>
                   <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedPermit.nomor_surat}</p>
                 </div>
               </div>
@@ -443,68 +509,69 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Siswa</label>
-                  <p className="font-bold text-slate-900">{selectedPermit.nama_siswa}</p>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</label>
+                  <p className="font-black text-slate-900 font-display">{selectedPermit.nama_siswa}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas</label>
-                  <p className="font-bold text-slate-900">{selectedPermit.kelas}</p>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</label>
+                  <p className="font-black text-slate-900 font-display">{selectedPermit.kelas}</p>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diagnosa Medis</label>
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-sm text-slate-700 leading-relaxed">{selectedPermit.diagnosa}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
+              {selectedPermit.tipe === 'catatan' ? (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Masa Izin</label>
-                  <p className="text-sm font-bold text-slate-900">{selectedPermit.jumlah_hari} Hari</p>
-                  <p className="text-[10px] text-slate-500">
-                    {selectedPermit.tgl_mulai && typeof selectedPermit.tgl_mulai.toDate === 'function' ? format(selectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {selectedPermit.tgl_selesai && typeof selectedPermit.tgl_selesai.toDate === 'function' ? format(selectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
-                  <div>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      selectedPermit.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                      selectedPermit.status === 'pending_kelas' ? 'bg-amber-50 text-amber-600' :
-                      'bg-indigo-50 text-indigo-600'
-                    }`}>
-                      {selectedPermit.status.replace('_', ' ')}
-                    </span>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Isi Catatan</label>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-sm text-slate-700 leading-relaxed">{selectedPermit.isi_catatan}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+              ) : (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Kelas</label>
-                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Asuh</label>
-                  <p className="text-xs font-semibold text-slate-700">{selectedPermit.nama_wali_asuh || '-'}</p>
-                </div>
-              </div>
-
-              {selectedPermit.catatan_kamar && (
-                <div className="space-y-1 pt-4 border-t border-slate-100">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
-                  <div className="flex items-center gap-2 text-indigo-600 font-bold">
-                    <MapPin className="w-4 h-4" />
-                    {selectedPermit.catatan_kamar}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Diagnosa Medis</label>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-sm text-slate-700 leading-relaxed">{selectedPermit.diagnosa}</p>
                   </div>
                 </div>
               )}
 
+              {selectedPermit.tipe !== 'catatan' && (
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Masa Izin</label>
+                    <p className="text-sm font-black text-slate-900">{selectedPermit.jumlah_hari} Hari</p>
+                    <p className="text-[10px] text-slate-500 font-bold">
+                      {selectedPermit.tgl_mulai && typeof selectedPermit.tgl_mulai.toDate === 'function' ? format(selectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {selectedPermit.tgl_selesai && typeof selectedPermit.tgl_selesai.toDate === 'function' ? format(selectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                    <div>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged' ? 'bg-emerald-50 text-emerald-600' :
+                        selectedPermit.status === 'pending_kelas' ? 'bg-amber-50 text-amber-600' :
+                        'bg-indigo-50 text-indigo-600'
+                      }`}>
+                        {selectedPermit.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas</label>
+                  <p className="text-xs font-bold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Asuh</label>
+                  <p className="text-xs font-bold text-slate-700">{selectedPermit.nama_wali_asuh || '-'}</p>
+                </div>
+              </div>
+
               {/* Log Tindakan Section */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <ClipboardList className="w-3 h-3" /> Log Tindakan & Perkembangan
                 </label>
                 
@@ -513,8 +580,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                     selectedPermit.tindakan.map((t, idx) => (
                       <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-[10px] font-bold text-indigo-600 uppercase">{t.peran}: {t.oleh}</span>
-                          <span className="text-[9px] text-slate-400">{t.waktu && typeof t.waktu.toDate === 'function' ? format(t.waktu.toDate(), 'HH:mm, dd MMM') : '-'}</span>
+                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{t.peran}: {t.oleh}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{t.waktu && typeof t.waktu.toDate === 'function' ? format(t.waktu.toDate(), 'HH:mm, dd MMM') : '-'}</span>
                         </div>
                         <p className="text-xs text-slate-700 leading-relaxed">{t.pesan}</p>
                       </div>
@@ -527,24 +594,33 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
             </div>
 
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-              <button
-                onClick={() => setSelectedPermit(null)}
-                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
-              >
-                Tutup
-              </button>
-              {selectedPermit.status === 'approved' && (
+              {selectedPermit.status === 'pending_kelas' && (
+                <button
+                  onClick={() => {
+                    setConfirmApproveId(selectedPermit.id!);
+                    setSelectedPermit(null);
+                  }}
+                  className="flex-1 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" /> Setujui Izin
+                </button>
+              )}
+              {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && selectedPermit.tipe !== 'catatan' && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(selectedPermit);
-                    setSelectedPermit(null);
                   }}
-                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
                 >
-                  <Printer className="w-4 h-4" />
-                  Cetak PDF
+                  {pdfLoading === selectedPermit.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Printer className="w-4 h-4" /> Cetak PDF</>}
                 </button>
               )}
+              <button
+                onClick={() => setSelectedPermit(null)}
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>
@@ -553,20 +629,20 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       {/* Modal Konfirmasi Persetujuan */}
       {confirmApproveId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="w-10 h-10 text-emerald-600" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">Konfirmasi Setujui</h3>
-              <p className="text-slate-500 text-sm">
+              <h3 className="text-xl font-black text-slate-900 mb-2 font-display">Konfirmasi Setujui</h3>
+              <p className="text-slate-500 text-sm font-medium">
                 Apakah Anda yakin ingin menyetujui perizinan sakit siswa ini? Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
               <button
                 onClick={() => setConfirmApproveId(null)}
-                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
               >
                 Batal
               </button>
@@ -576,7 +652,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                   setConfirmApproveId(null);
                 }}
                 disabled={loading}
-                className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all flex items-center justify-center gap-2"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Setujui'}
               </button>
@@ -588,14 +664,14 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       {/* Modal Detail Memo */}
       {selectedMemo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <Mail className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Memorandum Intern</h3>
+                  <h3 className="font-black text-slate-900">Memorandum Intern</h3>
                   <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedMemo.nomor_memo}</p>
                 </div>
               </div>
@@ -607,26 +683,26 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dari</label>
-                  <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dari</label>
+                  <p className="font-black text-slate-900 flex items-center gap-1.5 font-display">
                     <ShieldCheck className="w-4 h-4 text-indigo-600" /> {selectedMemo.pengirim_name}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal</label>
-                  <p className="font-bold text-slate-900">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</label>
+                  <p className="font-black text-slate-900 font-display">
                     {selectedMemo.tgl_memo && typeof selectedMemo.tgl_memo.toDate === 'function' ? format(selectedMemo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Perihal</label>
-                <p className="text-lg font-black text-slate-900 leading-tight">{selectedMemo.perihal}</p>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perihal</label>
+                <p className="text-xl font-black text-slate-900 leading-tight font-display">{selectedMemo.perihal}</p>
               </div>
 
               <div className="space-y-1 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Isi Pesan</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Isi Pesan</label>
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedMemo.isi}</p>
                 </div>
@@ -636,7 +712,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
               <button
                 onClick={() => setSelectedMemo(null)}
-                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
               >
                 Tutup
               </button>
@@ -645,7 +721,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                   generateMemorandumPDF(selectedMemo);
                   setSelectedMemo(null);
                 }}
-                className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
               >
                 <Printer className="w-4 h-4" /> Cetak PDF
               </button>

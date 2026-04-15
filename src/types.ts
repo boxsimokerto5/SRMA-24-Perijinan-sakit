@@ -68,6 +68,28 @@ export interface PinjamHP {
   wali_asuh_uid: string;
 }
 
+export interface Siswa {
+  id?: string;
+  nik: string;
+  nomor_kk: string;
+  nama_lengkap: string;
+  kelas: string;
+  tempat_lahir: string;
+  tanggal_lahir: string;
+  umur: number;
+  jenis_kelamin: string;
+  agama: string;
+  kecamatan?: string;
+  kelurahan?: string;
+  alamat?: string;
+  rt?: string;
+  rw?: string;
+  anak_ke?: number;
+  saudara?: number;
+  ayah?: string;
+  ibu?: string;
+}
+
 export const WALI_KELAS_LIST = [
   { name: "Nadhifa Is'ad, S.Pd", kelas: "X-1" },
   { name: "Diyah Maruti Handayani, S.Pd", kelas: "X-2" },

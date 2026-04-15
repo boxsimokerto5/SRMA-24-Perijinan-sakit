@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion } from 'firebase/firestore';
-import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum } from '../types';
+import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs } from 'firebase/firestore';
+import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface DokterViewProps {
   user: AppUser;
@@ -20,6 +21,9 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [permits, setPermits] = useState<IzinSakit[]>([]);
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
+  const [students, setStudents] = useState<Siswa[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Siswa[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Form states
   const [nomorSurat, setNomorSurat] = useState(`SRMA-${Date.now().toString().slice(-6)}`);
@@ -38,6 +42,59 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [endDate, setEndDate] = useState('');
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
+
+  React.useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Siswa));
+        setStudents(data);
+      } catch (err) {
+        console.error("Error fetching students:", err);
+      }
+    };
+    fetchStudents();
+  }, []);
+
+  const handleNamaSiswaChange = (value: string) => {
+    setNamaSiswa(value);
+    if (value.length > 1) {
+      const filtered = students.filter(s => 
+        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setFilteredStudents(filtered);
+      setShowSuggestions(true);
+    } else {
+      setFilteredStudents([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectStudent = (student: Siswa) => {
+    setNamaSiswa(student.nama_lengkap);
+    setKelas(student.kelas);
+    
+    // Auto-select Wali Kelas based on class
+    const wk = WALI_KELAS_LIST.find(w => w.kelas === student.kelas);
+    if (wk) {
+      setWaliKelas(wk.name);
+    }
+    
+    setShowSuggestions(false);
+  };
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredPermits = permits.filter(p => {
     const matchesSearch = 
@@ -191,64 +248,76 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Dashboard Grid - Styled to match banner */}
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Dashboard Grid - Bento Style */}
       <div className="grid grid-cols-2 gap-4">
         {/* Card 1: Total Perizinan */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.total}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <ClipboardList className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Total<br />Perizinan</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 2: Izin Selesai */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.selesai}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Izin<br />Selesai</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 3: Menunggu */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-rose-400 to-rose-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-rose-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.pending}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <Clock className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Menunggu<br />Verifikasi</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Menunggu<br />Verifikasi</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 4: Memorandum */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2.5rem] shadow-xl text-white group transition-all hover:scale-[1.02]">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black">{stats.memos}</h3>
-              <div className="bg-white/20 p-2 rounded-2xl backdrop-blur-md">
+              <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
                 <Mail className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight">Memo<br />Kepala Sekolah</p>
+            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Riwayat Terakhir Header */}
@@ -257,81 +326,120 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-indigo-600" />
-              Form Input Perizinan
-            </h3>
-          </div>
-          <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nomor Surat</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={nomorSurat}
-                  className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-mono text-slate-600 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Siswa</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    value={namaSiswa}
-                    onChange={(e) => setNamaSiswa(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                    placeholder="Masukkan nama siswa"
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl">
+                  <ClipboardList className="w-5 h-5 text-indigo-600" />
                 </div>
+                <h3 className="font-black text-slate-900">Input Perizinan Baru</h3>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kelas</label>
-                <select
-                  value={kelas}
-                  onChange={(e) => setKelas(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                >
-                  {WALI_KELAS_LIST.map(wk => (
-                    <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Wali Kelas</label>
-                <select
-                  value={waliKelas}
-                  onChange={(e) => setWaliKelas(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                >
-                  {WALI_KELAS_LIST.map(wk => (
-                    <option key={wk.name} value={wk.name}>{wk.name} ({wk.kelas})</option>
-                  ))}
-                </select>
-              </div>
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
             </div>
+            
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nomor Surat</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={nomorSurat}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-mono text-slate-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={namaSiswa}
+                        onChange={(e) => handleNamaSiswaChange(e.target.value)}
+                        onFocus={() => namaSiswa.length > 1 && setShowSuggestions(true)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                        placeholder="Nama lengkap siswa"
+                      />
+                      
+                      {/* Suggestions Dropdown */}
+                      <AnimatePresence>
+                        {showSuggestions && filteredStudents.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                          >
+                            {filteredStudents.map((student) => (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => selectStudent(student)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                              >
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                                </div>
+                                <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
+                    <select
+                      value={kelas}
+                      onChange={(e) => setKelas(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all text-sm"
+                    >
+                      {WALI_KELAS_LIST.map(wk => (
+                        <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Diagnosa</label>
-                <div className="relative">
-                  <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                  <textarea
-                    required
-                    value={diagnosa}
-                    onChange={(e) => setDiagnosa(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[100px]"
-                    placeholder="Masukkan diagnosa dokter"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Wali Kelas</label>
+                    <select
+                      value={waliKelas}
+                      onChange={(e) => setWaliKelas(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all text-sm"
+                    >
+                      {WALI_KELAS_LIST.map(wk => (
+                        <option key={wk.name} value={wk.name}>{wk.name} ({wk.kelas})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Diagnosa</label>
+                    <div className="relative">
+                      <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                      <textarea
+                        required
+                        value={diagnosa}
+                        onChange={(e) => setDiagnosa(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm min-h-[100px]"
+                        placeholder="Diagnosa medis..."
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Jumlah Hari</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Jumlah Hari</label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
@@ -343,12 +451,12 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                         const val = parseInt(e.target.value);
                         setJumlahHari(isNaN(val) ? 0 : val);
                       }}
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tgl Mulai</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tgl Mulai</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
@@ -356,22 +464,21 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                       required
                       value={tglMulai}
                       onChange={(e) => setTglMulai(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
                     />
                   </div>
                 </div>
               </div>
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-100 transition-all disabled:opacity-50"
-                >
-                  {loading ? 'Menyimpan...' : 'Simpan & Kirim ke Wali Asuh'}
-                </button>
-              </div>
-            </div>
-          </form>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all disabled:opacity-50"
+              >
+                {loading ? 'Menyimpan...' : 'Simpan & Kirim ke Wali Asuh'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -406,101 +513,114 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       )}
 
       {/* Riwayat Terakhir Header */}
-      <div className="flex items-center justify-between mt-4">
-        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monitoring Kesehatan Siswa</p>
+        </div>
         <button 
           onClick={() => {
             setSearchTerm('');
             setStartDate('');
             setEndDate('');
           }}
-          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+          className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
         >
-          Lihat Semua
+          Reset Filter
         </button>
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
+        <div className="flex flex-col gap-4">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
             <input
               type="text"
               placeholder="Cari nama siswa atau nomor surat..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-100">
-              <Clock className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center gap-3 bg-slate-50 px-5 py-3 rounded-[1.5rem] border border-slate-100">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center gap-2 flex-1">
               <input 
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
               />
               <span className="text-slate-300">→</span>
               <input 
                 type="date" 
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none"
+                className="bg-transparent text-[10px] font-black text-slate-600 outline-none flex-1"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* List Perizinan - Banner Style */}
-      <div className="grid grid-cols-1 gap-3">
+      {/* List Perizinan - Modern Cards */}
+      <div className="grid grid-cols-1 gap-4">
         {filteredPermits.map((permit) => (
-          <div 
+          <motion.div 
             key={permit.id}
+            whileHover={{ scale: 1.01 }}
             onClick={() => setSelectedPermit(permit)}
-            className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
+            className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 hover:border-indigo-200 transition-all cursor-pointer"
           >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-              permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
-              permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
-              'bg-purple-100 text-purple-600'
+            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
+              permit.tipe === 'sakit' ? 'bg-rose-50 text-rose-600' :
+              permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
+              'bg-purple-50 text-purple-600'
             }`}>
-              <User className="w-6 h-6" />
+              <User className="w-8 h-8" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
-              </p>
-              <p className="text-[9px] font-bold text-indigo-500 mt-0.5">
-                {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
-              </p>
+              <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
+                  permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {permit.tipe}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Clock className="w-3 h-3 text-indigo-500" />
+                <span className="text-[10px] font-bold text-indigo-600">
+                  {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
+                </span>
+              </div>
             </div>
-            <div className="text-slate-300">
-              <Plus className="w-5 h-5 rotate-45" />
+            <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
+              <ChevronRight className="w-5 h-5" />
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {permits.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+          <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
             <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <h3 className="text-slate-900 font-bold">Tidak Ada Data</h3>
-            <p className="text-slate-500 text-sm mt-1">Belum ada perizinan yang dibuat.</p>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada data perizinan</p>
           </div>
         )}
       </div>
 
       {/* Floating Action Button (FAB) */}
-      <button 
+      <motion.button 
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={() => setShowForm(true)}
-        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30 hover:scale-105 transition-transform active:scale-95"
+        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-6 h-6" />
         <span className="text-xs font-black uppercase tracking-widest">Buat Surat Baru</span>
-      </button>
+      </motion.button>
 
       {/* Modal Detail Perizinan */}
       {selectedPermit && (

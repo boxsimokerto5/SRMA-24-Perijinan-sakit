@@ -52,6 +52,32 @@
         "wali_asuh_uid": { "type": "string" }
       },
       "required": ["nama_siswa", "kelas", "keperluan", "tgl_pinjam", "status", "wali_asuh_uid"]
+    },
+    "Siswa": {
+      "title": "Siswa",
+      "description": "Student master data",
+      "type": "object",
+      "properties": {
+        "nik": { "type": "string" },
+        "nomor_kk": { "type": "string" },
+        "nama_lengkap": { "type": "string" },
+        "kelas": { "type": "string" },
+        "tempat_lahir": { "type": "string" },
+        "tanggal_lahir": { "type": "string" },
+        "umur": { "type": "number" },
+        "jenis_kelamin": { "type": "string" },
+        "agama": { "type": "string" },
+        "kecamatan": { "type": "string" },
+        "kelurahan": { "type": "string" },
+        "alamat": { "type": "string" },
+        "rt": { "type": "string" },
+        "rw": { "type": "string" },
+        "anak_ke": { "type": "number" },
+        "saudara": { "type": "number" },
+        "ayah": { "type": "string" },
+        "ibu": { "type": "string" }
+      },
+      "required": ["nik", "nama_lengkap", "kelas"]
     }
   },
   "firestore": {
@@ -66,6 +92,10 @@
     "/pinjam_hp/{pinjamId}": {
       "schema": "PinjamHP",
       "description": "Phone borrowing records"
+    },
+    "/siswa/{siswaId}": {
+      "schema": "Siswa",
+      "description": "Student master data"
     }
   }
 }

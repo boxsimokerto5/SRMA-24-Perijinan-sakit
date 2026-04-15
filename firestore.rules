@@ -183,5 +183,10 @@ service cloud.firestore {
                     request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'tgl_kembali']);
       allow delete: if false;
     }
+
+    match /siswa/{siswaId} {
+      allow read: if isAuthenticated();
+      allow write: if hasRole('kepala_sekolah');
+    }
   }
 }

@@ -3,8 +3,9 @@ import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
-import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
 import Logo from './Logo';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -49,15 +50,11 @@ export default function Auth() {
     } catch (err: any) {
       console.error('Auth Error:', err);
       if (err.code === 'auth/network-request-failed') {
-        setError('Koneksi ke server identitas gagal. Ini biasanya disebabkan oleh pemblokir iklan, VPN, atau gangguan jaringan. Silakan coba matikan VPN/Ad-blocker atau gunakan jaringan lain.');
+        setError('Koneksi ke server identitas gagal. Silakan matikan VPN/Ad-blocker.');
       } else if (err.code === 'auth/invalid-credential') {
-        setError('Email atau password salah. Jika Anda belum punya akun, silakan klik "Create Account" di bawah.');
+        setError('Email atau password salah.');
       } else if (err.code === 'auth/email-already-in-use') {
-        setError('Email ini sudah terdaftar. Silakan gunakan email lain atau masuk menggunakan akun yang sudah ada.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('Metode login Email/Password belum diaktifkan di Firebase Console. Silakan hubungi administrator.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password terlalu lemah. Gunakan minimal 6 karakter.');
+        setError('Email ini sudah terdaftar.');
       } else {
         setError('Terjadi kesalahan: ' + (err.message || 'Gagal memproses permintaan'));
       }
@@ -67,114 +64,164 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-        <div className="bg-indigo-600 p-8 text-center">
-          <div className="inline-flex mb-4">
-            <Logo size="lg" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">SRMA 24 KEDIRI</h2>
-          <p className="text-indigo-100 text-sm font-medium uppercase tracking-widest mt-1">Perizinan Siswa Sakit</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans overflow-hidden relative">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-100 rounded-full blur-[120px] opacity-60" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-100 rounded-full blur-[120px] opacity-60" />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md w-full"
+      >
+        <div className="text-center mb-8">
+          <motion.div 
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className="inline-flex p-4 bg-white rounded-[2rem] shadow-xl shadow-indigo-100 mb-4 border border-indigo-50"
+          >
+            <Logo size="lg" showText={false} />
+          </motion.div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight font-display">SRMA 24 KEDIRI</h2>
+          <p className="text-slate-500 text-sm font-bold uppercase tracking-[0.2em] mt-1">Digital Health System</p>
         </div>
 
-        <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {!isLogin && (
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
-                <div className="relative">
-                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm"
-                    placeholder="Masukkan nama lengkap"
-                  />
-                </div>
-              </div>
-            )}
+        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-indigo-100/50 border border-white p-8 md:p-10">
+          <div className="flex p-1 bg-slate-100 rounded-2xl mb-8">
+            <button 
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
+                isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Sign In
+            </button>
+            <button 
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
+                !isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <AnimatePresence mode="wait">
+              {!isLogin && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-1.5"
+                >
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                      placeholder="Masukkan nama lengkap"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+              <div className="relative group">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
                   placeholder="name@example.com"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
             {!isLogin && (
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pilih Role</label>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-3"
+              >
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Jabatan</label>
                 <div className="grid grid-cols-2 gap-3">
                   {(['wali_asuh', 'wali_kelas'] as UserRole[]).map((r) => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => setRole(r)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
                         role === r 
                           ? 'bg-indigo-50 border-indigo-600 text-indigo-600' 
-                          : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
+                          : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
                       }`}
                     >
-                      {r === 'wali_asuh' && <Home className="w-5 h-5" />}
-                      {r === 'wali_kelas' && <CheckSquare className="w-5 h-5" />}
-                      <span className="text-[10px] font-bold uppercase tracking-tighter">{r.replace('_', ' ')}</span>
+                      {r === 'wali_asuh' ? <Home className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
+                      <span className="text-[10px] font-black uppercase tracking-widest">{r.replace('_', ' ')}</span>
                     </button>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs font-medium rounded-lg">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold rounded-2xl flex items-center gap-3"
+              >
+                <div className="w-1.5 h-1.5 bg-rose-600 rounded-full animate-pulse" />
                 {error}
-              </div>
+              </motion.div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 disabled:shadow-none"
+              className="group w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
             >
-              {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <span className="uppercase tracking-widest text-xs">{isLogin ? 'Sign In Now' : 'Create Account'}</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-            >
-              {isLogin ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-            </button>
-          </div>
         </div>
-      </div>
+
+        <p className="mt-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+          &copy; 2026 SRMA 24 KEDIRI
+        </p>
+      </motion.div>
     </div>
   );
 }
