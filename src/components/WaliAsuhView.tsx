@@ -43,6 +43,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
   const [showStudentSuggestions, setShowStudentSuggestions] = useState(false);
   
+  const [phFilteredStudentsList, setPhFilteredStudentsList] = useState<Siswa[]>([]);
+  const [phShowSuggestions, setPhShowSuggestions] = useState(false);
+  
   // Pinjam HP Form states
   const [phNamaSiswa, setPhNamaSiswa] = useState('');
   const [phKelas, setPhKelas] = useState('X-1');
@@ -123,6 +126,26 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     setShowSuggestions(false);
   };
 
+  const handlePhNamaSiswaChange = (value: string) => {
+    setPhNamaSiswa(value);
+    if (value.length > 1) {
+      const filtered = students.filter(s => 
+        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setPhFilteredStudentsList(filtered);
+      setPhShowSuggestions(true);
+    } else {
+      setPhFilteredStudentsList([]);
+      setPhShowSuggestions(false);
+    }
+  };
+
+  const selectPhStudent = (student: Siswa) => {
+    setPhNamaSiswa(student.nama_lengkap);
+    setPhKelas(student.kelas);
+    setPhShowSuggestions(false);
+  };
+
   const handleStudentCardSearchChange = (value: string) => {
     setStudentSearchTerm(value);
     if (value.length > 1) {
@@ -144,6 +167,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       if (!target.closest('.relative')) {
         setShowSuggestions(false);
         setShowStudentSuggestions(false);
+        setPhShowSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -328,6 +352,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       setShowPinjamForm(false);
       setPhNamaSiswa('');
       setPhKeperluan('');
+      setPhShowSuggestions(false);
+      setPhFilteredStudentsList([]);
     } catch (err) {
       console.error(err);
       alert('Gagal mencatat peminjaman HP');
@@ -936,9 +962,17 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    {item.tgl_pinjam && typeof item.tgl_pinjam.toDate === 'function' ? format(item.tgl_pinjam.toDate(), 'dd MMM, HH:mm') : '-'}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                      Pinjam: {item.tgl_pinjam && typeof item.tgl_pinjam.toDate === 'function' ? format(item.tgl_pinjam.toDate(), 'dd MMM, HH:mm') : '-'}
+                    </div>
+                    {item.status === 'dikembalikan' && item.tgl_kembali && (
+                      <div className="flex items-center gap-1.5 text-emerald-600">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Kembali: {typeof item.tgl_kembali.toDate === 'function' ? format(item.tgl_kembali.toDate(), 'dd MMM, HH:mm') : '-'}
+                      </div>
+                    )}
                   </div>
                   {item.status === 'dipinjam' ? (
                     <button
@@ -1363,10 +1397,35 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     type="text"
                     required
                     value={phNamaSiswa}
-                    onChange={(e) => setPhNamaSiswa(e.target.value)}
+                    onChange={(e) => handlePhNamaSiswaChange(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     placeholder="Nama lengkap siswa"
                   />
+                  <AnimatePresence>
+                    {phShowSuggestions && phFilteredStudentsList.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                      >
+                        {phFilteredStudentsList.map((student) => (
+                          <button
+                            key={student.id}
+                            type="button"
+                            onClick={() => selectPhStudent(student)}
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                          >
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                              <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                            </div>
+                            <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
 
