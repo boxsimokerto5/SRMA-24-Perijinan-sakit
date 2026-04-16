@@ -4,6 +4,20 @@ import { collection, query, orderBy, onSnapshot, Timestamp, addDoc } from 'fireb
 import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas } from '../types';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Cell,
+  PieChart,
+  Pie
+} from 'recharts';
+import { 
   ClipboardList, 
   Search, 
   Filter, 
@@ -185,12 +199,41 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   }
 
   if (activeTab === 'statistik') {
+    // Prepare data for charts
+    const diagnosisData = Object.entries(
+      permits
+        .filter(p => p.tipe === 'sakit' && p.diagnosa)
+        .reduce((acc, p) => {
+          const d = p.diagnosa || 'Lainnya';
+          acc[d] = (acc[d] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+    )
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    const monthlyTrend = Object.entries(
+      permits.reduce((acc, p) => {
+        const date = p.tgl_surat?.toDate();
+        if (date) {
+          const month = format(date, 'MMM yyyy');
+          acc[month] = (acc[month] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>)
+    )
+      .map(([name, value]) => ({ name, value }))
+      .slice(-6);
+
+    const COLORS = ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6'];
+
     return (
-      <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black text-slate-900">Statistik Perizinan</h2>
-            <p className="text-sm text-slate-500">Analisis data kesehatan siswa secara real-time.</p>
+            <h2 className="text-2xl font-black text-slate-900 font-display">Statistik Perizinan</h2>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Analisis data kesehatan siswa secara real-time.</p>
           </div>
           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
             <BarChart3 className="w-6 h-6" />
@@ -244,20 +287,93 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-          <h3 className="font-black text-slate-900 mb-6">Tren Mingguan</h3>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {[40, 70, 45, 90, 65, 80, 55].map((h, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full bg-indigo-50 rounded-t-xl relative group">
-                  <div 
-                    className="absolute bottom-0 left-0 right-0 bg-indigo-500 rounded-t-xl transition-all group-hover:bg-indigo-600" 
-                    style={{ height: `${h}%` }}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Tren Perizinan Bulanan</h3>
+              <TrendingUp className="w-5 h-5 text-indigo-500" />
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                    dy={10}
                   />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">H-{6-i}</span>
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    labelStyle={{ fontWeight: 900, color: '#1e293b' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#6366f1" 
+                    strokeWidth={4} 
+                    dot={{ r: 6, fill: '#6366f1', strokeWidth: 3, stroke: '#fff' }}
+                    activeDot={{ r: 8 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Top 5 Diagnosa Penyakit</h3>
+              <Activity className="w-5 h-5 text-rose-500" />
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={diagnosisData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#475569' }}
+                    width={100}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={20}>
+                    {diagnosisData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 p-8 rounded-[3rem] text-white overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full -mr-32 -mt-32 blur-3xl" />
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-white/10 rounded-[2rem] backdrop-blur-md">
+                <Users className="w-8 h-8 text-indigo-400" />
               </div>
-            ))}
+              <div>
+                <h4 className="text-xl font-black font-display">Ringkasan Kehadiran</h4>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Total {stats.total} perizinan tercatat di sistem</p>
+              </div>
+            </div>
+            <button className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl hover:bg-indigo-50 transition-all shadow-xl shadow-indigo-500/10">
+              Lihat Laporan Lengkap
+            </button>
           </div>
         </div>
       </div>

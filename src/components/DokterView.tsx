@@ -3,7 +3,19 @@ import { db } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs } from 'firebase/firestore';
 import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Cell
+} from 'recharts';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
@@ -251,21 +263,86 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   }
 
   if (activeTab === 'statistik') {
+    const diagnosisData = Object.entries(
+      permits
+        .filter(p => p.tipe === 'sakit' && p.diagnosa)
+        .reduce((acc, p) => {
+          const d = p.diagnosa || 'Lainnya';
+          acc[d] = (acc[d] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+    )
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    const monthlyTrend = Object.entries(
+      permits.reduce((acc, p) => {
+        const date = p.tgl_surat?.toDate();
+        if (date) {
+          const month = format(date, 'MMM yyyy');
+          acc[month] = (acc[month] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>)
+    )
+      .map(([name, value]) => ({ name, value }))
+      .slice(-6);
+
+    const COLORS = ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6'];
+
     return (
-      <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black text-slate-900">Statistik Klinik</h2>
-            <p className="text-sm text-slate-500">Data pemeriksaan kesehatan siswa.</p>
+            <h2 className="text-2xl font-black text-slate-900 font-display">Statistik Klinik</h2>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Data pemeriksaan kesehatan siswa.</p>
           </div>
           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
             <Activity className="w-6 h-6" />
           </div>
         </div>
-        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center py-20">
-          <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-          <h3 className="text-slate-900 font-bold text-xl">Statistik Segera Hadir</h3>
-          <p className="text-slate-500 mt-2">Fitur analisis mendalam sedang dalam pengembangan.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Tren Kunjungan</h3>
+              <TrendingUp className="w-5 h-5 text-indigo-500" />
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
+                  <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                  <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={4} dot={{ r: 6, fill: '#6366f1', strokeWidth: 3, stroke: '#fff' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Top Diagnosa Medis</h3>
+              <Activity className="w-5 h-5 text-rose-500" />
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={diagnosisData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} width={80} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                  <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={20}>
+                    {diagnosisData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       </div>
     );
