@@ -210,7 +210,10 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   doc.text('Verifikasi keaslian dapat dilakukan dengan memindai QR Code di atas.', 105, 279, { align: 'center' });
 
   // --- OUTPUT ---
-  const fileName = `Surat_Sakit_${permit.nama_siswa.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+  const typeLabel = permit.tipe === 'sakit' ? 'Surat_Sakit' : 
+                    permit.tipe === 'umum' ? 'Ijin_Umum' : 
+                    'Catatan_Siswa';
+  const fileName = `${typeLabel}_${permit.nama_siswa.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
   
   if (Capacitor.isNativePlatform()) {
     try {

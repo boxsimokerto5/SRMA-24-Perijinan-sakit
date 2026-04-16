@@ -1317,6 +1317,19 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 </div>
               )}
 
+              {currentSelectedPermit.status === 'pending_ack' && (
+                <div className="pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => handleAcknowledgeCatatan(currentSelectedPermit.id!)}
+                    disabled={loading}
+                    className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Setujui & Tandatangani Catatan
+                  </button>
+                </div>
+              )}
+
               {currentSelectedPermit.status === 'pending_asuh' && (
                 <div className="space-y-4 pt-4 border-t border-slate-100">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Konfirmasi & Catatan Kamar</label>
@@ -1576,14 +1589,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       {/* Modal Detail Siswa */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <IdCard className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900">Detail Data Siswa</h3>
+                  <h3 className="font-black text-slate-900">Profil Lengkap Siswa</h3>
                   <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">NIK: {selectedStudent.nik}</p>
                 </div>
               </div>
@@ -1595,147 +1608,93 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </button>
             </div>
             
-            <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
-              <div className="flex flex-col items-center">
-                <div className="relative">
-                  <div className="w-28 h-28 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-200 mb-4 rotate-3 hover:rotate-0 transition-transform duration-500">
-                    <User className="w-14 h-14" />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-white rounded-2xl shadow-lg flex items-center justify-center text-indigo-600 border-4 border-white">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
+            <div className="p-8 space-y-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
+              {/* Header Info */}
+              <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
+                <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center text-indigo-600 font-black text-4xl shadow-inner mb-4">
+                  {selectedStudent.nama_lengkap.charAt(0)}
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 text-center font-display leading-tight mt-2">{selectedStudent.nama_lengkap}</h2>
+                <h2 className="text-2xl font-black text-slate-900 font-display leading-tight">{selectedStudent.nama_lengkap}</h2>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="px-4 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase tracking-[0.2em]">
+                  <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-full uppercase tracking-widest">
                     Kelas {selectedStudent.kelas}
+                  </span>
+                  <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black rounded-full uppercase tracking-widest">
+                    {selectedStudent.jenis_kelamin}
                   </span>
                 </div>
               </div>
 
-              {/* Section: Identitas Utama */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
-                    <IdCard className="w-4 h-4" />
+              {/* Data Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Identitas Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Identitas Dasar</h4>
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nomor KK</label>
+                      <p className="text-sm font-black text-slate-900 font-mono">{selectedStudent.nomor_kk}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Tempat, Tgl Lahir</label>
+                      <p className="text-sm font-black text-slate-900">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Agama</label>
+                        <p className="text-sm font-black text-slate-900">{selectedStudent.agama}</p>
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Umur</label>
+                        <p className="text-sm font-black text-slate-900">{selectedStudent.umur} Tahun</p>
+                      </div>
+                    </div>
                   </div>
-                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Identitas Utama</h4>
                 </div>
-                <div className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 space-y-5">
-                  <div className="grid grid-cols-1 gap-5">
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <div className="w-1 h-1 bg-indigo-400 rounded-full" /> Nomor Induk Kependudukan (NIK)
-                      </label>
-                      <p className="text-base font-black text-slate-900 font-mono tracking-wider bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-sm">{selectedStudent.nik}</p>
+
+                {/* Keluarga Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Data Keluarga</h4>
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ayah</label>
+                      <p className="text-sm font-black text-slate-900">{selectedStudent.ayah || '-'}</p>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <div className="w-1 h-1 bg-purple-400 rounded-full" /> Nomor Kartu Keluarga (KK)
-                      </label>
-                      <p className="text-base font-black text-slate-900 font-mono tracking-wider bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-sm">{selectedStudent.nomor_kk}</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ibu</label>
+                      <p className="text-sm font-black text-slate-900">{selectedStudent.ibu || '-'}</p>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-6 pt-2">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tempat Lahir</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.tempat_lahir}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Lahir</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.tanggal_lahir}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Jenis Kelamin</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.jenis_kelamin}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Agama</label>
-                      <p className="text-sm font-bold text-slate-900">{selectedStudent.agama}</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Anak Ke / Saudara</label>
+                      <p className="text-sm font-black text-slate-900">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Section: Detail Tambahan */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-amber-50/50 p-5 rounded-[2rem] border border-amber-100 space-y-1">
-                  <label className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Umur</label>
-                  <p className="text-base font-black text-slate-900">{selectedStudent.umur} <span className="text-[10px] text-slate-400">Tahun</span></p>
-                </div>
-                <div className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 space-y-1">
-                  <label className="text-[9px] font-bold text-cyan-500 uppercase tracking-widest">Status Anak</label>
-                  <p className="text-xs font-black text-slate-900">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'}</p>
-                </div>
-              </div>
-
-              {/* Section: Data Orang Tua */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
-                    <Contact className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Data Orang Tua</h4>
-                </div>
-                <div className="bg-rose-50/30 p-6 rounded-[2.5rem] border border-rose-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">Nama Ayah</label>
-                    <p className="text-sm font-black text-slate-900">{selectedStudent.ayah || '-'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">Nama Ibu</label>
-                    <p className="text-sm font-black text-slate-900">{selectedStudent.ibu || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Alamat Lengkap */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Alamat Lengkap</h4>
-                </div>
-                <div className="bg-emerald-50/30 p-6 rounded-[2.5rem] border border-emerald-100 space-y-5">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Alamat Domisili</label>
-                    <p className="text-sm font-medium text-slate-700 leading-relaxed bg-white/50 p-4 rounded-2xl border border-emerald-50">
-                      {selectedStudent.alamat || '-'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">RT/RW</label>
-                      <p className="text-xs font-black text-slate-900">{selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</p>
+              {/* Alamat Section */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Alamat Domisili</h4>
+                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-indigo-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-black text-slate-900 leading-relaxed">{selectedStudent.alamat || '-'}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">RT/RW</label>
+                          <p className="text-xs font-black text-slate-700">{selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</p>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kelurahan</label>
+                          <p className="text-xs font-black text-slate-700">{selectedStudent.kelurahan || '-'}</p>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kecamatan</label>
+                          <p className="text-xs font-black text-slate-700">{selectedStudent.kecamatan || '-'}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Kelurahan</label>
-                      <p className="text-xs font-black text-slate-900 truncate">{selectedStudent.kelurahan || '-'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Kecamatan</label>
-                      <p className="text-xs font-black text-slate-900 truncate">{selectedStudent.kecamatan || '-'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative overflow-hidden bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl shadow-slate-200">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full -mr-16 -mt-16 blur-3xl" />
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-md">
-                      <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status Verifikasi</h4>
-                      <p className="text-sm font-black">Siswa Aktif Terdaftar</p>
-                    </div>
-                  </div>
-                  <div className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Verified</span>
                   </div>
                 </div>
               </div>
@@ -1746,7 +1705,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 onClick={() => setSelectedStudent(null)}
                 className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
               >
-                Tutup Detail
+                Tutup Profil
               </button>
             </div>
           </div>
