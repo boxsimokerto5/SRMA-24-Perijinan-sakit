@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs } from 'firebase/firestore';
 import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
@@ -71,7 +71,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         });
         setStudents(data);
       } catch (err) {
-        console.error("Error fetching students:", err);
+        handleFirestoreError(err, OperationType.LIST, 'siswa');
       }
     };
     fetchStudents();
@@ -163,8 +163,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       });
       setNewTindakan('');
     } catch (err) {
-      console.error(err);
-      alert('Gagal menambah tindakan');
+      handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
       setLoading(false);
     }
@@ -186,6 +185,8 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         } as IzinSakit;
       });
       setPermits(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'izin_sakit');
     });
     return () => unsubscribe();
   }, [user.uid]);
@@ -199,6 +200,8 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memorandum));
       setMemos(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'memorandums');
     });
     return () => unsubscribe();
   }, []);
@@ -244,8 +247,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       setDiagnosa('');
       setJumlahHari(1);
     } catch (err) {
-      console.error(err);
-      alert('Gagal membuat surat izin');
+      handleFirestoreError(err, OperationType.WRITE, 'izin_sakit');
     } finally {
       setLoading(false);
     }
@@ -788,7 +790,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                       selectedPermit.status === 'pending_kelas' ? 'bg-amber-50 text-amber-600' :
                       'bg-indigo-50 text-indigo-600'
                     }`}>
-                      {selectedPermit.status.replace('_', ' ')}
+                      {(selectedPermit.status || '').replace('_', ' ')}
                     </span>
                   </div>
                 </div>

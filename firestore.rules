@@ -48,6 +48,15 @@ service cloud.firestore {
     //   - penerima: list (required, elements: ['dokter', 'wali_asuh', 'wali_kelas'])
     //   - pengirim_name: string (required)
     //   - pengirim_uid: string (required)
+    //
+    // Collection: announcements
+    // Document ID: {annId}
+    // Fields:
+    //   - title: string (required)
+    //   - content: string (required)
+    //   - authorUid: string (required)
+    //   - authorName: string (required)
+    //   - createdAt: timestamp (required)
     // ===============================================================
 
     // ===============================================================
@@ -94,6 +103,14 @@ service cloud.firestore {
              data.tgl_pinjam is timestamp &&
              data.status in ['dipinjam', 'dikembalikan'] &&
              data.wali_asuh_uid is string;
+    }
+
+    function isValidAnnouncement(data) {
+      return data.title is string && data.title.size() < 100 &&
+             data.content is string && data.content.size() < 1000 &&
+             data.authorUid is string && data.authorUid == request.auth.uid &&
+             data.authorName is string && data.authorName.size() < 100 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
     }
 
     // ===============================================================
@@ -154,13 +171,13 @@ service cloud.firestore {
          request.resource.data.status == 'acknowledged' &&
          request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'wali_asuh_uid', 'nama_wali_asuh', 'tgl_disetujui'])) ||
 
-        // Allow Dokter and Wali Asuh to add to the actions log
-        ((hasRole('dokter') || hasRole('wali_asuh')) &&
+        // Allow Dokter, Wali Asuh, and Kepala Sekolah to add to the actions log
+        ((hasRole('dokter') || hasRole('wali_asuh') || hasRole('kepala_sekolah')) &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tindakan']))
       );
 
-      // No one can delete for audit purposes
-      allow delete: if false;
+      // Kepala Sekolah can delete for cleanup
+      allow delete: if hasRole('kepala_sekolah');
     }
 
     match /memorandums/{memoId} {
@@ -171,7 +188,8 @@ service cloud.firestore {
       allow create: if hasRole('kepala_sekolah') && 
                     isValidMemorandum(request.resource.data) &&
                      request.resource.data.pengirim_uid == request.auth.uid;
-      allow update, delete: if false;
+      allow delete: if hasRole('kepala_sekolah');
+      allow update: if false;
     }
 
     match /pinjam_hp/{pinjamId} {
@@ -181,12 +199,19 @@ service cloud.firestore {
                     request.resource.data.wali_asuh_uid == request.auth.uid;
       allow update: if hasRole('wali_asuh') && 
                     request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'tgl_kembali']);
-      allow delete: if false;
+      allow delete: if hasRole('kepala_sekolah');
     }
 
     match /siswa/{siswaId} {
       allow read: if isAuthenticated();
       allow write: if hasRole('kepala_sekolah');
+    }
+
+    match /announcements/{annId} {
+      allow read: if isAuthenticated();
+      allow create: if hasRole('kepala_sekolah') && isValidAnnouncement(request.resource.data);
+      allow delete: if hasRole('kepala_sekolah');
+      allow update: if false;
     }
   }
 }

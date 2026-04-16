@@ -102,7 +102,7 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   const valueX = 65;
 
   const details = [
-    { label: 'Nama Lengkap', value: permit.nama_siswa.toUpperCase() },
+    { label: 'Nama Lengkap', value: (permit.nama_siswa || '').toUpperCase() },
     { label: 'Kelas / Jurusan', value: permit.kelas },
     { 
       label: permit.tipe === 'sakit' ? 'Diagnosa Medis' : (permit.tipe === 'umum' ? 'Alasan Izin' : 'Isi Catatan'), 
@@ -213,7 +213,7 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   const typeLabel = permit.tipe === 'sakit' ? 'Surat_Sakit' : 
                     permit.tipe === 'umum' ? 'Ijin_Umum' : 
                     'Catatan_Siswa';
-  const fileName = `${typeLabel}_${permit.nama_siswa.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+  const fileName = `${typeLabel}_${(permit.nama_siswa || '').replace(/\s+/g, '_')}_${Date.now()}.pdf`;
   
   if (Capacitor.isNativePlatform()) {
     try {
@@ -240,6 +240,112 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
     }
   } else {
     // Standard web download
+    doc.save(fileName);
+  }
+};
+
+export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel: string) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- DESIGN: Border & Header ---
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287);
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(79, 70, 229);
+  doc.text('LAPORAN REKAPITULASI PERIZINAN SISWA', 105, 32, { align: 'center' });
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(20, 45, 190, 45);
+
+  // --- REPORT INFO ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Periode Laporan : ${rangeLabel}`, 20, 55);
+  doc.text(`Tanggal Cetak   : ${format(new Date(), 'dd MMMM yyyy, HH:mm')}`, 20, 60);
+  doc.text(`Total Data      : ${permits.length} Kejadian`, 20, 65);
+
+  // --- TABLE HEADER ---
+  const tableTop = 75;
+  doc.setFillColor(240, 240, 240);
+  doc.rect(20, tableTop, 170, 10, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('NO', 25, tableTop + 6.5);
+  doc.text('NAMA SISWA', 35, tableTop + 6.5);
+  doc.text('KELAS', 85, tableTop + 6.5);
+  doc.text('TIPE', 105, tableTop + 6.5);
+  doc.text('STATUS', 130, tableTop + 6.5);
+  doc.text('TANGGAL', 160, tableTop + 6.5);
+
+  // --- TABLE ROWS ---
+  let currentY = tableTop + 10;
+  doc.setFont('helvetica', 'normal');
+  
+  permits.forEach((p, index) => {
+    if (currentY > 260) {
+      doc.addPage();
+      currentY = 20;
+      // Re-draw header on new page if needed, but for simplicity just continue
+    }
+    
+    doc.text((index + 1).toString(), 25, currentY + 6.5);
+    doc.text((p.nama_siswa || '').substring(0, 20), 35, currentY + 6.5);
+    doc.text(p.kelas || '', 85, currentY + 6.5);
+    doc.text((p.tipe || '').toUpperCase(), 105, currentY + 6.5);
+    doc.text((p.status || '').replace('_', ' ').toUpperCase(), 130, currentY + 6.5);
+    const tgl = p.tgl_surat && typeof p.tgl_surat.toDate === 'function' ? format(p.tgl_surat.toDate(), 'dd/MM/yy') : '-';
+    doc.text(tgl, 160, currentY + 6.5);
+    
+    doc.setDrawColor(230, 230, 230);
+    doc.line(20, currentY + 10, 190, currentY + 10);
+    currentY += 10;
+  });
+
+  // --- SIGNATURE ---
+  const footerY = Math.min(currentY + 20, 250);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kediri, ' + format(new Date(), 'dd MMMM yyyy'), 150, footerY, { align: 'center' });
+  doc.text('Kepala Sekolah,', 150, footerY + 5, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('SRMA 24 KEDIRI', 150, footerY + 35, { align: 'center' });
+  doc.line(125, footerY + 36, 175, footerY + 36);
+
+  // --- OUTPUT ---
+  const fileName = `Laporan_Rekap_${rangeLabel.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Rekapitulasi SRMA 24',
+        text: `Laporan Rekapitulasi - ${rangeLabel}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Laporan'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
     doc.save(fileName);
   }
 };
@@ -318,7 +424,7 @@ export const generateMemorandumPDF = async (memo: Memorandum) => {
   const tglMemoStr = memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMMM yyyy') : '-';
   doc.text(`:  ${tglMemoStr}`, 50, infoY + 16);
   doc.setFont('helvetica', 'bold');
-  doc.text(`:  ${memo.perihal.toUpperCase()}`, 50, infoY + 24);
+  doc.text(`:  ${(memo.perihal || '').toUpperCase()}`, 50, infoY + 24);
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.2);
@@ -355,7 +461,7 @@ export const generateMemorandumPDF = async (memo: Memorandum) => {
   doc.text('Keaslian dokumen dapat divalidasi melalui sistem internal sekolah.', 105, 279, { align: 'center' });
 
   // --- OUTPUT ---
-  const fileName = `Memo_${memo.perihal.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+  const fileName = `Memo_${(memo.perihal || '').replace(/\s+/g, '_')}_${Date.now()}.pdf`;
   
   if (Capacitor.isNativePlatform()) {
     try {

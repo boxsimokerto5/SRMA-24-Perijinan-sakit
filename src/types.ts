@@ -56,6 +56,16 @@ export interface Memorandum {
   pengirim_uid: string;
 }
 
+export interface Announcement {
+  id?: string;
+  title: string;
+  content: string;
+  createdAt: Timestamp;
+  authorName: string;
+  authorUid: string;
+  isActive: boolean;
+}
+
 export interface PinjamHP {
   id?: string;
   nama_siswa: string;
@@ -66,6 +76,8 @@ export interface PinjamHP {
   status: 'dipinjam' | 'dikembalikan';
   wali_asuh_name: string;
   wali_asuh_uid: string;
+  penerima_kembali_name?: string;
+  penerima_kembali_uid?: string;
 }
 
 export interface Siswa {

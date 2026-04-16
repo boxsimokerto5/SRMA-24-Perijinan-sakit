@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { db } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
@@ -73,7 +73,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         });
         setStudents(data);
       } catch (err) {
-        console.error("Error fetching students:", err);
+        handleFirestoreError(err, OperationType.LIST, 'siswa');
       }
     };
     fetchStudents();
@@ -128,6 +128,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       });
       // Filter by wali kelas name if user has one (or just show all for demo)
       setPermits(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'izin_sakit');
     });
     return () => unsubscribe();
   }, []);
@@ -141,6 +143,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memorandum));
       setMemos(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'memorandums');
     });
     return () => unsubscribe();
   }, []);
@@ -156,8 +160,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       // Notify Dokter
       notifyUserByRole('dokter', 'Izin Disetujui', `Izin sakit siswa telah disetujui oleh Wali Kelas.`);
     } catch (err) {
-      console.error(err);
-      alert('Gagal menyetujui perizinan');
+      handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
       setLoading(false);
     }
@@ -659,7 +662,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                         selectedPermit.status === 'pending_kelas' ? 'bg-amber-50 text-amber-600' :
                         'bg-indigo-50 text-indigo-600'
                       }`}>
-                        {selectedPermit.status.replace('_', ' ')}
+                        {(selectedPermit.status || '').replace('_', ' ')}
                       </span>
                     </div>
                   </div>
@@ -713,7 +716,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                   <Check className="w-4 h-4" /> Setujui Izin
                 </button>
               )}
-              {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && selectedPermit.tipe !== 'catatan' && (
+              {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(selectedPermit);

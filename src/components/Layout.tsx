@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, User, LayoutDashboard, History, BarChart3, Search, Bell as BellIcon, X, ChevronRight, Info } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, History, BarChart3, Search, Bell as BellIcon, X, ChevronRight, Info, Bell } from 'lucide-react';
 import Logo from './Logo';
-import { auth } from '../firebase';
-import { AppUser } from '../types';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import { AppUser, Announcement } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,24 +16,36 @@ interface LayoutProps {
 export default function Layout({ children, user, activeTab = 'dashboard', onTabChange }: LayoutProps) {
   const [showBanner, setShowBanner] = useState(true);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const banners = [
+  useEffect(() => {
+    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+      setAnnouncements(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'announcements');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const defaultBanners = [
     {
-      id: 1,
+      id: 'def-1',
       title: "Informasi Kesehatan",
       content: "Jaga kebersihan diri dan lingkungan asrama untuk mencegah penyebaran penyakit.",
       color: "from-indigo-600 to-violet-600",
       icon: Info
     },
     {
-      id: 2,
+      id: 'def-2',
       title: "Update Sistem",
       content: "Fitur Kartu Siswa kini lebih lengkap dengan data orang tua dan alamat.",
       color: "from-emerald-600 to-teal-600",
       icon: BarChart3
     },
     {
-      id: 3,
+      id: 'def-3',
       title: "Pemberitahuan",
       content: "Pastikan semua perizinan sakit telah diverifikasi oleh dokter UKS.",
       color: "from-amber-500 to-orange-600",
@@ -40,7 +53,19 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
     }
   ];
 
+  const banners = announcements.length > 0 
+    ? announcements.map(ann => ({
+        id: ann.id,
+        title: ann.title,
+        content: ann.content,
+        color: "from-rose-600 to-orange-600",
+        icon: Bell,
+        author: "Kepala Sekolah"
+      }))
+    : defaultBanners.map(b => ({ ...b, author: "Sistem" }));
+
   useEffect(() => {
+    if (banners.length === 0) return;
     const timer = setInterval(() => {
       setBannerIndex((prev) => (prev + 1) % banners.length);
     }, 5000);
@@ -84,9 +109,9 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
         </div>
       </header>
 
-      {/* Information Banner */}
+      {/* Top Banner / Announcement */}
       <AnimatePresence mode="wait">
-        {showBanner && (
+        {showBanner && banners.length > 0 && banners[bannerIndex] && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -101,7 +126,12 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                       {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5" })}
                     </div>
                     <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest opacity-80">{banners[bannerIndex].title}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-black uppercase tracking-widest opacity-80">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author}
+                        </span>
+                      </div>
                       <p className="text-sm font-medium leading-tight mt-0.5">{banners[bannerIndex].content}</p>
                     </div>
                   </div>

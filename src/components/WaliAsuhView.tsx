@@ -12,7 +12,7 @@ import {
   Cell
 } from 'recharts';
 import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp } from 'lucide-react';
-import { db } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas } from '../types';
 import { notifyUserByRole } from '../services/fcmService';
@@ -54,6 +54,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
   const [showStudentSuggestions, setShowStudentSuggestions] = useState(false);
+  const [selectedPinjam, setSelectedPinjam] = useState<PinjamHP | null>(null);
   
   const [phFilteredStudentsList, setPhFilteredStudentsList] = useState<Siswa[]>([]);
   const [phShowSuggestions, setPhShowSuggestions] = useState(false);
@@ -211,6 +212,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         } as IzinSakit;
       });
       setPermits(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'izin_sakit');
     });
     return () => unsubscribe();
   }, []);
@@ -224,6 +227,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memorandum));
       setMemos(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'memorandums');
     });
     return () => unsubscribe();
   }, []);
@@ -243,6 +248,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         } as PinjamHP;
       });
       setPinjamHPList(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'pinjam_hp');
     });
 
     // Auto-cleanup: Delete records older than 2 days
@@ -284,6 +291,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         } as Siswa;
       });
       setStudents(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'siswa');
     });
     return () => unsubscribe();
   }, []);
@@ -335,8 +344,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       setAlasan('');
       setJumlahHari(1);
     } catch (err) {
-      console.error(err);
-      alert('Gagal membuat surat izin');
+      handleFirestoreError(err, OperationType.WRITE, 'izin_sakit');
     } finally {
       setLoading(false);
     }
@@ -366,8 +374,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       delete newNotes[permitId];
       setCatatanKamar(newNotes);
     } catch (err) {
-      console.error(err);
-      alert('Gagal memperbarui status');
+      handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
       setLoading(false);
     }
@@ -392,8 +399,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       setPhShowSuggestions(false);
       setPhFilteredStudentsList([]);
     } catch (err) {
-      console.error(err);
-      alert('Gagal mencatat peminjaman HP');
+      handleFirestoreError(err, OperationType.WRITE, 'pinjam_hp');
     } finally {
       setLoading(false);
     }
@@ -405,10 +411,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       await updateDoc(doc(db, 'pinjam_hp', id), {
         status: 'dikembalikan',
         tgl_kembali: Timestamp.now(),
+        penerima_kembali_name: user.name,
+        penerima_kembali_uid: user.uid,
       });
     } catch (err) {
-      console.error(err);
-      alert('Gagal mencatat pengembalian HP');
+      handleFirestoreError(err, OperationType.UPDATE, `pinjam_hp/${id}`);
     } finally {
       setLoading(false);
     }
@@ -428,8 +435,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       });
       setNewTindakan('');
     } catch (err) {
-      console.error(err);
-      alert('Gagal menambah tindakan');
+      handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
       setLoading(false);
     }
@@ -1039,7 +1045,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 key={item.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative overflow-hidden group"
+                onClick={() => setSelectedPinjam(item)}
+                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative overflow-hidden group cursor-pointer hover:border-indigo-300 transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
@@ -1290,7 +1297,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       currentSelectedPermit.status === 'pending_kelas' ? 'bg-amber-100 text-amber-700' :
                       'bg-indigo-100 text-indigo-700'
                     }`}>
-                      {currentSelectedPermit.status.replace('_', ' ')}
+                      {(currentSelectedPermit.status || '').replace('_', ' ')}
                     </span>
                   </div>
                 </div>
@@ -1401,7 +1408,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               >
                 Tutup
               </button>
-              {currentSelectedPermit.status === 'approved' && (
+              {(currentSelectedPermit.status === 'approved' || currentSelectedPermit.status === 'acknowledged') && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(currentSelectedPermit);
@@ -1413,6 +1420,67 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   Cetak PDF
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detail Pinjam HP */}
+      {selectedPinjam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-xl">
+                  <Smartphone className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900">Detail Peminjaman HP</h3>
+                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Status: {selectedPinjam.status}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPinjam(null)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+              >
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="text-center pb-6 border-b border-slate-100">
+                <h2 className="text-2xl font-black text-slate-900 font-display">{selectedPinjam.nama_siswa}</h2>
+                <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mt-1">Kelas {selectedPinjam.kelas}</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Keperluan</label>
+                  <p className="text-sm font-medium text-slate-700">{selectedPinjam.keperluan}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                    <label className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">Waktu Pinjam</label>
+                    <p className="text-xs font-black text-slate-900">{selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'dd MMM, HH:mm') : '-'}</p>
+                    <p className="text-[9px] text-slate-500 mt-1">Oleh: {selectedPinjam.wali_asuh_name}</p>
+                  </div>
+                  <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                    <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest block mb-1">Waktu Kembali</label>
+                    <p className="text-xs font-black text-slate-900">{selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'dd MMM, HH:mm') : '-'}</p>
+                    <p className="text-[9px] text-slate-500 mt-1">Oleh: {selectedPinjam.penerima_kembali_name || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedPinjam(null)}
+                className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>
