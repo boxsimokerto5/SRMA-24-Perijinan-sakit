@@ -28,6 +28,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.12
+
       - name: Install Dependencies
         run: npm install
 
@@ -48,16 +53,6 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Generate Release Keystore
         run: |
           keytool -genkey -v -keystore release.keystore -alias srma_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass srma123456 -keypass srma123456 -dname "CN=SRMA 24, OU=IT, O=SRMA, L=Kediri, S=East Java, C=ID"
@@ -65,8 +60,7 @@ jobs:
       - name: Build Release APK
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease
+          gradle assembleRelease
         env:
           # We can pass signing info to gradle via project properties if needed
           # For this automated script, we'll sign it in the next step
@@ -86,7 +80,7 @@ jobs:
       - name: Build Debug APK (Optional)
         run: |
           cd android
-          ./gradlew assembleDebug
+          gradle assembleDebug
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
