@@ -17,9 +17,9 @@ Aplikasi ini telah dikonfigurasi menggunakan **Capacitor** untuk diubah menjadi 
 
 ## Tentang Keystore Otomatis:
 Workflow ini telah dikonfigurasi untuk membuat **Keystore otomatis** menggunakan perintah `keytool`. 
-- **Alias:** `srma-alias`
-- **Password:** `mypassword`
-- **Lokasi:** `release-key.keystore`
+- **Alias:** `srma_alias`
+- **Password:** `srma123456`
+- **Lokasi:** `release.keystore`
 
 > **Catatan Keamanan:** Untuk rilis produksi ke Google Play Store, sangat disarankan untuk membuat keystore secara manual dan menyimpannya di **GitHub Secrets** daripada membuatnya secara otomatis di dalam script.
 
