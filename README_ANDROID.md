@@ -3,9 +3,9 @@
 Aplikasi ini telah dikonfigurasi menggunakan **Capacitor** untuk diubah menjadi aplikasi Android (APK).
 
 ## Konfigurasi Ikon & Splash Screen:
-1. **Siapkan Logo:** Unggah file gambar logo Anda ke root directory dengan nama `logo.png` (minimal 1024x1024px).
+1. **Siapkan Logo:** Unggah file gambar logo Anda ke root directory dengan nama `logo.svg`.
 2. **Generate Assets:** Jalankan perintah `npm run cap:assets` di terminal (atau biarkan GitHub Actions melakukannya secara otomatis).
-3. **GitHub Actions:** Workflow build sudah dikonfigurasi untuk mendeteksi `logo.png` dan membuat ikon aplikasi secara otomatis jika file tersebut ada.
+3. **GitHub Actions:** Workflow build sudah dikonfigurasi untuk mendeteksi `logo.svg` dan membuat ikon aplikasi secara otomatis.
 
 ## Cara Menggunakan GitHub Actions:
 1. **Push ke GitHub:** Pastikan semua file (termasuk `.github/workflows/android_build.yml` dan `capacitor.config.json`) sudah di-push ke repositori GitHub Anda.

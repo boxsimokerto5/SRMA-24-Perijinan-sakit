@@ -9,11 +9,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "logo:generate": "npx -y sharp-cli -i logo.svg -o logo.png --width 1024 --height 1024",
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
     "cap:add": "npx cap add android",
-    "cap:assets": "npm run logo:generate && npx @capacitor/assets generate --android"
+    "cap:assets": "npx @capacitor/assets generate --android --icon-source logo.svg --splash-source logo.svg"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
