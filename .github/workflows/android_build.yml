@@ -42,13 +42,12 @@ jobs:
 
       - name: Generate App Assets (Icons & Splash)
         run: |
-          if [ -f "logo.svg" ]; then
-            mkdir -p resources
+          if [ -d "assets" ]; then
             npm run cap:assets
             # Copy generated assets to android project
             cp -r resources/android/* android/app/src/main/res/ || true
           else
-            echo "logo.svg not found, skipping asset generation"
+            echo "assets directory not found, skipping asset generation"
           fi
 
       - name: Sync Capacitor Android

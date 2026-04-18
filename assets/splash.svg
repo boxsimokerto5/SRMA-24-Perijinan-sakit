@@ -1,0 +1,11 @@
+<svg width="2732" height="2732" viewBox="0 0 2732 2732" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2732" height="2732" fill="#3B82F6"/>
+  <!-- Centered Logo -->
+  <g transform="translate(854, 854) scale(1)">
+    <!-- Main Rounded Background -->
+    <rect x="0" y="0" width="1024" height="1024" rx="286" fill="white" fill-opacity="0.1" />
+    <!-- Bell Icon -->
+    <path d="M512 180C390 180 290 280 290 400V600L220 720H804L734 600V400C734 280 634 180 512 180Z" fill="white" />
+    <path d="M430 760C430 804 466 840 512 840C558 840 594 804 594 760H430Z" fill="white" />
+  </g>
+</svg>

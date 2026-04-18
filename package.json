@@ -12,7 +12,7 @@
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
     "cap:add": "npx cap add android",
-    "cap:assets": "npx @capacitor/assets generate --android --icon-source logo.svg --splash-source logo.svg"
+    "cap:assets": "npx @capacitor/assets generate --android"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
