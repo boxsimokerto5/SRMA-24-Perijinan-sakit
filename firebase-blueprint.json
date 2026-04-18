@@ -78,6 +78,21 @@
         "ibu": { "type": "string" }
       },
       "required": ["nik", "nama_lengkap", "kelas"]
+    },
+    "AppNotification": {
+      "title": "App Notification",
+      "description": "System notifications for users",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "readBy": { "type": "array", "items": { "type": "string" } },
+        "recipientRoles": { "type": "array", "items": { "type": "string" } },
+        "link": { "type": "string" }
+      },
+      "required": ["title", "description", "type", "createdAt", "readBy", "recipientRoles"]
     }
   },
   "firestore": {
@@ -96,6 +111,10 @@
     "/siswa/{siswaId}": {
       "schema": "Siswa",
       "description": "Student master data"
+    },
+    "/notifications/{notifId}": {
+      "schema": "AppNotification",
+      "description": "System-wide notifications"
     }
   }
 }

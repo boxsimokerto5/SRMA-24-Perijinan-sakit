@@ -15,7 +15,7 @@ import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2,
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas } from '../types';
-import { notifyUserByRole } from '../services/fcmService';
+import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
@@ -341,8 +341,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         status: 'pending_kelas', // Langsung ke Wali Kelas
       });
 
-      // Notify Wali Kelas
-      notifyUserByRole('wali_kelas', 'Izin Umum Baru', `Siswa ${namaSiswa} memerlukan persetujuan izin umum.`);
+      // Notify relevant roles
+      notifyAllRoles(['wali_kelas', 'kepala_sekolah'], 'Izin Umum Baru', `Wali Asuh ${user.name} membuat riwayat izin umum untuk ${namaSiswa}.`);
 
       setShowForm(false);
       // Reset form
@@ -373,8 +373,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         nama_wali_asuh: user.name,
       });
 
-      // Notify Wali Kelas
-      notifyUserByRole('wali_kelas', 'Persetujuan Izin Dibutuhkan', `Siswa di kelas Anda memerlukan persetujuan izin sakit.`);
+      // Notify relevant roles
+      notifyAllRoles(['wali_kelas', 'kepala_sekolah'], 'Persetujuan Izin Dibutuhkan', `Siswa di kelas Anda memerlukan persetujuan izin (Wali Asuh: ${user.name}).`);
 
       // Clear note for this permit
       const newNotes = { ...catatanKamar };
@@ -400,6 +400,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         wali_asuh_name: user.name,
         wali_asuh_uid: user.uid,
       });
+
+      // Notify Kepala Sekolah
+      notifyAllRoles(['kepala_sekolah'], 'Peminjaman HP Baru', `Wali Asuh ${user.name} membuat riwayat pinjam HP untuk ${phNamaSiswa}.`);
+
       setShowPinjamForm(false);
       setPhNamaSiswa('');
       setPhKeperluan('');
@@ -440,6 +444,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           pesan: newTindakan
         })
       });
+
+      // Notify others about log activity
+      notifyAllRoles(['dokter', 'wali_kelas', 'kepala_sekolah'], 'Update Riwayat Tindakan', `Wali Asuh ${user.name} menambahkan catatan tindakan untuk siswa.`);
+      
       setNewTindakan('');
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);

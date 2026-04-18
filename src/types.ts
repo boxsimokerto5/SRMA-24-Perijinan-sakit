@@ -105,6 +105,17 @@ export interface Siswa {
   ibu?: string;
 }
 
+export interface AppNotification {
+  id?: string;
+  title: string;
+  description: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  createdAt: Timestamp;
+  readBy: string[];
+  recipientRoles: UserRole[];
+  link?: string;
+}
+
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
   // Trim and convert to upper case for consistency

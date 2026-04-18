@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs } from 'firebase/firestore';
 import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas } from '../types';
-import { notifyUserByRole } from '../services/fcmService';
+import { notifyAllRoles } from '../services/fcmService';
 import { 
   BarChart, 
   Bar, 
@@ -58,6 +58,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa'>('perizinan');
   const [selectedClass, setSelectedClass] = useState('Semua');
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
   const classes = ['Semua', ...Array.from(new Set(students.map(s => s.kelas))).filter(Boolean).sort()];
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
@@ -244,8 +245,8 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         dokter_uid: user.uid,
       });
 
-      // Notify Wali Asuh
-      notifyUserByRole('wali_asuh', 'Permintaan Izin Baru', `Siswa ${namaSiswa} memerlukan izin sakit.`);
+      // Notify relevant roles
+      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Izin Sakit Baru', `Dokter ${user.name} membuat riwayat izin sakit untuk ${namaSiswa}.`);
 
       setShowForm(false);
       // Reset form
@@ -802,17 +803,21 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                                      (s.nik && s.nik.includes(studentSearchTerm));
                 return matchesClass && matchesSearch;
               })
-              .map((student) => (
-                <motion.div
-                  key={student.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  className="relative bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm overflow-hidden group hover:border-teal-400/50 hover:shadow-xl hover:shadow-teal-500/5 transition-all duration-500"
-                >
+              .map((student) => {
+                const isFemale = student.jenis_kelamin?.toLowerCase().startsWith('p');
+                const colorClass = isFemale ? 'pink' : 'blue';
+                return (
+                  <motion.div
+                    key={student.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    onClick={() => setSelectedStudent(student)}
+                    className={`relative bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm overflow-hidden group hover:border-${colorClass}-400/50 hover:shadow-xl hover:shadow-${colorClass}-500/5 cursor-pointer transition-all duration-500`}
+                  >
                   {/* Medical Aesthetics */}
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 group-hover:rotate-12 transition-all duration-700">
-                    <Stethoscope className="w-24 h-24 text-teal-600" />
+                    <Stethoscope className={`w-24 h-24 text-${colorClass}-600`} />
                   </div>
                   
                   <div className="p-6">
@@ -820,7 +825,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                          <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 ring-4 ring-white shadow-sm transition-transform group-hover:scale-110 group-hover:rotate-3 duration-500">
+                          <div className={`w-14 h-14 rounded-2xl bg-${colorClass}-50 flex items-center justify-center text-${colorClass}-600 ring-4 ring-white shadow-sm transition-transform group-hover:scale-110 group-hover:rotate-3 duration-500`}>
                             <span className="text-xl font-black uppercase">{student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}</span>
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-lg shadow-sm flex items-center justify-center border border-slate-100">
@@ -828,9 +833,9 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                           </div>
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-black text-slate-900 leading-tight group-hover:text-teal-600 transition-colors uppercase text-sm mb-1">{student.nama_lengkap || 'Tanpa Nama'}</h3>
+                          <h3 className={`font-black text-slate-900 leading-tight group-hover:text-${colorClass}-600 transition-colors uppercase text-sm mb-1`}>{student.nama_lengkap || 'Tanpa Nama'}</h3>
                           <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded-md text-[8px] font-black uppercase tracking-widest">{student.kelas}</span>
+                            <span className={`px-2 py-0.5 bg-${colorClass}-100 text-${colorClass}-700 rounded-md text-[8px] font-black uppercase tracking-widest`}>{student.kelas}</span>
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">{student.asrama || 'ASRAMA'}</span>
                           </div>
                         </div>
@@ -838,29 +843,42 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                     </div>
 
                     {/* Data Grid: Technical/Precision Look */}
-                    <div className="grid grid-cols-2 gap-2 mb-6">
+                    <div className="grid grid-cols-1 gap-2 mb-6">
                       <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100/50 group-hover:bg-white transition-colors duration-500">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 italic">
-                          <ShieldCheck className="w-3 h-3 text-teal-500" /> NISN
-                        </p>
-                        <p className="text-xs font-mono font-bold text-slate-600 tracking-tight">{student.nisn || '0000000000'}</p>
+                        <div className="flex justify-between items-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 italic">
+                            <ShieldCheck className={`w-3 h-3 text-${colorClass}-500`} /> NIK
+                          </p>
+                          <p className="text-xs font-mono font-bold text-slate-600 tracking-tight">{student.nik || '-'}</p>
+                        </div>
                       </div>
                       <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100/50 group-hover:bg-white transition-colors duration-500">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 italic">
-                          <Calendar className="w-3 h-3 text-orange-500" /> TTL
-                        </p>
-                        <p className="text-xs font-bold text-slate-600 truncate tracking-tight">{student.ttl || '-'}</p>
+                        <div className="flex justify-between items-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 italic">
+                            <Calendar className="w-3 h-3 text-orange-500" /> TTL
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-600 truncate tracking-tight">{student.ttl || '-'}</p>
+                        </div>
+                      </div>
+                      <div className={`p-3 bg-${colorClass}-50/30 rounded-2xl border border-${colorClass}-100/50 group-hover:bg-white transition-colors duration-500`}>
+                        <div className="flex justify-between items-center">
+                          <p className={`text-[8px] font-black text-${colorClass}-400 uppercase tracking-widest flex items-center gap-1.5 italic`}>
+                            <User className="w-3 h-3" /> AYAH/IBU
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-600 truncate max-w-[150px]">{student.ayah || '-'} / {student.ibu || '-'}</p>
+                        </div>
                       </div>
                     </div>
 
                     {/* Action Bar/Footer */}
                     <div className="pt-4 border-t border-dashed border-slate-100 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status: Aktif</span>
+                        <div className={`w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Detail Siswa</span>
                       </div>
                       <button 
-                         onClick={() => {
+                         onClick={(e) => {
+                           e.stopPropagation();
                            setNamaSiswa(student.nama_lengkap);
                            setKelas(student.kelas);
                            const wk = WALI_KELAS_LIST.find(w => w.kelas === student.kelas);
@@ -868,14 +886,15 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                            setViewMode('perizinan');
                            setShowForm(true);
                          }}
-                         className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-600 hover:text-white transition-all shadow-sm"
+                         className={`flex items-center gap-1.5 px-3 py-1.5 bg-${colorClass}-50 text-${colorClass}-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-${colorClass}-600 hover:text-white transition-all shadow-sm`}
                       >
                         <Plus className="w-3 h-3" /> Rekam Medis
                       </button>
                     </div>
                   </div>
                 </motion.div>
-              ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1103,6 +1122,122 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                 className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
               >
                 <Printer className="w-4 h-4" /> Cetak PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detail Siswa Lengkap */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+            <div className={`p-8 border-b border-slate-100 flex items-center justify-between ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-50' : 'bg-blue-50'}`}>
+              <div className="flex items-center gap-5">
+                <div className={`w-20 h-20 rounded-[2rem] bg-white flex items-center justify-center shadow-lg shadow-black/5`}>
+                  <span className={`text-2xl font-black ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'text-pink-600' : 'text-blue-600'}`}>
+                    {selectedStudent.nama_lengkap.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-2">{selectedStudent.nama_lengkap}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-600 text-white' : 'bg-blue-600 text-white'}`}>
+                      {selectedStudent.kelas}
+                    </span>
+                    <span className="px-2.5 py-1 bg-white/80 text-slate-500 text-[10px] font-black rounded-lg uppercase tracking-widest border border-slate-200/50">
+                      {selectedStudent.asrama || 'ASRAMA'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedStudent(null)} 
+                className="p-3 hover:bg-white rounded-full transition-all text-slate-400 hover:text-slate-600 shadow-sm"
+              >
+                <Plus className="w-8 h-8 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Data Pribadi */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-1.5 h-6 rounded-full ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Data Personal</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nomor Induk Kependudukan (NIK)</label>
+                      <p className="text-sm font-mono font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">{selectedStudent.nik || '-'}</p>
+                    </div>
+                    
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tempat, Tanggal Lahir</label>
+                      <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ttl || `${selectedStudent.tempat_lahir}, ${selectedStudent.tanggal_lahir}` || '-'}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Jenis Kelamin</label>
+                        <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.jenis_kelamin || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Agama</label>
+                        <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.agama || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Keluarga & Alamat */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-1.5 h-6 rounded-full ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Keluarga & Alamat</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="group">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ayah</label>
+                        <p className="text-sm font-black text-slate-700 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ayah || '-'}</p>
+                      </div>
+                      <div className="group">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ibu</label>
+                        <p className="text-sm font-black text-slate-700 bg-rose-50/30 p-4 rounded-2xl border border-rose-100 group-hover:border-rose-200 transition-all">{selectedStudent.ibu || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Alamat Lengkap</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed mb-2">{selectedStudent.alamat || 'Alamat tidak tersedia'}</p>
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50">
+                          <span className="text-[9px] font-black text-slate-400 uppercase">Kec: {selectedStudent.kecamatan || '-'}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase">Kel: {selectedStudent.kelurahan || '-'}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase">RT/RW: {selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Siswa ke-</label>
+                      <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <button 
+                onClick={() => setSelectedStudent(null)}
+                className="w-full py-5 bg-white border border-slate-200 text-slate-600 font-black rounded-[2rem] hover:bg-slate-100 hover:shadow-lg transition-all uppercase tracking-widest text-xs"
+              >
+                Tutup Profil Siswa
               </button>
             </div>
           </div>

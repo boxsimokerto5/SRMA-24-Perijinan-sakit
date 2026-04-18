@@ -35,4 +35,45 @@
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600;
   }
+
+  .animate-flowing-text {
+    background-size: 200% auto;
+    animation: flowing-text 8s linear infinite;
+  }
+
+  @keyframes flowing-text {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .dynamic-border {
+    position: relative;
+    background: white;
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+
+  .dynamic-border::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: -1;
+    margin: -2px;
+    border-radius: inherit;
+    background: linear-gradient(to right, #6366f1, #a855f7, #ec4899, #f43f5e, #6366f1);
+    background-size: 200% auto;
+    animation: flowing-text 4s linear infinite;
+  }
+
+  .animate-flowing-bg {
+    background-size: 400% 400%;
+    animation: flowing-bg 15s ease infinite;
+  }
+
+  @keyframes flowing-bg {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
 }

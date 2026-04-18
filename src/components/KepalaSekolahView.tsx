@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, addDoc, deleteDoc, doc, where, getDocs, writeBatch } from 'firebase/firestore';
-import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement } from '../types';
+import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa } from '../types';
+import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, subDays } from 'date-fns';
 import { 
   BarChart, 
@@ -84,26 +85,85 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportRange, setReportRange] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini'>('hari_ini');
   const [reportLoading, setReportLoading] = useState(false);
+  const [showHistoryDetail, setShowHistoryDetail] = useState<any>(null);
 
   // Student Cards States
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Siswa[]>([]);
   const [selectedClass, setSelectedClass] = useState('Semua');
+  const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const classes = ['Semua', ...Array.from(new Set(students.map(s => s.kelas))).filter(Boolean).sort()];
 
+  // History Data
+  const combinedHistory = React.useMemo(() => {
+    // Transform permits into history items
+    const permitHistory = permits.map(p => ({
+      id: p.id,
+      title: p.nama_siswa,
+      subtitle: p.kelas,
+      type: p.tipe === 'sakit' ? 'Dokter' : (p.tipe === 'catatan' ? 'Wali Kelas' : 'Wali Asuh'),
+      category: p.tipe,
+      date: p.tgl_surat?.toDate(),
+      details: p.diagnosa || p.alasan || p.isi_catatan,
+      status: p.status,
+      raw: p,
+      origin: 'izin_sakit'
+    }));
+
+    return [...permitHistory].sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+  }, [permits]);
+
+  const filteredHistory = combinedHistory.filter(item => {
+    const itemDate = item.date;
+    if (!itemDate) return false;
+
+    // Time Filter Logic
+    let matchesTime = true;
+    if (timeFilter === 'hari_ini') matchesTime = isToday(itemDate);
+    else if (timeFilter === 'kemarin') matchesTime = isYesterday(itemDate);
+    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(itemDate, { weekStartsOn: 1 });
+    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(itemDate);
+
+    const matchesSearch = 
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.details && item.details.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    return matchesSearch && matchesTime;
+  });
+
   useEffect(() => {
-    const q = query(collection(db, 'siswa'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() as any,
-        kelas: normalizeKelas((doc.data() as any).kelas)
-      })).sort((a, b) => (a.nama_lengkap || '').localeCompare(b.nama_lengkap || ''));
-      setStudents(data);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'siswa');
+    setLoading(true);
+    const qPermits = query(collection(db, 'izin_sakit'), orderBy('tgl_surat', 'desc'));
+    const unsubscribePermits = onSnapshot(qPermits, (snapshot) => {
+      setPermits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IzinSakit)));
+      setLoading(false);
     });
-    return () => unsubscribe();
+
+    const qMemos = query(collection(db, 'memorandums'), orderBy('tgl_memo', 'desc'));
+    const unsubscribeMemos = onSnapshot(qMemos, (snapshot) => {
+      setMemos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memorandum)));
+    });
+
+    const qAnnouncements = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    const unsubscribeAnnouncements = onSnapshot(qAnnouncements, (snapshot) => {
+      setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement)));
+    });
+
+    const qSiswa = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
+    const unsubscribeSiswa = onSnapshot(qSiswa, (snapshot) => {
+      setStudents(snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() as Siswa,
+        kelas: normalizeKelas((doc.data() as any).kelas)
+      })));
+    });
+
+    return () => {
+      unsubscribePermits();
+      unsubscribeMemos();
+      unsubscribeAnnouncements();
+      unsubscribeSiswa();
+    };
   }, []);
 
   const handleAddTindakan = async (permitId: string) => {
@@ -119,6 +179,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
           pesan: newTindakan
         })
       });
+
+      // Notify others
+      notifyAllRoles(['dokter', 'wali_asuh', 'wali_kelas'], 'Update Riwayat Tindakan', `Kepala Sekolah ${user.name} menambahkan catatan tindakan baru.`);
+
       setNewTindakan('');
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
@@ -172,6 +236,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         authorUid: user.uid,
         isActive: true
       });
+
+      // Broadcast Notification
+      notifyAllRoles(['dokter', 'wali_asuh', 'wali_kelas'], 'Pengumuman Baru', `Ada pengumuman baru dari Kepala Sekolah: ${newAnnouncement.title}`);
+
       setNewAnnouncement({ title: '', content: '' });
       setShowAnnouncementModal(false);
     } catch (err) {
@@ -182,7 +250,6 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    // Custom modal replacement for confirm could go here, but focusing on rules error
     try {
       await deleteDoc(doc(db, 'announcements', id));
     } catch (err) {
@@ -205,7 +272,6 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         const conf = [
           { col: 'izin_sakit', field: 'tgl_surat' },
           { col: 'memorandums', field: 'tgl_memo' },
-          { col: 'pinjam_hp', field: 'tgl_pinjam' },
           { col: 'announcements', field: 'createdAt' },
         ];
 
@@ -224,61 +290,6 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       }
     };
     autoCleanup();
-  }, []);
-
-  useEffect(() => {
-    const qPermits = query(
-      collection(db, 'izin_sakit'),
-      orderBy('tgl_surat', 'desc')
-    );
-
-    const unsubscribePermits = onSnapshot(qPermits, (snapshot) => {
-      const data = snapshot.docs.map(doc => {
-        const rawData = doc.data() as IzinSakit;
-        return { 
-          id: doc.id, 
-          ...rawData,
-          kelas: normalizeKelas(rawData.kelas)
-        } as IzinSakit;
-      });
-      setPermits(data);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'izin_sakit');
-    });
-
-    const qMemos = query(
-      collection(db, 'memorandums'),
-      orderBy('tgl_memo', 'desc')
-    );
-
-    const unsubscribeMemos = onSnapshot(qMemos, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Memorandum[];
-      setMemos(data);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'memorandums');
-    });
-
-    const qAnnouncements = query(
-      collection(db, 'announcements'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribeAnnouncements = onSnapshot(qAnnouncements, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
-      setAnnouncements(data);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'announcements');
-    });
-
-    return () => {
-      unsubscribePermits();
-      unsubscribeMemos();
-      unsubscribeAnnouncements();
-    };
   }, []);
 
   const handleSendMemo = async (e: React.FormEvent) => {
@@ -301,6 +312,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       };
       
       await addDoc(collection(db, 'memorandums'), memoData);
+
+      // Notify targeted roles
+      notifyAllRoles(newMemo.penerima, 'Memorandum Baru', `Kepala Sekolah mengirimkan memorandum: ${newMemo.perihal}`);
+
       setShowMemoModal(false);
       setNewMemo({ perihal: '', isi: '', penerima: [] });
     } catch (error) {
@@ -674,136 +689,121 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             </div>
           )}
 
-          {/* Riwayat Terakhir Header */}
+          {/* Riwayat Aktivitas Header */}
           <div className="flex items-center justify-between mt-4">
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">
-              {activeTab === 'dashboard' ? 'Riwayat Terakhir' : 'Daftar Perizinan'}
-            </h2>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Aktivitas</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Konsolidasi Data Seluruh Staf</p>
+            </div>
             <button 
               onClick={() => {
                 setSearchTerm('');
-                setFilterType('all');
-                setFilterStatus('all');
-                setStartDate('');
-                setEndDate('');
                 setTimeFilter('hari_ini');
               }}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+              className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-widest bg-indigo-50 px-3 py-1.5 rounded-full"
             >
-              Reset Filter
+              Reset
             </button>
           </div>
 
-          {/* Filters & Search - Show in Riwayat tab or if searching in Dashboard */}
-          {(activeTab === 'riwayat' || searchTerm) && (
-            <div className="space-y-6">
-              {/* Horizontal Time Categories */}
-              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                {[ 
-                  { id: 'hari_ini', label: 'Hari Ini' },
-                  { id: 'kemarin', label: 'Kemarin' },
-                  { id: 'minggu_ini', label: 'Minggu Ini' },
-                  { id: 'bulan_ini', label: 'Bulan Ini' },
-                  { id: 'semua', label: 'Semua' }
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setTimeFilter(cat.id as any)}
-                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                      timeFilter === cat.id
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
+          <div className="space-y-6">
+            {/* Horizontal Time Categories */}
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {[ 
+                { id: 'hari_ini', label: 'Hari Ini' },
+                { id: 'kemarin', label: 'Kemarin' },
+                { id: 'minggu_ini', label: 'Satu Minggu' },
+                { id: 'bulan_ini', label: 'Satu Bulan' },
+                { id: 'semua', label: 'Semua' }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setTimeFilter(cat.id as any)}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                    timeFilter === cat.id
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                      : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari nama siswa atau nomor surat..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="all">Semua Tipe</option>
-                      <option value="sakit">Izin Sakit</option>
-                      <option value="umum">Izin Umum</option>
-                      <option value="catatan">Catatan</option>
-                    </select>
-                  </div>
-                </div>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-4">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa atau detail riwayat..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                />
               </div>
             </div>
-          )}
-
-      {/* List Perizinan - Banner Style */}
-      <div className="grid grid-cols-1 gap-3">
-        {filteredPermits.map((permit) => (
-          <motion.div 
-            key={permit.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={() => setSelectedPermit(permit)}
-            className={`group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border-l-8 hover:shadow-md transition-all cursor-pointer ${
-              permit.tipe === 'sakit' ? 'border-emerald-500' :
-              permit.tipe === 'umum' ? 'border-blue-500' :
-              'border-amber-500'
-            }`}
-          >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-              permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
-              permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
-              'bg-amber-50 text-amber-600'
-            }`}>
-              <User className="w-6 h-6" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 truncate">{permit.nama_siswa} ({permit.kelas})</h3>
-                <span className={`px-2 py-0.5 text-[8px] font-black rounded uppercase tracking-tighter shrink-0 border ${
-                  permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                  permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                  'bg-amber-50 text-amber-600 border-amber-100'
-                }`}>
-                  {permit.tipe === 'sakit' ? 'Input Dokter' : 
-                   permit.tipe === 'umum' ? 'Izin Wali Asuh' : 
-                   'Input Wali Kelas'}
-                </span>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                {permit.tipe === 'sakit' ? 'Sakit' : permit.tipe === 'umum' ? 'Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Selesai' : 'Verifikasi'}
-              </p>
-              <p className="text-[9px] font-bold text-indigo-500 mt-0.5">
-                {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
-              </p>
-            </div>
-            <div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
-              <ChevronRight className="w-5 h-5" />
-            </div>
-          </motion.div>
-        ))}
-
-        {filteredPermits.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-            <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <h3 className="text-slate-900 font-bold">Tidak Ada Data</h3>
-            <p className="text-slate-500 text-sm mt-1">Tidak ditemukan perizinan yang sesuai dengan filter.</p>
           </div>
-        )}
-      </div>
+
+          {/* List Riwayat - Combined & Color Coded */}
+          <div className="grid grid-cols-1 gap-3">
+            {filteredHistory.map((item) => (
+              <motion.div 
+                key={item.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                onClick={() => {
+                  if (item.origin === 'izin_sakit') setSelectedPermit(item.raw as IzinSakit);
+                  else setShowHistoryDetail(item);
+                }}
+                className={`group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border-l-8 hover:shadow-md transition-all cursor-pointer ${
+                  item.category === 'sakit' ? 'border-emerald-500' :
+                  item.category === 'umum' ? 'border-blue-500' :
+                  'border-amber-500'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  item.category === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
+                  item.category === 'umum' ? 'bg-blue-50 text-blue-600' :
+                  'bg-amber-50 text-amber-600'
+                }`}>
+                  <User className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-slate-900 truncate tracking-tight">{item.title} ({item.subtitle})</h3>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className={`px-2 py-0.5 text-[8px] font-black rounded uppercase tracking-widest border ${
+                      item.category === 'sakit' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      item.category === 'umum' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                      'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>
+                      {item.category === 'sakit' ? 'Dr' : 
+                       item.category === 'umum' ? 'Asuh' : 'Kelas'} : {item.type}
+                    </span>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate flex-1">
+                      {item.details}
+                    </p>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {item.date ? format(item.date, 'dd MMM, HH:mm') : '-'}
+                  </p>
+                </div>
+                <div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
+              </motion.div>
+            ))}
+
+            {filteredHistory.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+                <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <h3 className="text-slate-900 font-bold uppercase tracking-widest text-xs">Riwayat Kosong</h3>
+                <p className="text-slate-400 text-[10px] mt-1 bg-slate-50 inline-block px-3 py-1 rounded-full uppercase font-black">Tidak ditemukan aktivitas</p>
+              </div>
+            )}
+          </div>
 
       {/* Floating Action Button (FAB) */}
       <motion.button 
@@ -955,7 +955,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                 {classes.map((c) => {
-                  const studentCount = students.filter(s => c === 'Semua' || s.temp_kelas === c || s.kelas === c).length;
+                  const studentCount = students.filter(s => c === 'Semua' || s.kelas === c).length;
                   return (
                     <button
                       key={c}
@@ -986,41 +986,51 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                                        nik.includes(studentSearchTerm);
                   return matchesClass && matchesSearch;
                 })
-                .map((student) => (
-                  <motion.div
-                    key={student.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-sm overflow-hidden group hover:border-indigo-300 transition-all"
-                  >
-                    <div className="p-6">
-                      <div className="flex items-center gap-4 mb-6">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
-                          <span className="text-xl font-black">{student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}</span>
+                .map((student) => {
+                  const isFemale = student.jenis_kelamin?.toLowerCase().startsWith('p');
+                  const colorClass = isFemale ? 'pink' : 'blue';
+                  
+                  return (
+                    <motion.div
+                      key={student.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      onClick={() => setSelectedStudent(student)}
+                      className={`bg-white rounded-[2.5rem] border border-slate-200/60 shadow-sm overflow-hidden group hover:border-${colorClass}-300 cursor-pointer transition-all`}
+                    >
+                      <div className="p-6">
+                        <div className="flex items-center gap-4 mb-6">
+                          <div className={`w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-${colorClass}-50 group-hover:text-${colorClass}-500 transition-colors`}>
+                            <span className="text-xl font-black">{student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`font-black text-slate-900 leading-tight group-hover:text-${colorClass}-600 transition-colors line-clamp-2 uppercase text-sm`}>{student.nama_lengkap || 'Tanpa Nama'}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`px-2 py-0.5 bg-${colorClass}-100 text-${colorClass}-700 rounded text-[8px] font-black uppercase tracking-widest`}>{student.kelas}</span>
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">{student.asrama || 'ASRAMA'}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">{student.nama_lengkap || 'Tanpa Nama'}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-black uppercase tracking-widest">{student.kelas}</span>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{student.asrama || 'ASRAMA'}</span>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NIK</span>
+                            <span className="text-xs font-mono font-bold text-slate-600">{student.nik || '-'}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TTL</span>
+                            <span className="text-[10px] font-bold text-slate-600 truncate max-w-[150px]">{student.ttl || '-'}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ayah/Ibu</span>
+                            <span className="text-xs font-bold text-slate-600 truncate max-w-[150px]">{student.ayah || '-'} / {student.ibu || '-'}</span>
                           </div>
                         </div>
                       </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NISN</span>
-                          <span className="text-xs font-mono font-bold text-slate-600">{student.nisn || '0000000000'}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TTL</span>
-                          <span className="text-xs font-bold text-slate-600 truncate max-w-[120px]">{student.ttl || '-'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
             </div>
           </div>
         </div>
@@ -1331,6 +1341,76 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         </div>
       )}
 
+      {/* Modal Detail Riwayat Umum (Non-Izin Sakit) */}
+      {showHistoryDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-100 text-indigo-600">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900">Detail Aktivitas</h3>
+                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{showHistoryDetail.type}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowHistoryDetail(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa</label>
+                  <p className="font-black text-slate-900">{showHistoryDetail.title}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</label>
+                  <p className="font-black text-slate-900">{showHistoryDetail.subtitle}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Keterangan
+                </label>
+                <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{showHistoryDetail.details}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu</label>
+                  <p className="text-xs font-bold text-slate-900">{showHistoryDetail.date ? format(showHistoryDetail.date, 'dd MMM yyyy, HH:mm') : '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                  <span className={`inline-flex px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+                    showHistoryDetail.status === 'approved' || showHistoryDetail.status === 'acknowledged'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {showHistoryDetail.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100 mt-2">
+              <button
+                onClick={() => setShowHistoryDetail(null)}
+                className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Detail Perizinan */}
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1480,6 +1560,122 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   Cetak PDF
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detail Siswa Lengkap */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+            <div className={`p-8 border-b border-slate-100 flex items-center justify-between ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-50' : 'bg-blue-50'}`}>
+              <div className="flex items-center gap-5">
+                <div className={`w-20 h-20 rounded-[2rem] bg-white flex items-center justify-center shadow-lg shadow-black/5`}>
+                  <span className={`text-2xl font-black ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'text-pink-600' : 'text-blue-600'}`}>
+                    {selectedStudent.nama_lengkap.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-2">{selectedStudent.nama_lengkap}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-600 text-white' : 'bg-blue-600 text-white'}`}>
+                      {selectedStudent.kelas}
+                    </span>
+                    <span className="px-2.5 py-1 bg-white/80 text-slate-500 text-[10px] font-black rounded-lg uppercase tracking-widest border border-slate-200/50">
+                      {selectedStudent.asrama || 'ASRAMA'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedStudent(null)} 
+                className="p-3 hover:bg-white rounded-full transition-all text-slate-400 hover:text-slate-600 shadow-sm"
+              >
+                <Plus className="w-8 h-8 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Data Pribadi */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-1.5 h-6 rounded-full ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Data Personal</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nomor Induk Kependudukan (NIK)</label>
+                      <p className="text-sm font-mono font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">{selectedStudent.nik || '-'}</p>
+                    </div>
+                    
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tempat, Tanggal Lahir</label>
+                      <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ttl || `${selectedStudent.tempat_lahir}, ${selectedStudent.tanggal_lahir}` || '-'}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Jenis Kelamin</label>
+                        <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.jenis_kelamin || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Agama</label>
+                        <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.agama || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Keluarga & Alamat */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-1.5 h-6 rounded-full ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Keluarga & Alamat</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="group">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ayah</label>
+                        <p className="text-sm font-black text-slate-700 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ayah || '-'}</p>
+                      </div>
+                      <div className="group">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ibu</label>
+                        <p className="text-sm font-black text-slate-700 bg-rose-50/30 p-4 rounded-2xl border border-rose-100 group-hover:border-rose-200 transition-all">{selectedStudent.ibu || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Alamat Lengkap</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed mb-2">{selectedStudent.alamat || 'Alamat tidak tersedia'}</p>
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50">
+                          <span className="text-[9px] font-black text-slate-400 uppercase">Kec: {selectedStudent.kecamatan || '-'}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase">Kel: {selectedStudent.kelurahan || '-'}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase">RT/RW: {selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Siswa ke-</label>
+                      <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <button 
+                onClick={() => setSelectedStudent(null)}
+                className="w-full py-5 bg-white border border-slate-200 text-slate-600 font-black rounded-[2rem] hover:bg-slate-100 hover:shadow-lg transition-all uppercase tracking-widest text-xs"
+              >
+                Tutup Profil Siswa
+              </button>
             </div>
           </div>
         </div>

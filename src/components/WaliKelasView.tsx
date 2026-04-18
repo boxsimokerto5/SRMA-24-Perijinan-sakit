@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas } from '../types';
-import { notifyUserByRole } from '../services/fcmService';
+import { notifyAllRoles } from '../services/fcmService';
 import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
@@ -171,8 +171,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         wali_kelas_uid: user.uid,
       });
 
-      // Notify Dokter
-      notifyUserByRole('dokter', 'Izin Disetujui', `Izin sakit siswa telah disetujui oleh Wali Kelas.`);
+      // Notify relevant roles
+      notifyAllRoles(['dokter', 'wali_asuh', 'kepala_sekolah'], 'Izin Disetujui', `Izin sakit siswa telah disetujui oleh Wali Kelas ${user.name}.`);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
@@ -211,8 +211,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         status: 'pending_ack',
       });
 
-      // Notify Wali Asuh
-      notifyUserByRole('wali_asuh', 'Catatan Siswa Baru', `Wali Kelas ${user.name} mengirimkan catatan penting untuk siswa ${namaSiswa}.`);
+      // Notify relevant roles
+      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Siswa Baru', `Wali Kelas ${user.name} mengirimkan catatan penting untuk siswa ${namaSiswa}.`);
 
       setShowCatatanForm(false);
       setNamaSiswa('');

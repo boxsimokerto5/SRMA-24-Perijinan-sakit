@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, browserLocalPersistence, browserSessionPersistence, indexedDBLocalPersistence } from 'firebase/auth';
-import { initializeFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { initializeFirestore, enableIndexedDbPersistence, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import firebaseConfig from '../firebase-applet-config.json';
+import { UserRole } from './types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -73,6 +74,31 @@ export const getFCM = async () => {
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
+
+/**
+ * Creates a system notification
+ */
+export async function createNotification(
+  title: string,
+  description: string,
+  recipientRoles: UserRole[],
+  type: 'info' | 'success' | 'warning' | 'error' = 'info',
+  link?: string
+) {
+  try {
+    await addDoc(collection(db, 'notifications'), {
+      title,
+      description,
+      type,
+      recipientRoles,
+      link: link || '',
+      readBy: [],
+      createdAt: serverTimestamp()
+    });
+  } catch (err) {
+    console.error('Failed to create notification:', err);
+  }
+}
 
 // Enable offline persistence for better UX on unstable connections
 if (typeof window !== 'undefined') {

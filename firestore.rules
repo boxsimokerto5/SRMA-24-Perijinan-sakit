@@ -1,227 +1,150 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // 0. Global Safety Net (Pillar 6)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Pillar 3: Primitive Definitions & Reusable Helpers
+    // ===============================================================
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
     
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Document ID: {uid}
-    // Fields:
-    //   - uid: string (required)
-    //   - email: string (required)
-    //   - role: string (required, enum: ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah'])
-    //   - name: string (optional)
-    //   - fcmToken: string (optional)
-    //
-    // Collection: izin_sakit
-    // Document ID: {permitId}
-    // Fields:
-    //   - tipe: string (required, enum: ['sakit', 'umum', 'catatan'])
-    //   - nomor_surat: string (required)
-    //   - nama_siswa: string (required)
-    //   - kelas: string (required)
-    //   - diagnosa: string (optional, for tipe sakit)
-    //   - alasan: string (optional, for tipe umum)
-    //   - isi_catatan: string (optional, for tipe catatan)
-    //   - jumlah_hari: number (optional)
-    //   - tgl_mulai: timestamp (optional)
-    //   - tgl_selesai: timestamp (optional)
-    //   - tgl_surat: timestamp (required)
-    //   - tgl_disetujui: timestamp (optional)
-    //   - lokasi: string (optional)
-    //   - nama_dokter: string (optional)
-    //   - nama_wali_kelas: string (required)
-    //   - nama_wali_asuh: string (optional)
-    //   - catatan_kamar: string (optional)
-    //   - status: string (required, enum: ['pending_asuh', 'pending_kelas', 'approved', 'pending_ack', 'acknowledged'])
-    //   - dokter_uid: string (optional)
-    //   - wali_asuh_uid: string (optional)
-    //   - wali_kelas_uid: string (optional)
-    // Collection: memorandums
-    // Document ID: {memoId}
-    // Fields:
-    //   - nomor_memo: string (required)
-    //   - perihal: string (required)
-    //   - isi: string (required)
-    //   - tgl_memo: timestamp (required)
-    //   - penerima: list (required, elements: ['dokter', 'wali_asuh', 'wali_kelas'])
-    //   - pengirim_name: string (required)
-    //   - pengirim_uid: string (required)
-    //
-    // Collection: announcements
-    // Document ID: {annId}
-    // Fields:
-    //   - title: string (required)
-    //   - content: string (required)
-    //   - authorUid: string (required)
-    //   - authorName: string (required)
-    //   - createdAt: timestamp (required)
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isDefaultAdmin() {
-      return isAuthenticated() && 
-             request.auth.token.email == "boxsimokerto5@gmail.com" && 
-             request.auth.token.email_verified == true;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
+    // Identity logic - Identity roles must be looked up from a trusted source
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
+    
     function hasRole(role) {
-      return isAuthenticated() && (getUserData().role == role || (role == 'kepala_sekolah' && isDefaultAdmin()));
+      return isSignedIn() && getUserData().role == role;
     }
 
     function isAdmin() {
-      return hasRole('kepala_sekolah') || isDefaultAdmin();
+      // Allow the default admin email or anyone with the kepala_sekolah role
+      return isSignedIn() && (
+        request.auth.token.email == "boxsimokerto5@gmail.com" || 
+        getUserData().role == 'kepala_sekolah'
+      );
+    }
+
+    // Pillar 2: Validation Blueprints (The "Anti-Update-Gap")
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 128 &&
+             data.role in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah'];
     }
 
     function isValidIzinSakit(data) {
-      return data.nomor_surat is string &&
-             data.nama_siswa is string &&
-             data.kelas is string &&
-             data.tgl_surat is timestamp &&
+      return data.keys().hasAll(['nomor_surat', 'nama_siswa', 'kelas', 'tgl_surat', 'status', 'tipe']) &&
+             data.nomor_surat is string && data.nomor_surat.size() <= 64 &&
+             data.nama_siswa is string && data.nama_siswa.size() <= 128 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.tgl_surat == request.time &&
              data.status in ['pending_asuh', 'pending_kelas', 'approved', 'pending_ack', 'acknowledged'] &&
-             (data.tipe == 'sakit' || data.tipe == 'umum' || data.tipe == 'catatan');
+             data.tipe in ['sakit', 'umum', 'catatan'];
     }
 
-    function isValidMemorandum(data) {
-      return data.nomor_memo is string &&
-             data.perihal is string &&
-             data.isi is string &&
-             data.tgl_memo is timestamp &&
-             data.penerima is list &&
-             data.pengirim_uid is string;
+    function isValidNotification(data) {
+      return data.keys().hasAll(['title', 'description', 'type', 'createdAt', 'readBy', 'recipientRoles']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.type in ['info', 'success', 'warning', 'error'] &&
+             data.createdAt == request.time &&
+             data.readBy is list && data.readBy.size() <= 500 &&
+             data.recipientRoles is list && data.recipientRoles.size() > 0;
     }
 
-    function isValidPinjamHP(data) {
-      return data.nama_siswa is string &&
-             data.kelas is string &&
-             data.keperluan is string &&
-             data.tgl_pinjam is timestamp &&
-             data.status in ['dipinjam', 'dikembalikan'] &&
-             data.wali_asuh_uid is string;
-    }
-
-    function isValidAnnouncement(data) {
-      return data.title is string && data.title.size() < 100 &&
-             data.content is string && data.content.size() < 1000 &&
-             data.authorUid is string && data.authorUid == request.auth.uid &&
-             data.authorName is string && data.authorName.size() < 100 &&
-             data.createdAt is timestamp && data.createdAt <= request.time;
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
     }
 
     // ===============================================================
-    // Rules
+    // Collection Rules
     // ===============================================================
 
     match /users/{uid} {
-      // Allow users to read their own profile or allow others to read roles for logic
-      allow read: if isAuthenticated();
-      // Allow users to create their own profile on first login
-      allow create: if isOwner(uid) && request.resource.data.role in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah'];
-      // Only allow updating non-role fields unless admin
-      allow update: if isOwner(uid) && request.resource.data.role == resource.data.role;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (uid == request.auth.uid) && isValidUser(incoming());
+      allow update: if isSignedIn() && (uid == request.auth.uid) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'fcmToken', 'role', 'pfp']) &&
+        (incoming().role == existing().role || isAdmin())
+      );
     }
 
     match /izin_sakit/{permitId} {
-      // All authenticated users can read permits
-      allow read: if isAuthenticated();
-
-      // Create rules
-      allow create: if isAuthenticated() && isValidIzinSakit(request.resource.data) && (
-        // Dokter can create sickness permits
-        (hasRole('dokter') && 
-         request.resource.data.tipe == 'sakit' &&
-         request.resource.data.status == 'pending_asuh' &&
-         request.resource.data.dokter_uid == request.auth.uid) ||
-        
-        // Wali Asuh can create general permits
-        (hasRole('wali_asuh') && 
-         request.resource.data.tipe == 'umum' &&
-         request.resource.data.status == 'pending_kelas' &&
-         request.resource.data.wali_asuh_uid == request.auth.uid) ||
-
-        // Wali Kelas can create student notes
-        (hasRole('wali_kelas') &&
-         request.resource.data.tipe == 'catatan' &&
-         request.resource.data.status == 'pending_ack' &&
-         request.resource.data.wali_kelas_uid == request.auth.uid)
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && isValidIzinSakit(incoming()) && (
+        (hasRole('dokter') && incoming().tipe == 'sakit') ||
+        (hasRole('wali_asuh') && incoming().tipe == 'umum') ||
+        (hasRole('wali_kelas') && incoming().tipe == 'catatan') ||
+        isAdmin()
       );
 
-      // Update rules based on role
-      allow update: if isAuthenticated() && (
-        // Wali Asuh can update catatan_kamar and move to pending_kelas
-        (hasRole('wali_asuh') && 
-         resource.data.status == 'pending_asuh' &&
-         request.resource.data.status == 'pending_kelas' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasAny(['catatan_kamar', 'status', 'wali_asuh_uid', 'nama_wali_asuh'])) ||
-        
-        // Wali Kelas can approve
-        (hasRole('wali_kelas') && 
-         resource.data.status == 'pending_kelas' &&
-         request.resource.data.status == 'approved' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'wali_kelas_uid'])) ||
-        
-        // Wali Asuh can acknowledge student notes
-        (hasRole('wali_asuh') &&
-         resource.data.status == 'pending_ack' &&
-         request.resource.data.status == 'acknowledged' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'wali_asuh_uid', 'nama_wali_asuh', 'tgl_disetujui'])) ||
-
-        // Allow Dokter, Wali Asuh, and Kepala Sekolah to add to the actions log
-        ((hasRole('dokter') || hasRole('wali_asuh') || hasRole('kepala_sekolah')) &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tindakan']))
+      allow update: if isSignedIn() && (
+        (hasRole('wali_asuh') && existing().status == 'pending_asuh' && incoming().status == 'pending_kelas' &&
+         incoming().diff(existing()).affectedKeys().hasAny(['catatan_kamar', 'status'])) ||
+         
+        (hasRole('wali_kelas') && existing().status == 'pending_kelas' && incoming().status == 'approved' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'wali_kelas_uid'])) ||
+         
+        (hasRole('wali_asuh') && existing().status == 'pending_ack' && incoming().status == 'acknowledged' &&
+         incoming().diff(existing()).affectedKeys().hasAny(['status', 'tgl_disetujui'])) ||
+         
+        ((hasRole('dokter') || hasRole('wali_asuh') || hasRole('wali_kelas') || hasRole('kepala_sekolah')) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['tindakan'])) ||
+         
+        isAdmin()
       );
 
-      // Kepala Sekolah can delete for cleanup
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notifId} {
+      allow list: if isSignedIn() && (getUserData().role in resource.data.recipientRoles || isAdmin());
+      allow get: if isSignedIn() && (getUserData().role in resource.data.recipientRoles || isAdmin());
+      
+      allow create: if isSignedIn() && isValidNotification(incoming());
+      
+      allow update: if isSignedIn() && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) && 
+         incoming().readBy.hasAll(existing().readBy) &&
+         incoming().readBy.size() == existing().readBy.size() + 1 &&
+         incoming().readBy[incoming().readBy.size() - 1] == request.auth.uid) ||
+        isAdmin()
+      );
+      
       allow delete: if isAdmin();
     }
 
     match /memorandums/{memoId} {
-      allow read: if isAuthenticated() && (
-        hasRole('kepala_sekolah') || 
-        getUserData().role in resource.data.penerima
-      );
-      allow create: if hasRole('kepala_sekolah') && 
-                    isValidMemorandum(request.resource.data) &&
-                     request.resource.data.pengirim_uid == request.auth.uid;
+      allow read: if isSignedIn() && (hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima));
+      allow create: if hasRole('kepala_sekolah') && (incoming().pengirim_uid == request.auth.uid);
       allow delete: if isAdmin();
-      allow update: if false;
     }
 
     match /pinjam_hp/{pinjamId} {
-      allow read: if isAuthenticated();
-      allow create: if hasRole('wali_asuh') && 
-                    isValidPinjamHP(request.resource.data) &&
-                    request.resource.data.wali_asuh_uid == request.auth.uid;
-      allow update: if hasRole('wali_asuh') && 
-                    request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'tgl_kembali']);
-      allow delete: if isAdmin() || (hasRole('wali_asuh') && resource.data.wali_asuh_uid == request.auth.uid);
+      allow read: if isSignedIn();
+      allow create: if hasRole('wali_asuh') || isAdmin();
+      allow update: if hasRole('wali_asuh') || isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /siswa/{siswaId} {
-      allow read: if isAuthenticated();
-      allow write: if hasRole('kepala_sekolah');
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /announcements/{annId} {
-      allow read: if isAuthenticated();
-      allow create: if hasRole('kepala_sekolah') && isValidAnnouncement(request.resource.data);
+      allow read: if isSignedIn();
+      allow create: if hasRole('kepala_sekolah') || isAdmin();
       allow delete: if isAdmin();
-      allow update: if false;
     }
   }
 }
