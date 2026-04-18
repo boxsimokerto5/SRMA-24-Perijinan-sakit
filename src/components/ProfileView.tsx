@@ -17,7 +17,9 @@ export default function ProfileView({ user }: ProfileViewProps) {
             <User className="w-12 h-12 text-slate-900" />
           </div>
           <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">{user.name}</h2>
-          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mt-1">{user.role.replace('_', ' ')}</p>
+          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mt-1">
+            {user.role.replace('_', ' ')} {user.mapel ? `(${user.mapel})` : ''}
+          </p>
           <p className="text-xs text-slate-400 mt-1 font-medium">{user.email}</p>
         </div>
       </div>

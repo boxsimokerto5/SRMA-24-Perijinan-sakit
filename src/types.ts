@@ -1,12 +1,14 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'dokter' | 'wali_asuh' | 'wali_kelas' | 'kepala_sekolah';
+export type UserRole = 'dokter' | 'wali_asuh' | 'wali_kelas' | 'kepala_sekolah' | 'guru_mapel';
 
 export interface AppUser {
   uid: string;
   email: string;
   role: UserRole;
   name: string;
+  mapel?: string;
+  fcmToken?: string;
 }
 
 export type PermitStatus = 'pending_asuh' | 'pending_kelas' | 'approved' | 'pending_ack' | 'acknowledged';

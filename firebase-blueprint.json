@@ -7,8 +7,9 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["dokter", "wali_asuh", "wali_kelas"] },
+        "role": { "type": "string", "enum": ["dokter", "wali_asuh", "wali_kelas", "kepala_sekolah", "guru_mapel"] },
         "name": { "type": "string" },
+        "mapel": { "type": "string" },
         "fcmToken": { "type": "string" }
       },
       "required": ["uid", "email", "role"]

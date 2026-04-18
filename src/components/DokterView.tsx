@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs, serverTimestamp } from 'firebase/firestore';
 import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { 
@@ -237,7 +237,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         jumlah_hari: jumlahHari,
         tgl_mulai: Timestamp.fromDate(startDate),
         tgl_selesai: Timestamp.fromDate(endDate),
-        tgl_surat: Timestamp.now(),
+        tgl_surat: serverTimestamp(),
         lokasi: 'Kediri',
         nama_dokter: user.name || 'Dokter SRMA',
         nama_wali_kelas: waliKelas,

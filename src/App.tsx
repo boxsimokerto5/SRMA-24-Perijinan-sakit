@@ -10,7 +10,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { AppUser } from './types';
 import Auth from './components/Auth';
@@ -19,9 +19,10 @@ import DokterView from './components/DokterView';
 import WaliAsuhView from './components/WaliAsuhView';
 import WaliKelasView from './components/WaliKelasView';
 import KepalaSekolahView from './components/KepalaSekolahView';
+import GuruMapelView from './components/GuruMapelView';
 import SplashScreen from './components/SplashScreen';
 import { setupPushNotifications } from './services/notificationService';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Mail } from 'lucide-react';
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -169,6 +170,50 @@ export default function App() {
     return <Auth />;
   }
 
+  // Handle email verification
+  if (!user.emailVerified) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-indigo-100/50 border border-white text-center">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail className="w-10 h-10 text-amber-600" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2 font-display tracking-tight">Verifikasi Email Anda</h2>
+          <p className="text-slate-500 text-sm mb-8 font-medium leading-relaxed">
+            Akun Anda belum terverifikasi. Silakan periksa kotak masuk email <strong>{user.email}</strong> dan klik tautan verifikasi untuk melanjutkan.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+            >
+              Saya sudah verifikasi
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await sendEmailVerification(user);
+                  alert('Email verifikasi telah dikirim ulang!');
+                } catch (err) {
+                  alert('Gagal mengirim email. Silakan coba lagi nanti.');
+                }
+              }}
+              className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 transition-all font-display text-sm tracking-widest uppercase"
+            >
+              Kirim Ulang Email
+            </button>
+            <button
+              onClick={() => auth.signOut()}
+              className="w-full py-2 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:text-rose-600 transition-all pt-4"
+            >
+              Keluar / Ganti Akun
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <Layout 
@@ -179,6 +224,7 @@ export default function App() {
         {appUser.role === 'dokter' && <DokterView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_asuh' && <WaliAsuhView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_kelas' && <WaliKelasView user={appUser} activeTab={activeTab} />}
+        {appUser.role === 'guru_mapel' && <GuruMapelView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} activeTab={activeTab} />}
       </Layout>
     </ErrorBoundary>

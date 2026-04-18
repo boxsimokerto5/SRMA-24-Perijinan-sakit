@@ -21,12 +21,12 @@ service cloud.firestore {
     }
     
     function hasRole(role) {
-      return isSignedIn() && getUserData().role == role;
+      return isEmailVerified() && getUserData().role == role;
     }
 
     function isAdmin() {
       // Allow the default admin email or anyone with the kepala_sekolah role
-      return isSignedIn() && (
+      return isEmailVerified() && (
         request.auth.token.email == "boxsimokerto5@gmail.com" || 
         getUserData().role == 'kepala_sekolah'
       );
@@ -37,7 +37,7 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 128 &&
-             data.role in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah'];
+             data.role in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah', 'guru_mapel'];
     }
 
     function isValidIzinSakit(data) {
@@ -83,7 +83,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidIzinSakit(incoming()) && (
         (hasRole('dokter') && incoming().tipe == 'sakit') ||
         (hasRole('wali_asuh') && incoming().tipe == 'umum') ||
-        (hasRole('wali_kelas') && incoming().tipe == 'catatan') ||
+        ((hasRole('wali_kelas') || hasRole('guru_mapel')) && incoming().tipe == 'catatan') ||
         isAdmin()
       );
 
@@ -91,13 +91,13 @@ service cloud.firestore {
         (hasRole('wali_asuh') && existing().status == 'pending_asuh' && incoming().status == 'pending_kelas' &&
          incoming().diff(existing()).affectedKeys().hasAny(['catatan_kamar', 'status'])) ||
          
-        (hasRole('wali_kelas') && existing().status == 'pending_kelas' && incoming().status == 'approved' &&
+        ((hasRole('wali_kelas') || hasRole('guru_mapel')) && existing().status == 'pending_kelas' && incoming().status == 'approved' &&
          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'wali_kelas_uid'])) ||
          
         (hasRole('wali_asuh') && existing().status == 'pending_ack' && incoming().status == 'acknowledged' &&
          incoming().diff(existing()).affectedKeys().hasAny(['status', 'tgl_disetujui'])) ||
          
-        ((hasRole('dokter') || hasRole('wali_asuh') || hasRole('wali_kelas') || hasRole('kepala_sekolah')) && 
+        ((hasRole('dokter') || hasRole('wali_asuh') || hasRole('wali_kelas') || hasRole('guru_mapel') || hasRole('kepala_sekolah')) && 
          incoming().diff(existing()).affectedKeys().hasOnly(['tindakan'])) ||
          
         isAdmin()

@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
@@ -333,7 +333,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         jumlah_hari: jumlahHari,
         tgl_mulai: Timestamp.fromDate(startDate),
         tgl_selesai: Timestamp.fromDate(endDate),
-        tgl_surat: Timestamp.now(),
+        tgl_surat: serverTimestamp(),
         lokasi: 'Kediri',
         nama_wali_asuh: user.name,
         wali_asuh_uid: user.uid,

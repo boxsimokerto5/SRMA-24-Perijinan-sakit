@@ -11,12 +11,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
 import { Siswa } from '../types';
 
-interface WaliKelasViewProps {
+interface GuruMapelViewProps {
   user: AppUser;
   activeTab: string;
 }
 
-export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
+export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [permits, setPermits] = useState<IzinSakit[]>([]);
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
@@ -61,7 +61,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     return matchesSearch && matchesDate && matchesTime;
   });
 
-  // Find current teacher's class
+  // Find current teacher's class - For Subject Teacher we might show all or handle differently, 
+  // but keeping same logic as per "exactly like"
   const myClass = WALI_KELAS_LIST.find(wk => wk.name === user.name)?.kelas || 'Semua';
 
   const filteredStudents = students.filter(s => {
@@ -140,7 +141,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
           kelas: normalizeKelas(rawData.kelas)
         } as IzinSakit;
       });
-      // Filter by wali kelas name if user has one (or just show all for demo)
       setPermits(data);
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, 'izin_sakit');
@@ -151,7 +151,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   React.useEffect(() => {
     const q = query(
       collection(db, 'memorandums'),
-      where('penerima', 'array-contains', 'wali_kelas'),
+      where('penerima', 'array-contains', 'guru_mapel'),
       orderBy('tgl_memo', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -172,7 +172,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       });
 
       // Notify relevant roles
-      notifyAllRoles(['dokter', 'wali_asuh', 'kepala_sekolah'], 'Izin Disetujui', `Izin sakit siswa telah disetujui oleh Wali Kelas ${user.name}.`);
+      notifyAllRoles(['dokter', 'wali_asuh', 'kepala_sekolah'], 'Izin Disetujui', `Izin sakit siswa telah disetujui oleh Guru Mapel ${user.name}.`);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
@@ -201,18 +201,18 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     try {
       await addDoc(collection(db, 'izin_sakit'), {
         tipe: 'catatan',
-        nomor_surat: `SRMA-C-${Date.now().toString().slice(-6)}`,
+        nomor_surat: `SRMA-GM-${Date.now().toString().slice(-6)}`,
         nama_siswa: namaSiswa,
         kelas: kelas,
         isi_catatan: isiCatatan,
         tgl_surat: serverTimestamp(),
-        nama_wali_kelas: user.name,
+        nama_wali_kelas: user.name, // Still using this field for compatibility
         wali_kelas_uid: user.uid,
         status: 'pending_ack',
       });
 
       // Notify relevant roles
-      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Siswa Baru', `Wali Kelas ${user.name} mengirimkan catatan penting untuk siswa ${namaSiswa}.`);
+      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Siswa Baru', `Guru Mapel ${user.name} mengirimkan catatan penting untuk siswa ${namaSiswa}.`);
 
       setShowCatatanForm(false);
       setNamaSiswa('');
@@ -241,8 +241,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       <div className="space-y-8 animate-in fade-in duration-500">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black text-slate-900">Statistik Wali Kelas</h2>
-            <p className="text-sm text-slate-500">Data kesehatan siswa di kelas Anda.</p>
+            <h2 className="text-2xl font-black text-slate-900">Statistik Guru Mata Pelajaran</h2>
+            <p className="text-sm text-slate-500">Data kesehatan siswa yang Anda ampu.</p>
           </div>
           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
             <BarChart3 className="w-6 h-6" />
@@ -259,11 +259,10 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
 
   return (
     <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
-      {/* Welcome & Menu Section */}
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Halo, {user.name.split(' ')[0]}!</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Wali Kelas {myClass}</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Guru Mapel {user.mapel || ''}</p>
         </div>
         <div className="relative">
           <button 
@@ -312,7 +311,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                     <div className={`p-2 rounded-xl ${viewMode === 'kartu_siswa' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
                       <User className="w-4 h-4" />
                     </div>
-                    Data Siswa Kelas {myClass}
+                    Data Siswa
                   </button>
                 </motion.div>
               </>
@@ -326,7 +325,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
           <div className="flex flex-col gap-6">
             <div className="px-1">
               <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Data Siswa</h2>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Daftar Lengkap Siswa Kelas {myClass}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Daftar Lengkap Siswa</p>
             </div>
 
             <div className="relative group">
@@ -362,8 +361,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
 
                   <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
                     <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Orang Tua</p>
-                      <p className="text-xs font-bold text-slate-600">{student.ayah || '-'}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kelas</p>
+                      <p className="text-xs font-bold text-slate-600">{student.kelas || '-'}</p>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-indigo-600 transition-all shadow-sm">
                       <ChevronRight className="w-4 h-4" />
@@ -383,9 +382,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       ) : (
         <>
-      {/* Dashboard Grid - Bento Style */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Card 1: Total Perizinan */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
           className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
@@ -402,7 +399,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
           </div>
         </motion.div>
 
-        {/* Card 2: Izin Selesai */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
           className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
@@ -419,7 +415,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
           </div>
         </motion.div>
 
-        {/* Card 3: Perlu Persetujuan */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
           className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
@@ -436,7 +431,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
           </div>
         </motion.div>
 
-        {/* Card 4: Memorandum */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
           className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
@@ -454,7 +448,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </motion.div>
       </div>
 
-      {/* Memorandum Section */}
       {memos.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
@@ -487,7 +480,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {/* Riwayat Terakhir Header */}
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
@@ -506,9 +498,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </button>
       </div>
 
-      {/* Filters & Search */}
       <div className="space-y-6">
-        {/* Horizontal Time Categories */}
         <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
           {[ 
             { id: 'hari_ini', label: 'Hari Ini' },
@@ -555,7 +545,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                 <div className="p-2 bg-indigo-100 rounded-xl">
                   <MessageSquare className="w-5 h-5 text-indigo-600" />
                 </div>
-                <h3 className="font-black text-slate-900">Input Catatan Siswa</h3>
+                <h3 className="font-black text-slate-900">Input Catatan Guru Mapel</h3>
               </div>
               <button onClick={() => setShowCatatanForm(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
                 <Plus className="w-6 h-6 rotate-45" />
@@ -642,37 +632,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {/* Memorandum Section */}
-      {memos.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-slate-900">
-            <Mail className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-black">Memorandum dari Kepala Sekolah</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {memos.map(memo => (
-              <div 
-                key={memo.id}
-                onClick={() => setSelectedMemo(memo)}
-                className="bg-orange-50 p-4 rounded-3xl border border-orange-100 border-l-8 border-l-orange-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 text-orange-600 rounded-xl group-hover:scale-110 transition-transform">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors">{memo.perihal}</h4>
-                    <p className="text-[10px] font-bold text-slate-500">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
-                  </div>
-                </div>
-                <Plus className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* List Perizinan - Modern Cards */}
       <div className="grid grid-cols-1 gap-4">
         {filteredPermits.map((permit) => (
           <motion.div 
@@ -732,7 +691,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       </>
       )}
 
-      {/* Floating Action Button (FAB) */}
       <motion.button 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -741,7 +699,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       >
         <Plus className="w-6 h-6" />
         <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
-      </motion.button>      {/* Modal Detail Perizinan */}
+      </motion.button>
+      
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -817,7 +776,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
 
               <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas/Guru</label>
                   <p className="text-xs font-bold text-slate-700">{selectedPermit.nama_wali_kelas}</p>
                 </div>
                 <div className="space-y-1">
@@ -826,7 +785,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                 </div>
               </div>
 
-              {/* Log Tindakan Section */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <ClipboardList className="w-3 h-3" /> Log Tindakan & Perkembangan
@@ -883,10 +841,9 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {/* Modal Konfirmasi Persetujuan */}
       {confirmApproveId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center">
               <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 className="w-10 h-10 text-emerald-600" />
@@ -918,7 +875,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {/* Modal Detail Memo */}
       {selectedMemo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
