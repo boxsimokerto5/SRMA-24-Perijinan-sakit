@@ -117,19 +117,31 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
     });
   }
 
-  details.forEach((item, index) => {
-    const y = startY + (index * lineGap);
+  let currentY = startY;
+  details.forEach((item) => {
     doc.setFont('helvetica', 'bold');
-    doc.text(item.label, labelX, y);
+    doc.text(item.label, labelX, currentY);
+    
     doc.setFont('helvetica', 'normal');
-    doc.text(`:  ${item.value}`, valueX, y);
+    const valueText = `:  ${item.value}`;
+    const maxWidth = 190 - valueX;
+    
+    // Wrap text functionality
+    const splitValue = doc.splitTextToSize(valueText, maxWidth);
+    doc.text(splitValue, valueX, currentY);
+    
+    // Calculate how much space this took (roughly 5mm per line)
+    const rowHeight = Math.max(lineGap, splitValue.length * 5);
+    
     doc.setDrawColor(230, 230, 230);
-    doc.line(valueX, y + 1.5, 190, y + 1.5);
+    doc.line(valueX, currentY + (splitValue.length > 1 ? (splitValue.length * 5) - 3.5 : 1.5), 190, currentY + (splitValue.length > 1 ? (splitValue.length * 5) - 3.5 : 1.5));
+    
+    currentY += rowHeight + 2;
   });
 
   // Body Text
   doc.setFont('helvetica', 'normal');
-  const bodyY = startY + (details.length * lineGap) + 10;
+  const bodyY = currentY + 5;
   
   if (permit.tipe !== 'catatan') {
     const tglMulaiStr = permit.tgl_mulai && typeof permit.tgl_mulai.toDate === 'function' ? format(permit.tgl_mulai.toDate(), 'dd MMMM yyyy') : '-';

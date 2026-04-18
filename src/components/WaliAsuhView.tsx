@@ -104,8 +104,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   });
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.nama_lengkap.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
-                         s.nik.includes(studentSearchTerm);
+    const name = s.nama_lengkap || '';
+    const nik = s.nik || '';
+    const matchesSearch = name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                         nik.includes(studentSearchTerm);
     const matchesClass = selectedClass === 'Semua' || s.kelas === selectedClass;
     return matchesSearch && matchesClass;
   });
@@ -261,7 +263,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         
         const qCleanup = query(
           collection(db, 'pinjam_hp'), 
-          where('tgl_pinjam', '<', twoDaysAgoTimestamp)
+          where('tgl_pinjam', '<', twoDaysAgoTimestamp),
+          where('wali_asuh_uid', '==', user.uid)
         );
         
         const snapshot = await getDocs(qCleanup);
@@ -280,16 +283,20 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   }, []);
 
   React.useEffect(() => {
-    const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
+    // Remove orderBy to ensure docments without nama_lengkap field are also fetched
+    const q = query(collection(db, 'siswa'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => {
         const rawData = doc.data() as Siswa;
         return { 
-          id: doc.id, 
-          ...rawData,
-          kelas: normalizeKelas(rawData.kelas)
-        } as Siswa;
-      });
+            id: doc.id, 
+            ...rawData,
+            kelas: normalizeKelas(rawData.kelas)
+          } as Siswa;
+        })
+        // Sort client-side instead of in query to avoid skipping docs without the field
+        .sort((a, b) => (a.nama_lengkap || '').localeCompare(b.nama_lengkap || ''));
+        
       setStudents(data);
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, 'siswa');
@@ -669,9 +676,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               whileHover={{ y: -4 }}
               className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 group transition-all"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-rose-50 rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-rose-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-rose-100 mb-4">
+                <div className="bg-blue-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-blue-100 mb-4">
                   <Clock className="w-5 h-5" />
                 </div>
                 <h3 className="text-3xl font-black text-slate-900 font-display">{stats.pending}</h3>
@@ -684,9 +691,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               whileHover={{ y: -4 }}
               className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 group transition-all"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-50 rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-50 rounded-full transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-amber-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-amber-100 mb-4">
+                <div className="bg-orange-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-orange-100 mb-4">
                   <Mail className="w-5 h-5" />
                 </div>
                 <h3 className="text-3xl font-black text-slate-900 font-display">{stats.memos}</h3>
@@ -910,18 +917,18 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   <div 
                     key={memo.id}
                     onClick={() => setSelectedMemo(memo)}
-                    className="bg-cyan-50 p-4 rounded-3xl border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                    className="bg-orange-50 p-4 rounded-3xl border border-orange-100 border-l-8 border-l-orange-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-cyan-100 text-cyan-600 rounded-xl group-hover:scale-110 transition-transform">
+                      <div className="p-2 bg-orange-100 text-orange-600 rounded-xl group-hover:scale-110 transition-transform">
                         <Mail className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-black text-slate-900 group-hover:text-cyan-600 transition-colors">{memo.perihal}</h4>
+                        <h4 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors">{memo.perihal}</h4>
                         <p className="text-[10px] font-bold text-slate-500">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
                       </div>
                     </div>
-                    <Plus className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 transition-colors" />
+                    <Plus className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
                   </div>
                 ))}
               </div>
@@ -938,26 +945,37 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={() => setSelectedPermit(permit)}
-                className="group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer"
+                className={`group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border-l-8 hover:shadow-md transition-all cursor-pointer ${
+                  permit.tipe === 'sakit' ? 'border-emerald-500 hover:border-emerald-600' :
+                  permit.tipe === 'umum' ? 'border-blue-500 hover:border-blue-600' :
+                  'border-amber-500 hover:border-amber-600'
+                }`}
               >
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                  permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-600' :
-                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-600' :
-                  'bg-purple-100 text-purple-600'
+                  permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
+                  permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
+                  'bg-amber-50 text-amber-600'
                 }`}>
                   <User className="w-6 h-6" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-black text-slate-900 truncate font-display">{permit.nama_siswa} ({permit.kelas})</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                    {permit.tipe === 'sakit' ? 'Izin Sakit' : permit.tipe === 'umum' ? 'Izin Umum' : 'Catatan'} • {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Izin PDF Dikirim' : 'Menunggu Verifikasi'}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                      permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                      'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>
+                      {permit.tipe === 'sakit' ? 'Input Dokter' : permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Wali Kelas'}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">• {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Selesai' : 'Proses'}</span>
+                  </div>
                   <p className="text-[9px] font-bold text-indigo-500 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
                   </p>
                 </div>
-                <div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
+                <div className="text-slate-300 group-hover:text-amber-500 transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </div>
               </motion.div>
@@ -1160,19 +1178,25 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                {classes.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setSelectedClass(c)}
-                    className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                      selectedClass === c
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
+                {classes.map((c) => {
+                  const studentCount = students.filter(s => c === 'Semua' || s.kelas === c).length;
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setSelectedClass(c)}
+                      className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all flex items-center gap-2 ${
+                        selectedClass === c
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                          : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                      }`}
+                    >
+                      {c}
+                      <span className={`px-1.5 py-0.5 rounded-md text-[8px] ${selectedClass === c ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                        {studentCount}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1190,10 +1214,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   
                   <div className="flex items-center gap-4 relative">
                     <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500">
-                      {student.nama_lengkap.charAt(0)}
+                      {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap}</h3>
+                      <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap || 'Tanpa Nama'}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black rounded-md uppercase tracking-widest">
                           Kelas {student.kelas}
@@ -1680,9 +1704,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               {/* Header Info */}
               <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
                 <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center text-indigo-600 font-black text-4xl shadow-inner mb-4">
-                  {selectedStudent.nama_lengkap.charAt(0)}
+                  {selectedStudent.nama_lengkap ? selectedStudent.nama_lengkap.charAt(0) : '?'}
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 font-display leading-tight">{selectedStudent.nama_lengkap}</h2>
+                <h2 className="text-2xl font-black text-slate-900 font-display leading-tight">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-full uppercase tracking-widest">
                     Kelas {selectedStudent.kelas}

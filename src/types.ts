@@ -83,9 +83,12 @@ export interface PinjamHP {
 export interface Siswa {
   id?: string;
   nik: string;
+  nisn?: string;
   nomor_kk: string;
   nama_lengkap: string;
   kelas: string;
+  asrama?: string;
+  ttl?: string;
   tempat_lahir: string;
   tanggal_lahir: string;
   umur: number;
@@ -104,17 +107,27 @@ export interface Siswa {
 
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
+  // Trim and convert to upper case for consistency
+  let cleanKelas = kelas.trim().toUpperCase();
+  
+  // Mapping for specific class aliases
   const mapping: { [key: string]: string } = {
-    'X-A': 'X-4',
-    'X-B': 'X-3',
-    'X-C': 'X-2',
-    'X-D': 'X-1',
-    'x-a': 'X-4',
-    'x-b': 'X-3',
-    'x-c': 'X-2',
-    'x-d': 'X-1'
+    'X-A': 'X-4', 'X-B': 'X-3', 'X-C': 'X-2', 'X-D': 'X-1',
+    'XA': 'X-4', 'XB': 'X-3', 'XC': 'X-2', 'XD': 'X-1',
+    'X 1': 'X-1', 'X 2': 'X-2', 'X 3': 'X-3', 'X 4': 'X-4',
+    'XI 1': 'XI-1', 'XI 2': 'XI-2', 'XI 3': 'XI-3', 'XI 4': 'XI-4',
+    'XII 1': 'XII-1', 'XII 2': 'XII-2', 'XII 3': 'XII-3', 'XII 4': 'XII-4',
+    'X1': 'X-1', 'X2': 'X-2', 'X3': 'X-3', 'X4': 'X-4',
+    'XI1': 'XI-1', 'XI2': 'XI-2', 'XI3': 'XI-3', 'XI4': 'XI-4',
+    'XII1': 'XII-1', 'XII2': 'XII-2', 'XII3': 'XII-3', 'XII4': 'XII-4'
   };
-  return mapping[kelas] || kelas;
+
+  // If directly in mapping, return it
+  if (mapping[cleanKelas]) return mapping[cleanKelas];
+
+  // Otherwise, handle general space/dash issues
+  // Ensure "X - 1" or "X 1" becomes "X-1"
+  return cleanKelas.replace(/\s*[-–—]\s*/g, '-').replace(/\s+/g, '-').replace('--', '-');
 };
 
 export const WALI_KELAS_LIST = [

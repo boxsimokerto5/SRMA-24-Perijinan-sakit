@@ -15,7 +15,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
@@ -54,12 +54,18 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
+  // View Mode
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa'>('perizinan');
+  const [selectedClass, setSelectedClass] = useState('Semua');
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const classes = ['Semua', ...Array.from(new Set(students.map(s => s.kelas))).filter(Boolean).sort()];
+
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
 
   React.useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
+        const q = query(collection(db, 'siswa'));
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => {
           const rawData = doc.data() as Siswa;
@@ -68,7 +74,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             ...rawData,
             kelas: normalizeKelas(rawData.kelas)
           } as Siswa;
-        });
+        }).sort((a, b) => (a.nama_lengkap || '').localeCompare(b.nama_lengkap || ''));
         setStudents(data);
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, 'siswa');
@@ -80,9 +86,10 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const handleNamaSiswaChange = (value: string) => {
     setNamaSiswa(value);
     if (value.length > 1) {
-      const filtered = students.filter(s => 
-        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 5);
+      const filtered = students.filter(s => {
+        const name = s.nama_lengkap || '';
+        return name.toLowerCase().includes(value.toLowerCase());
+      }).slice(0, 5);
       setFilteredStudents(filtered);
       setShowSuggestions(true);
     } else {
@@ -352,7 +359,29 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Dashboard Grid - Bento Style */}
+      {/* Menu Tabs */}
+      <div className="flex bg-white p-1 rounded-[1.2rem] shadow-sm border border-slate-200/60 self-start overflow-x-auto custom-scrollbar print:hidden">
+        <button
+          onClick={() => setViewMode('perizinan')}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+            viewMode === 'perizinan' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" /> Riwayat Konsultasi
+        </button>
+        <button
+          onClick={() => setViewMode('kartu_siswa')}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+            viewMode === 'kartu_siswa' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <User className="w-3.5 h-3.5" /> Kartu Siswa
+        </button>
+      </div>
+
+      {viewMode === 'perizinan' ? (
+        <>
+          {/* Dashboard Grid - Bento Style */}
       <div className="grid grid-cols-2 gap-4">
         {/* Card 1: Total Perizinan */}
         <motion.div 
@@ -391,7 +420,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         {/* Card 3: Menunggu */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-rose-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+          className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
@@ -408,7 +437,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         {/* Card 4: Memorandum */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+          className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
           <div className="relative z-10">
@@ -486,7 +515,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                                 className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
                               >
                                 <div>
-                                  <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                                  <p className="text-sm font-bold text-slate-900">{student.nama_lengkap || 'Tanpa Nama'}</p>
                                   <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
                                 </div>
                                 <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -597,18 +626,18 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               <div 
                 key={memo.id}
                 onClick={() => setSelectedMemo(memo)}
-                className="bg-cyan-50 p-4 rounded-3xl border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                className="bg-orange-50 p-4 rounded-3xl border border-orange-100 border-l-8 border-l-orange-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-100 text-cyan-600 rounded-xl group-hover:scale-110 transition-transform">
+                  <div className="p-2 bg-orange-100 text-orange-600 rounded-xl group-hover:scale-110 transition-transform">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-cyan-600 transition-colors">{memo.perihal}</h4>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors">{memo.perihal}</h4>
                     <p className="text-[10px] font-bold text-slate-500">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
                   </div>
                 </div>
-                <Plus className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 transition-colors" />
+                <Plus className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
               </div>
             ))}
           </div>
@@ -682,12 +711,16 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             key={permit.id}
             whileHover={{ scale: 1.01 }}
             onClick={() => setSelectedPermit(permit)}
-            className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 hover:border-indigo-200 transition-all cursor-pointer"
+            className={`group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border-l-8 hover:border-indigo-200 transition-all cursor-pointer ${
+              permit.tipe === 'sakit' ? 'border-emerald-500' :
+              permit.tipe === 'umum' ? 'border-blue-500' :
+              'border-amber-500'
+            }`}
           >
             <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
-              permit.tipe === 'sakit' ? 'bg-rose-50 text-rose-600' :
+              permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
               permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
-              'bg-purple-50 text-purple-600'
+              'bg-amber-50 text-amber-600'
             }`}>
               <User className="w-8 h-8" />
             </div>
@@ -695,9 +728,11 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                  permit.tipe === 'sakit' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
+                  permit.tipe === 'sakit' ? 'bg-emerald-100 text-emerald-700' : 
+                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-700' :
+                  'bg-amber-100 text-amber-700'
                 }`}>
-                  {permit.tipe}
+                  {permit.tipe === 'catatan' ? 'Input Wali Kelas' : (permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Dokter')}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
               </div>
@@ -721,6 +756,129 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
           </div>
         )}
       </div>
+      </>
+      ) : (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 space-y-6">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="Cari nama siswa..."
+                value={studentSearchTerm}
+                onChange={(e) => setStudentSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+              />
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {classes.map((c) => {
+                const studentCount = students.filter(s => c === 'Semua' || s.kelas === c).length;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setSelectedClass(c)}
+                    className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all flex items-center gap-2 ${
+                      selectedClass === c
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                    }`}
+                  >
+                    {c}
+                    <span className={`px-1.5 py-0.5 rounded-md text-[8px] ${selectedClass === c ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      {studentCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {students
+              .filter(s => {
+                const matchesClass = selectedClass === 'Semua' || s.kelas === selectedClass;
+                const matchesSearch = s.nama_lengkap.toLowerCase().includes(studentSearchTerm.toLowerCase()) || 
+                                     (s.nik && s.nik.includes(studentSearchTerm));
+                return matchesClass && matchesSearch;
+              })
+              .map((student) => (
+                <motion.div
+                  key={student.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="relative bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm overflow-hidden group hover:border-teal-400/50 hover:shadow-xl hover:shadow-teal-500/5 transition-all duration-500"
+                >
+                  {/* Medical Aesthetics */}
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 group-hover:rotate-12 transition-all duration-700">
+                    <Stethoscope className="w-24 h-24 text-teal-600" />
+                  </div>
+                  
+                  <div className="p-6">
+                    {/* Header: Medical Record Style */}
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 ring-4 ring-white shadow-sm transition-transform group-hover:scale-110 group-hover:rotate-3 duration-500">
+                            <span className="text-xl font-black uppercase">{student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}</span>
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-lg shadow-sm flex items-center justify-center border border-slate-100">
+                            <HeartPulse className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                          </div>
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-black text-slate-900 leading-tight group-hover:text-teal-600 transition-colors uppercase text-sm mb-1">{student.nama_lengkap || 'Tanpa Nama'}</h3>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded-md text-[8px] font-black uppercase tracking-widest">{student.kelas}</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">{student.asrama || 'ASRAMA'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Data Grid: Technical/Precision Look */}
+                    <div className="grid grid-cols-2 gap-2 mb-6">
+                      <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100/50 group-hover:bg-white transition-colors duration-500">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 italic">
+                          <ShieldCheck className="w-3 h-3 text-teal-500" /> NISN
+                        </p>
+                        <p className="text-xs font-mono font-bold text-slate-600 tracking-tight">{student.nisn || '0000000000'}</p>
+                      </div>
+                      <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100/50 group-hover:bg-white transition-colors duration-500">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 italic">
+                          <Calendar className="w-3 h-3 text-orange-500" /> TTL
+                        </p>
+                        <p className="text-xs font-bold text-slate-600 truncate tracking-tight">{student.ttl || '-'}</p>
+                      </div>
+                    </div>
+
+                    {/* Action Bar/Footer */}
+                    <div className="pt-4 border-t border-dashed border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status: Aktif</span>
+                      </div>
+                      <button 
+                         onClick={() => {
+                           setNamaSiswa(student.nama_lengkap);
+                           setKelas(student.kelas);
+                           const wk = WALI_KELAS_LIST.find(w => w.kelas === student.kelas);
+                           if (wk) setWaliKelas(wk.name);
+                           setViewMode('perizinan');
+                           setShowForm(true);
+                         }}
+                         className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-600 hover:text-white transition-all shadow-sm"
+                      >
+                        <Plus className="w-3 h-3" /> Rekam Medis
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Floating Action Button (FAB) */}
       <motion.button 

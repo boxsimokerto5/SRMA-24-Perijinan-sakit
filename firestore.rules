@@ -66,6 +66,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isDefaultAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email == "boxsimokerto5@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -75,7 +81,11 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
-      return isAuthenticated() && getUserData().role == role;
+      return isAuthenticated() && (getUserData().role == role || (role == 'kepala_sekolah' && isDefaultAdmin()));
+    }
+
+    function isAdmin() {
+      return hasRole('kepala_sekolah') || isDefaultAdmin();
     }
 
     function isValidIzinSakit(data) {
@@ -177,7 +187,7 @@ service cloud.firestore {
       );
 
       // Kepala Sekolah can delete for cleanup
-      allow delete: if hasRole('kepala_sekolah');
+      allow delete: if isAdmin();
     }
 
     match /memorandums/{memoId} {
@@ -188,7 +198,7 @@ service cloud.firestore {
       allow create: if hasRole('kepala_sekolah') && 
                     isValidMemorandum(request.resource.data) &&
                      request.resource.data.pengirim_uid == request.auth.uid;
-      allow delete: if hasRole('kepala_sekolah');
+      allow delete: if isAdmin();
       allow update: if false;
     }
 
@@ -199,7 +209,7 @@ service cloud.firestore {
                     request.resource.data.wali_asuh_uid == request.auth.uid;
       allow update: if hasRole('wali_asuh') && 
                     request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'tgl_kembali']);
-      allow delete: if hasRole('kepala_sekolah');
+      allow delete: if isAdmin() || (hasRole('wali_asuh') && resource.data.wali_asuh_uid == request.auth.uid);
     }
 
     match /siswa/{siswaId} {
@@ -210,7 +220,7 @@ service cloud.firestore {
     match /announcements/{annId} {
       allow read: if isAuthenticated();
       allow create: if hasRole('kepala_sekolah') && isValidAnnouncement(request.resource.data);
-      allow delete: if hasRole('kepala_sekolah');
+      allow delete: if isAdmin();
       allow update: if false;
     }
   }
