@@ -173,8 +173,12 @@ export default function App() {
   // Handle email verification
   if (!user.emailVerified) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-indigo-100/50 border border-white text-center">
+      <div className="min-h-screen cool-gradient-bg flex items-center justify-center p-4">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-black/5">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
+        </div>
+        <div className="max-w-md w-full bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl shadow-black/10 border border-white text-center">
           <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Mail className="w-10 h-10 text-amber-600" />
           </div>
@@ -193,7 +197,7 @@ export default function App() {
               onClick={async () => {
                 try {
                   await sendEmailVerification(user);
-                  alert('Email verifikasi telah dikirim ulang!');
+                  alert('Email verifikasi telah dikirim ulang! Silakan periksa folder SPAM jika tidak ada di Inbox.');
                 } catch (err) {
                   alert('Gagal mengirim email. Silakan coba lagi nanti.');
                 }

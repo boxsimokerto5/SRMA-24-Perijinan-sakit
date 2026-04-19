@@ -73,11 +73,11 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans overflow-hidden relative">
+    <div className="min-h-screen cool-gradient-bg flex items-center justify-center p-4 font-sans overflow-hidden relative">
       {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-100 rounded-full blur-[120px] opacity-60" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-100 rounded-full blur-[120px] opacity-60" />
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-black/5">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
       </div>
 
       <motion.div 
@@ -282,10 +282,6 @@ export default function Auth() {
             )}
           </AnimatePresence>
         </div>
-
-        <p className="mt-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
-          &copy; 2026 SRMA 24 KEDIRI
-        </p>
       </motion.div>
     </div>
   );

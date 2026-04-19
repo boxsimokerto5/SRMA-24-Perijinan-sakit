@@ -14,12 +14,12 @@ import {
 import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
-import { Contact, GraduationCap, IdCard, Info } from 'lucide-react';
+import { Contact, GraduationCap, IdCard, Info, Laptop, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsuhViewProps {
@@ -63,6 +63,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [phNamaSiswa, setPhNamaSiswa] = useState('');
   const [phKelas, setPhKelas] = useState('X-1');
   const [phKeperluan, setPhKeperluan] = useState('');
+
+  const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
+  const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
 
@@ -304,6 +307,20 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'laptop_requests'),
+      orderBy('tgl_request', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LaptopRequest));
+      setLaptopRequests(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'laptop_requests');
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleGeneratePDF = async (permit: IzinSakit) => {
     setPdfLoading(permit.id!);
     try {
@@ -473,6 +490,36 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     }
   };
 
+  const handleUpdateLaptopStatus = async (requestId: string, status: 'approved' | 'rejected') => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'laptop_requests', requestId), {
+        status,
+        updatedAt: serverTimestamp()
+      });
+
+      const req = laptopRequests.find(r => r.id === requestId);
+      if (req) {
+        notifyAllRoles(['guru_mapel', 'kepala_sekolah'], `Status Pinjam Laptop ${status.toUpperCase()}`, `Permohonan laptop untuk kelas ${req.kelas} telah ${status === 'approved' ? 'disetujui' : 'ditolak'} oleh Wali Asuh.`);
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `laptop_requests/${requestId}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLaptopPDF = async (request: LaptopRequest) => {
+    setLaptopPdfLoading(request.id!);
+    try {
+      await generateLaptopRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Error:", error);
+    } finally {
+      setLaptopPdfLoading(null);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status === 'pending_asuh').length,
@@ -636,7 +683,18 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     <div className={`p-2 rounded-xl ${viewMode === 'kartu_siswa' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
                       <IdCard className="w-4 h-4" />
                     </div>
-                    Kartu Siswa
+                    Cartu Siswa
+                  </button>
+                  <button
+                    onClick={() => { setViewMode('pinjam_laptop' as any); setShowMenu(false); }}
+                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
+                      viewMode === ('pinjam_laptop' as any) ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl ${viewMode === ('pinjam_laptop' as any) ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
+                      <Laptop className="w-4 h-4" />
+                    </div>
+                    Pinjam Laptop
                   </button>
                 </motion.div>
               </>
@@ -712,22 +770,32 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
           {/* Riwayat Terakhir Header */}
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
-            <button 
-              onClick={() => {
-                setSearchTerm('');
-                setStartDate('');
-                setEndDate('');
-                setTimeFilter('hari_ini');
-              }}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-            >
-              Reset Filter
-            </button>
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">
+              {viewMode === 'perizinan' ? 'Riwayat Perizinan' : 'Permohonan Laptop'}
+            </h2>
+            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+              <button 
+                onClick={() => setViewMode('perizinan')}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                  viewMode === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                }`}
+              >
+                Izin
+              </button>
+              <button 
+                onClick={() => setViewMode('pinjam_laptop' as any)}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                  viewMode === ('pinjam_laptop' as any) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                }`}
+              >
+                Laptop
+              </button>
+            </div>
           </div>
 
-          {/* Filters & Search */}
           <div className="space-y-6">
+            {/* Filters & Search */}
+            <div className="space-y-6">
             {/* Horizontal Time Categories */}
             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
               {[ 
@@ -998,38 +1066,128 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             )}
           </div>
         </div>
-      )}
+      </div>
+    )}
 
-      {viewMode === 'pinjam_hp' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Pinjam Handphone</h2>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Monitoring Penggunaan Gadget</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  setSearchTerm('');
-                  setTimeFilter('hari_ini');
-                }}
-                className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
+        {viewMode === ('pinjam_laptop' as any) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            {laptopRequests.map(req => (
+              <motion.div
+                key={req.id}
+                layout
+                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
               >
-                Reset
-              </button>
-              <button 
-                onClick={() => setShowPinjamForm(true)}
-                className="p-4 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                      <Laptop className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam Laptop - {req.kelas}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                    </div>
+                  </div>
+                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                    'bg-amber-50 text-amber-600'
+                  }`}>
+                    {req.status}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                    <span>Guru Pengaju</span>
+                    <span className="text-slate-900">{req.guru_name}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                    <span>Mata Pelajaran</span>
+                    <span className="text-slate-900">{req.mapel}</span>
+                  </div>
+                </div>
+
+                <div className="py-2 bg-slate-50 p-4 rounded-2xl">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
+                  <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                    {req.daftar_siswa.join(', ')}
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-slate-50 flex items-center justify-between gap-2">
+                  {req.status === 'pending' ? (
+                    <>
+                      <button
+                        onClick={() => handleUpdateLaptopStatus(req.id!, 'rejected')}
+                        disabled={loading}
+                        className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+                      >
+                        Tolak
+                      </button>
+                      <button
+                        onClick={() => handleUpdateLaptopStatus(req.id!, 'approved')}
+                        disabled={loading}
+                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                      >
+                        Setujui
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => handleLaptopPDF(req)}
+                      disabled={laptopPdfLoading === req.id}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                    >
+                      {laptopPdfLoading === req.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Printer className="w-4 h-4" />
+                      )}
+                      Cetak PDF
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+            {laptopRequests.length === 0 && (
+              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Filters & Search */}
-          <div className="space-y-6">
-            {/* Horizontal Time Categories */}
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+        {viewMode === 'pinjam_hp' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Pinjam Handphone</h2>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Monitoring Penggunaan Gadget</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    setSearchTerm('');
+                    setTimeFilter('hari_ini');
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Reset
+                </button>
+                <button 
+                  onClick={() => setShowPinjamForm(true)}
+                  className="p-4 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="space-y-6">
+              {/* Horizontal Time Categories */}
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
               {[ 
                 { id: 'hari_ini', label: 'Hari Ini' },
                 { id: 'kemarin', label: 'Kemarin' },

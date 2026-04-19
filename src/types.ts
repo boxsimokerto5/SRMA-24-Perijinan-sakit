@@ -107,6 +107,19 @@ export interface Siswa {
   ibu?: string;
 }
 
+export interface LaptopRequest {
+  id?: string;
+  nomor_surat: string;
+  tgl_request: Timestamp;
+  guru_name: string;
+  guru_uid: string;
+  mapel: string;
+  kelas: string;
+  daftar_siswa: string[]; // List of student names
+  status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
+}
+
 export interface AppNotification {
   id?: string;
   title: string;

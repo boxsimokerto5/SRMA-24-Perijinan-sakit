@@ -80,6 +80,22 @@
       },
       "required": ["nik", "nama_lengkap", "kelas"]
     },
+    "LaptopRequest": {
+      "title": "Laptop Request",
+      "description": "Information about laptop loan requests for students",
+      "type": "object",
+      "properties": {
+        "nomor_surat": { "type": "string" },
+        "tgl_request": { "type": "string", "format": "date-time" },
+        "guru_name": { "type": "string" },
+        "guru_uid": { "type": "string" },
+        "mapel": { "type": "string" },
+        "kelas": { "type": "string" },
+        "daftar_siswa": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+      },
+      "required": ["nomor_surat", "tgl_request", "guru_name", "guru_uid", "mapel", "kelas", "daftar_siswa", "status"]
+    },
     "AppNotification": {
       "title": "App Notification",
       "description": "System notifications for users",
@@ -116,6 +132,10 @@
     "/notifications/{notifId}": {
       "schema": "AppNotification",
       "description": "System-wide notifications"
+    },
+    "/laptop_requests/{requestId}": {
+      "schema": "LaptopRequest",
+      "description": "Laptop loan requests initiated by subject teachers"
     }
   }
 }

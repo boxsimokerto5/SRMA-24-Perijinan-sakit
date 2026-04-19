@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, addDoc, deleteDoc, doc, where, getDocs, writeBatch } from 'firebase/firestore';
-import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa } from '../types';
+import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, subDays } from 'date-fns';
 import { 
@@ -13,7 +13,7 @@ import {
   Tooltip, 
   ResponsiveContainer,
   LineChart,
-  Line,
+  Line, 
   Cell,
   PieChart,
   Pie
@@ -41,9 +41,10 @@ import {
   ShieldCheck,
   LogOut,
   Bell,
-  ChevronRight
+  ChevronRight,
+  Laptop
 } from 'lucide-react';
-import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -70,8 +71,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
   // Memorandum States
-  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman'>('perizinan');
+  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop'>('perizinan');
   const [memos, setMemos] = useState<Memorandum[]>([]);
+  const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
+  const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
   const [newMemo, setNewMemo] = useState({
@@ -158,11 +161,17 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       })));
     });
 
+    const qLaptop = query(collection(db, 'laptop_requests'), orderBy('tgl_request', 'desc'));
+    const unsubscribeLaptop = onSnapshot(qLaptop, (snapshot) => {
+      setLaptopRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LaptopRequest)));
+    });
+
     return () => {
       unsubscribePermits();
       unsubscribeMemos();
       unsubscribeAnnouncements();
       unsubscribeSiswa();
+      unsubscribeLaptop();
     };
   }, []);
 
@@ -339,6 +348,17 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       setNewMemo(prev => ({ ...prev, penerima: [] }));
     } else {
       setNewMemo(prev => ({ ...prev, penerima: ['dokter', 'wali_asuh', 'wali_kelas'] }));
+    }
+  };
+
+  const handleLaptopPDF = async (request: LaptopRequest) => {
+    setLaptopPdfLoading(request.id!);
+    try {
+      await generateLaptopRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Error:", error);
+    } finally {
+      setLaptopPdfLoading(null);
     }
   };
 
@@ -599,6 +619,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
           }`}
         >
           <Bell className="w-3.5 h-3.5" /> Pengumuman
+        </button>
+        <button
+          onClick={() => setSubTab('pinjam_laptop')}
+          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+            subTab === 'pinjam_laptop' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Laptop className="w-3.5 h-3.5" /> Laptop
         </button>
         <button
           onClick={() => setSubTab('kartu_siswa' as any)}

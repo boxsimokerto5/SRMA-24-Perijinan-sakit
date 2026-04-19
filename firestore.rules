@@ -60,6 +60,17 @@ service cloud.firestore {
              data.recipientRoles is list && data.recipientRoles.size() > 0;
     }
 
+    function isValidLaptopRequest(data) {
+      return data.keys().hasAll(['nomor_surat', 'tgl_request', 'guru_name', 'guru_uid', 'mapel', 'kelas', 'daftar_siswa', 'status']) &&
+             data.nomor_surat is string && data.nomor_surat.size() <= 64 &&
+             data.guru_name is string && data.guru_name.size() <= 128 &&
+             data.mapel is string && data.mapel.size() <= 64 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.daftar_siswa is list && data.daftar_siswa.size() > 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.tgl_request == request.time;
+    }
+
     function isValidId(id) { 
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
     }
@@ -144,6 +155,13 @@ service cloud.firestore {
     match /announcements/{annId} {
       allow read: if isSignedIn();
       allow create: if hasRole('kepala_sekolah') || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /laptop_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if hasRole('guru_mapel') && isValidLaptopRequest(incoming());
+      allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
       allow delete: if isAdmin();
     }
   }

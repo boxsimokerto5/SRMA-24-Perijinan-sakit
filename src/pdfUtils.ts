@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum } from './types';
+import { IzinSakit, Memorandum, LaptopRequest } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -352,6 +352,146 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
         text: `Laporan Rekapitulasi - ${rangeLabel}`,
         url: savedFile.uri,
         dialogTitle: 'Simpan atau Bagikan Laporan'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateLaptopRequestPDF = async (request: LaptopRequest) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- DESIGN: Border & Background ---
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287); // Page border
+  
+  // --- HEADER ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(79, 70, 229); // Indigo color
+  doc.text(`GURU MATA PELAJARAN: ${(request.mapel || '').toUpperCase()}`, 105, 32, { align: 'center' });
+  
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 38, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 43, { align: 'center' });
+  doc.text(`Email: srma24kediri@gmail.com   |   Kode Pos: 64152`, 105, 48, { align: 'center' });
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+  doc.setLineWidth(0.2);
+  doc.line(20, 53.5, 190, 53.5);
+
+  // --- TITLE ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SURAT PERMOHONAN PINJAMAN LAPTOP', 105, 65, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(60, 66.5, 150, 66.5);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Nomor : ${request.nomor_surat}`, 105, 72, { align: 'center' });
+
+  // --- RECIPIENT ---
+  doc.setFontSize(11);
+  doc.text('Kepada Yth.', 20, 85);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Bapak/Ibu Wali Asuh`, 20, 91);
+  doc.text(`SRMA 24 Kediri`, 20, 96);
+  doc.setFont('helvetica', 'normal');
+  doc.text('di Tempat', 20, 101);
+
+  // --- CONTENT ---
+  doc.text('Dengan hormat,', 20, 115);
+  doc.text('Saya yang bertanda tangan di bawah ini:', 20, 122);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Nama', 30, 130);
+  doc.text('NIP/ID', 30, 137);
+  doc.text('Mata Pelajaran', 30, 144);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`:  ${request.guru_name}`, 70, 130);
+  doc.text(`:  ${(request.guru_uid || '').substring(0, 8).toUpperCase()}`, 70, 137);
+  doc.text(`:  ${request.mapel}`, 70, 144);
+
+  doc.text(`Bermaksud mengajukan permohonan peminjaman fasilitas laptop untuk menunjang kegiatan belajar mengajar bagi siswa dangan daftar sebagai berikut:`, 20, 155, { maxWidth: 170 });
+
+  // Student List
+  let currentY = 168;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Kelas: ${request.kelas}`, 20, currentY);
+  currentY += 8;
+  
+  doc.setFont('helvetica', 'normal');
+  request.daftar_siswa.forEach((name, index) => {
+    if (currentY > 240) {
+      doc.addPage();
+      currentY = 20;
+    }
+    doc.text(`${index + 1}. ${name}`, 25, currentY);
+    currentY += 7;
+  });
+
+  const closingY = currentY + 10;
+  doc.text('Demikian permohonan ini saya sampaikan, mohon untuk dapat diperhatikan dan diberikan izin peminjaman sebagaimana mestinya demi kelancaran proses akademik siswa.', 20, closingY, { maxWidth: 170, align: 'justify' });
+  doc.text('Atas perhatian dan kerja samanya, saya ucapkan terima kasih.', 20, closingY + 15);
+
+  // --- SIGNATURE ---
+  const footerY = 240;
+  const tglRequestStr = request.tgl_request && typeof request.tgl_request.toDate === 'function' ? format(request.tgl_request.toDate(), 'dd MMMM yyyy') : format(new Date(), 'dd MMMM yyyy');
+  
+  const qrGuru = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LAPTOP_REQ_VERIFIED_GURU_${request.id}_${request.guru_name}`;
+  doc.addImage(qrGuru, 'PNG', 145, footerY - 5, 25, 25);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Kediri, ${tglRequestStr}`, 155, footerY - 15, { align: 'center' });
+  doc.text('Hormat Saya,', 155, footerY - 10, { align: 'center' });
+  doc.text('Guru Mata Pelajaran,', 155, footerY - 5, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text(request.guru_name, 155, footerY + 28, { align: 'center' });
+  doc.line(130, footerY + 29, 180, footerY + 29);
+
+  // Security Note
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Dokumen ini sah dan ditandatangani secara elektronik melalui Sistem SRMA 24.', 105, 275, { align: 'center' });
+  doc.text('Verifikasi keaslian dapat dilakukan dengan memindai QR Code di atas.', 105, 279, { align: 'center' });
+
+  // --- OUTPUT ---
+  const fileName = `Request_Laptop_${request.kelas}_${Date.now()}.pdf`;
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Permohonan Pinjaman Laptop',
+        text: `Permohonan Pinjaman Laptop - ${request.kelas}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Permohonan'
       });
     } catch (error) {
       console.error("Capacitor Share Error:", error);
