@@ -856,6 +856,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               >
                 Req HP
               </button>
+              <button 
+                onClick={() => setViewMode('pinjam_hp')}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                  (viewMode as string) === 'pinjam_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                }`}
+              >
+                Pinjam HP
+              </button>
             </div>
           </div>
 
@@ -1424,7 +1432,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   </div>
                   {item.status === 'dipinjam' ? (
                     <button
-                      onClick={() => handleKembalikanHP(item.id!)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKembalikanHP(item.id!);
+                      }}
                       className="px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-black transition-all active:scale-95"
                     >
                       Kembalikan
@@ -1571,7 +1582,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       )}
 
       {/* Floating Action Button (FAB) */}
-      {viewMode !== 'kartu_siswa' && (
+      {(viewMode === 'perizinan' || viewMode === 'pinjam_hp') && (
         <motion.button 
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -1819,13 +1830,24 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
               <button
                 onClick={() => setSelectedPinjam(null)}
-                className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
               >
                 Tutup
               </button>
+              {selectedPinjam.status === 'dipinjam' && (
+                <button
+                  onClick={() => {
+                    handleKembalikanHP(selectedPinjam.id!);
+                    setSelectedPinjam(null);
+                  }}
+                  className="flex-1 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all"
+                >
+                  Kembalikan
+                </button>
+              )}
             </div>
           </div>
         </div>

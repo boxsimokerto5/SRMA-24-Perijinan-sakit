@@ -33,11 +33,11 @@ service cloud.firestore {
     }
 
     // Pillar 2: Validation Blueprints (The "Anti-Update-Gap")
-    function isValidUser(data) {
+     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 128 &&
-             data.role in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah', 'guru_mapel'];
+             data.role in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah', 'guru_mapel', 'wali_asrama'];
     }
 
     function isValidIzinSakit(data) {
@@ -69,6 +69,28 @@ service cloud.firestore {
              data.daftar_siswa is list && data.daftar_siswa.size() > 0 &&
              data.status in ['pending', 'approved', 'rejected'] &&
              data.tgl_request == request.time;
+    }
+
+    function isValidHPRequest(data) {
+      return data.keys().hasAll(['nomor_surat', 'tgl_request', 'guru_name', 'guru_uid', 'mapel', 'kelas', 'daftar_siswa', 'status']) &&
+             data.nomor_surat is string && data.nomor_surat.size() <= 64 &&
+             data.guru_name is string && data.guru_name.size() <= 128 &&
+             data.mapel is string && data.mapel.size() <= 64 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.daftar_siswa is list && data.daftar_siswa.size() > 0 &&
+             data.status in ['pending', 'approved', 'rejected', 'processed'] &&
+             data.tgl_request == request.time;
+    }
+
+    function isValidHealthCheckProposal(data) {
+      return data.keys().hasAll(['proposer_name', 'proposer_uid', 'asrama', 'tgl_usulan', 'daftar_siswa', 'status']) &&
+             data.proposer_name is string && data.proposer_name.size() <= 128 &&
+             data.proposer_uid == request.auth.uid &&
+             data.asrama is string && data.asrama.size() <= 64 &&
+             data.tgl_usulan == request.time &&
+             data.daftar_siswa is list && data.daftar_siswa.size() > 0 &&
+             data.status in ['pending', 'processed'] &&
+             (!('keterangan' in data) || (data.keterangan is string && data.keterangan.size() <= 1000));
     }
 
     function isValidId(id) { 
@@ -158,8 +180,39 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /hp_requests/{requestId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (
+        hasRole('kepala_sekolah') || 
+        hasRole('wali_asuh') || 
+        (hasRole('guru_mapel') && resource.data.guru_uid == request.auth.uid) ||
+        isAdmin()
+      );
+      allow create: if (hasRole('guru_mapel') || hasRole('wali_asuh')) && isValidHPRequest(incoming());
+      allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    match /health_check_proposals/{proposalId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (
+        hasRole('dokter') || 
+        hasRole('wali_asrama') || 
+        isAdmin()
+      );
+      allow create: if hasRole('wali_asrama') && isValidHealthCheckProposal(incoming());
+      allow update: if (hasRole('dokter') || hasRole('wali_asrama') || isAdmin());
+      allow delete: if isAdmin();
+    }
+
     match /laptop_requests/{requestId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (
+        hasRole('kepala_sekolah') || 
+        hasRole('wali_asuh') || 
+        (hasRole('guru_mapel') && resource.data.guru_uid == request.auth.uid) ||
+        isAdmin()
+      );
       allow create: if hasRole('guru_mapel') && isValidLaptopRequest(incoming());
       allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
       allow delete: if isAdmin();

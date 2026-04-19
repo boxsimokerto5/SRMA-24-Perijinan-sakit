@@ -7,7 +7,7 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["dokter", "wali_asuh", "wali_kelas", "kepala_sekolah", "guru_mapel"] },
+        "role": { "type": "string", "enum": ["dokter", "wali_asuh", "wali_kelas", "kepala_sekolah", "guru_mapel", "wali_asrama"] },
         "name": { "type": "string" },
         "mapel": { "type": "string" },
         "fcmToken": { "type": "string" }
@@ -110,6 +110,37 @@
         "link": { "type": "string" }
       },
       "required": ["title", "description", "type", "createdAt", "readBy", "recipientRoles"]
+    },
+    "HPRequest": {
+      "title": "HP Request",
+      "description": "Information about group phone loan requests for students",
+      "type": "object",
+      "properties": {
+        "nomor_surat": { "type": "string" },
+        "tgl_request": { "type": "string", "format": "date-time" },
+        "guru_name": { "type": "string" },
+        "guru_uid": { "type": "string" },
+        "mapel": { "type": "string" },
+        "kelas": { "type": "string" },
+        "daftar_siswa": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "processed"] }
+      },
+      "required": ["nomor_surat", "tgl_request", "guru_name", "guru_uid", "mapel", "kelas", "daftar_siswa", "status"]
+    },
+    "HealthCheckProposal": {
+      "title": "Health Check Proposal",
+      "description": "Proposal for health check by wali asrama",
+      "type": "object",
+      "properties": {
+        "proposer_name": { "type": "string" },
+        "proposer_uid": { "type": "string" },
+        "asrama": { "type": "string" },
+        "tgl_usulan": { "type": "string", "format": "date-time" },
+        "daftar_siswa": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["pending", "processed"] },
+        "keterangan": { "type": "string" }
+      },
+      "required": ["proposer_name", "proposer_uid", "asrama", "tgl_usulan", "daftar_siswa", "status"]
     }
   },
   "firestore": {
@@ -136,6 +167,14 @@
     "/laptop_requests/{requestId}": {
       "schema": "LaptopRequest",
       "description": "Laptop loan requests initiated by subject teachers"
+    },
+    "/hp_requests/{requestId}": {
+      "schema": "HPRequest",
+      "description": "Group phone loan requests initiated by subject teachers or wali asuh"
+    },
+    "/health_check_proposals/{proposalId}": {
+      "schema": "HealthCheckProposal",
+      "description": "Health check proposals initiated by wali asrama"
     }
   }
 }

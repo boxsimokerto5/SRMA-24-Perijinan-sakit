@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas } from '../types';
+import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas, HealthCheckProposal } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { 
   BarChart, 
@@ -15,7 +15,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
@@ -55,10 +55,11 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
   // View Mode
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek'>('perizinan');
   const [selectedClass, setSelectedClass] = useState('Semua');
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
+  const [proposals, setProposals] = useState<HealthCheckProposal[]>([]);
   const classes = ['Semua', ...Array.from(new Set(students.map(s => s.kelas))).filter(Boolean).sort()];
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
@@ -214,6 +215,18 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'health_check_proposals'),
+      where('status', '==', 'pending'),
+      orderBy('tgl_usulan', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setProposals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HealthCheckProposal)));
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -261,11 +274,25 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     }
   };
 
+  const handleProcessProposal = async (proposalId: string) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'health_check_proposals', proposalId), {
+        status: 'processed'
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `health_check_proposals/${proposalId}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status.startsWith('pending')).length,
     selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
-    memos: memos.length
+    memos: memos.length,
+    usulan: proposals.length
   };
 
   if (activeTab === 'profil') {
@@ -377,6 +404,14 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
           }`}
         >
           <User className="w-3.5 h-3.5" /> Kartu Siswa
+        </button>
+        <button
+          onClick={() => setViewMode('usulan_cek')}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+            viewMode === 'usulan_cek' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" /> Usulan ({proposals.length})
         </button>
       </div>
 
@@ -758,7 +793,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         )}
       </div>
       </>
-      ) : (
+      ) : viewMode === 'kartu_siswa' ? (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 space-y-6">
             <div className="relative group">
@@ -895,6 +930,95 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                 </motion.div>
               );
             })}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-900 font-display">Usulan Cek Kesehatan</h2>
+            <div className="px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0">
+               {proposals.length} Menunggu
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {proposals.map(proposal => (
+              <motion.div
+                key={proposal.id}
+                layout
+                className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-6"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex gap-4">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                      <Building className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Diusulkan Oleh</p>
+                      <h4 className="font-black text-slate-900 uppercase">Wali Asrama: {proposal.proposer_name}</h4>
+                      <p className="text-[10px] font-bold text-slate-400">
+                        {proposal.tgl_usulan && typeof proposal.tgl_usulan.toDate === 'function' ? format(proposal.tgl_usulan.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa Terlapor</p>
+                  <div className="flex flex-wrap gap-2">
+                    {proposal.daftar_siswa.map((s, i) => (
+                      <span key={i} className="px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-bold text-slate-700">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {proposal.keterangan && (
+                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50 flex gap-3 italic">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <p className="text-xs text-amber-800 font-medium">{proposal.keterangan}</p>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-dashed border-slate-100 flex gap-3">
+                  <button
+                    onClick={() => handleProcessProposal(proposal.id!)}
+                    disabled={loading}
+                    className="flex-1 py-3 bg-emerald-600 text-white font-black rounded-2xl shadow-lg shadow-emerald-100 transition-all text-[10px] uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Tandai Selesai Diperiksa
+                  </button>
+                  <button
+                    onClick={() => {
+                        // Pre-fill first student in form
+                        if (proposal.daftar_siswa.length > 0) {
+                          const firstStudent = students.find(s => s.nama_lengkap === proposal.daftar_siswa[0]);
+                          if (firstStudent) {
+                             selectStudent(firstStudent);
+                          } else {
+                             setNamaSiswa(proposal.daftar_siswa[0]);
+                          }
+                          setViewMode('perizinan');
+                          setShowForm(true);
+                        }
+                    }}
+                    className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all text-[10px] uppercase tracking-widest hover:bg-indigo-700"
+                  >
+                    Buat Surat Izin
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            {proposals.length === 0 && (
+              <div className="col-span-full text-center py-24 bg-white rounded-[4rem] border border-dashed border-slate-200">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                   <Activity className="w-10 h-10 text-slate-200" />
+                </div>
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Tidak Ada Usulan Baru</h3>
+                <p className="text-[10px] font-bold text-slate-300 mt-2">Usulan dari Wali Asrama akan muncul di sini</p>
+              </div>
+            )}
           </div>
         </div>
       )}

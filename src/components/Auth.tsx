@@ -210,7 +210,7 @@ export default function Auth() {
                     >
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Jabatan</label>
                       <div className="grid grid-cols-2 gap-3">
-                        {(['wali_asuh', 'wali_kelas', 'guru_mapel', 'dokter', 'kepala_sekolah'] as UserRole[]).map((r) => (
+                        {(['wali_asuh', 'wali_asrama', 'wali_kelas', 'guru_mapel', 'dokter', 'kepala_sekolah'] as UserRole[]).map((r) => (
                           <button
                             key={r}
                             type="button"
@@ -222,6 +222,7 @@ export default function Auth() {
                             }`}
                           >
                             {r === 'wali_asuh' ? <Home className="w-5 h-5" /> : 
+                             r === 'wali_asrama' ? <Building className="w-5 h-5" /> :
                              r === 'wali_kelas' ? <CheckSquare className="w-5 h-5" /> : 
                              r === 'guru_mapel' ? <ClipboardList className="w-5 h-5" /> :
                              r === 'dokter' ? <Stethoscope className="w-5 h-5" /> :

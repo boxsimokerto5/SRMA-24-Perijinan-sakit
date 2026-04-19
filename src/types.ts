@@ -1,6 +1,17 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'dokter' | 'wali_asuh' | 'wali_kelas' | 'kepala_sekolah' | 'guru_mapel';
+export type UserRole = 'dokter' | 'wali_asuh' | 'wali_kelas' | 'kepala_sekolah' | 'guru_mapel' | 'wali_asrama';
+
+export interface HealthCheckProposal {
+  id?: string;
+  proposer_name: string;
+  proposer_uid: string;
+  asrama: string;
+  tgl_usulan: Timestamp;
+  daftar_siswa: string[]; // List of student names
+  status: 'pending' | 'processed';
+  keterangan?: string;
+}
 
 export interface AppUser {
   uid: string;
