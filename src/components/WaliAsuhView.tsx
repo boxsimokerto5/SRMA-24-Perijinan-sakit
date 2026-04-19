@@ -11,13 +11,13 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { Contact, GraduationCap, IdCard, Info, Laptop, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,7 +42,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp' | 'kartu_siswa'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop'>('perizinan');
   const [showMenu, setShowMenu] = useState(false);
   const [pinjamHPList, setPinjamHPList] = useState<PinjamHP[]>([]);
   const [students, setStudents] = useState<Siswa[]>([]);
@@ -66,6 +66,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
   const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
+
+  const [hpRequests, setHpRequests] = useState<HPRequest[]>([]);
+  const [hpRequestPdfLoading, setHpRequestPdfLoading] = useState<string | null>(null);
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
 
@@ -321,6 +324,20 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'hp_requests'),
+      orderBy('tgl_request', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HPRequest));
+      setHpRequests(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'hp_requests');
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleGeneratePDF = async (permit: IzinSakit) => {
     setPdfLoading(permit.id!);
     try {
@@ -520,6 +537,36 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     }
   };
 
+  const handleUpdateHPRequestStatus = async (requestId: string, status: 'approved' | 'rejected') => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'hp_requests', requestId), {
+        status,
+        updatedAt: serverTimestamp()
+      });
+
+      const req = hpRequests.find(r => r.id === requestId);
+      if (req) {
+        notifyAllRoles(['guru_mapel', 'kepala_sekolah'], `Status Pinjam HP ${status.toUpperCase()}`, `Permohonan HP untuk kelas ${req.kelas} telah ${status === 'approved' ? 'disetujui' : 'ditolak'} oleh Wali Asuh.`);
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `hp_requests/${requestId}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleHPRequestPDF = async (request: HPRequest) => {
+    setHpRequestPdfLoading(request.id!);
+    try {
+      await generateHPRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Error:", error);
+    } finally {
+      setHpRequestPdfLoading(null);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status === 'pending_asuh').length,
@@ -672,7 +719,18 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     <div className={`p-2 rounded-xl ${viewMode === 'pinjam_hp' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
                       <Smartphone className="w-4 h-4" />
                     </div>
-                    Pinjam Handphone
+                    Pinjam Handphone (Individu)
+                  </button>
+                  <button
+                    onClick={() => { setViewMode('permohonan_hp'); setShowMenu(false); }}
+                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
+                      viewMode === 'permohonan_hp' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl ${viewMode === 'permohonan_hp' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
+                      <Tablet className="w-4 h-4" />
+                    </div>
+                    Permohonan HP (Batch)
                   </button>
                   <button
                     onClick={() => { setViewMode('kartu_siswa'); setShowMenu(false); }}
@@ -686,12 +744,12 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     Cartu Siswa
                   </button>
                   <button
-                    onClick={() => { setViewMode('pinjam_laptop' as any); setShowMenu(false); }}
+                    onClick={() => { setViewMode('pinjam_laptop'); setShowMenu(false); }}
                     className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === ('pinjam_laptop' as any) ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
+                      viewMode === 'pinjam_laptop' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <div className={`p-2 rounded-xl ${viewMode === ('pinjam_laptop' as any) ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
+                    <div className={`p-2 rounded-xl ${viewMode === 'pinjam_laptop' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
                       <Laptop className="w-4 h-4" />
                     </div>
                     Pinjam Laptop
@@ -771,24 +829,32 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           {/* Riwayat Terakhir Header */}
           <div className="flex items-center justify-between px-1">
             <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">
-              {viewMode === 'perizinan' ? 'Riwayat Perizinan' : 'Permohonan Laptop'}
+              {(viewMode as string) === 'perizinan' ? 'Riwayat Perizinan' : (viewMode as string) === 'pinjam_hp' ? 'Riwayat HP Individu' : (viewMode as string) === 'permohonan_hp' ? 'Permohonan HP' : 'Permohonan Laptop'}
             </h2>
             <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
               <button 
                 onClick={() => setViewMode('perizinan')}
                 className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                  viewMode === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                  (viewMode as string) === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
                 }`}
               >
                 Izin
               </button>
               <button 
-                onClick={() => setViewMode('pinjam_laptop' as any)}
+                onClick={() => setViewMode('pinjam_laptop')}
                 className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                  viewMode === ('pinjam_laptop' as any) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                  (viewMode as string) === 'pinjam_laptop' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
                 }`}
               >
                 Laptop
+              </button>
+              <button 
+                onClick={() => setViewMode('permohonan_hp')}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                  (viewMode as string) === 'permohonan_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                }`}
+              >
+                Req HP
               </button>
             </div>
           </div>
@@ -1069,7 +1135,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       </div>
     )}
 
-        {viewMode === ('pinjam_laptop' as any) && (
+        {viewMode === 'pinjam_laptop' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
             {laptopRequests.map(req => (
               <motion.div
@@ -1153,6 +1219,95 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
                 <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {viewMode === 'permohonan_hp' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            {hpRequests.map(req => (
+              <motion.div
+                key={req.id}
+                layout
+                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                      <Tablet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam HP - {req.kelas}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                    </div>
+                  </div>
+                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                    'bg-amber-50 text-amber-600'
+                  }`}>
+                    {req.status}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                    <span>Guru Pengaju</span>
+                    <span className="text-slate-900">{req.guru_name}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                    <span>Mata Pelajaran</span>
+                    <span className="text-slate-900">{req.mapel}</span>
+                  </div>
+                </div>
+
+                <div className="py-2 bg-slate-50 p-4 rounded-2xl">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
+                  <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                    {req.daftar_siswa.join(', ')}
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-slate-50 flex items-center justify-between gap-2">
+                  {req.status === 'pending' ? (
+                    <>
+                      <button
+                        onClick={() => handleUpdateHPRequestStatus(req.id!, 'rejected')}
+                        disabled={loading}
+                        className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+                      >
+                        Tolak
+                      </button>
+                      <button
+                        onClick={() => handleUpdateHPRequestStatus(req.id!, 'approved')}
+                        disabled={loading}
+                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                      >
+                        Setujui
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => handleHPRequestPDF(req)}
+                      disabled={hpRequestPdfLoading === req.id}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                    >
+                      {hpRequestPdfLoading === req.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Printer className="w-4 h-4" />
+                      )}
+                      Cetak Surat Izin HP
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+            {hpRequests.length === 0 && (
+              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Tablet className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan HP masuk</p>
               </div>
             )}
           </div>

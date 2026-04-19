@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, LaptopRequest } from '../types';
+import { UserRole, AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, LaptopRequest, HPRequest } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Laptop, Users, CheckSquare as CheckSquareIcon, Square } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Laptop, Users, CheckSquare as CheckSquareIcon, Square, Tablet } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
@@ -28,7 +28,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'pinjam_laptop'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'pinjam_laptop' | 'pinjam_hp'>('perizinan');
   const [showMenu, setShowMenu] = useState(false);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
@@ -45,6 +45,12 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [laptopKelas, setLaptopKelas] = useState('X-1');
   const [isSubmittingLaptop, setIsSubmittingLaptop] = useState(false);
   const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
+
+  const [hpRequests, setHpRequests] = useState<HPRequest[]>([]);
+  const [selectedStudentsForHP, setSelectedStudentsForHP] = useState<string[]>([]);
+  const [hpKelas, setHpKelas] = useState('X-1');
+  const [isSubmittingHP, setIsSubmittingHP] = useState(false);
+  const [hpPdfLoading, setHpPdfLoading] = useState<string | null>(null);
 
   const CLASSES = ['X-1', 'X-2', 'X-3', 'X-4', 'XI-1', 'XI-2', 'XI-3', 'XI-4', 'XII-1', 'XII-2', 'XII-3', 'XII-4'];
 
@@ -186,6 +192,21 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     return () => unsubscribe();
   }, [user.uid]);
 
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'hp_requests'),
+      where('guru_uid', '==', user.uid),
+      orderBy('tgl_request', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HPRequest));
+      setHpRequests(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'hp_requests');
+    });
+    return () => unsubscribe();
+  }, [user.uid]);
+
   const handleApprove = async (permitId: string) => {
     setLoading(true);
     try {
@@ -316,6 +337,74 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     }
   };
 
+  const handleHPRequestPDF = async (request: HPRequest) => {
+    setHpPdfLoading(request.id!);
+    try {
+      await generateHPRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
+      alert("Gagal membuat PDF. Silakan coba lagi.");
+    } finally {
+      setHpPdfLoading(null);
+    }
+  };
+
+  const handleToggleStudentSelectionHP = (studentName: string) => {
+    setSelectedStudentsForHP(prev => 
+      prev.includes(studentName) 
+        ? prev.filter(name => name !== studentName)
+        : [...prev, studentName]
+    );
+  };
+
+  const handleSelectAllInClassHP = () => {
+    const studentsInClass = students
+      .filter(s => s.kelas === hpKelas)
+      .map(s => s.nama_lengkap);
+    
+    // If all are already selected, deselect them
+    const allSelected = studentsInClass.every(name => selectedStudentsForHP.includes(name));
+    
+    if (allSelected) {
+      setSelectedStudentsForHP(prev => prev.filter(name => !studentsInClass.includes(name)));
+    } else {
+      setSelectedStudentsForHP(prev => Array.from(new Set([...prev, ...studentsInClass])));
+    }
+  };
+
+  const handleSubmitHPRequest = async () => {
+    if (selectedStudentsForHP.length === 0) {
+      alert('Pilih setidaknya satu siswa.');
+      return;
+    }
+
+    setIsSubmittingHP(true);
+    try {
+      const docRef = await addDoc(collection(db, 'hp_requests'), {
+        nomor_surat: `REQ-HP-${user.uid.substring(0, 4)}-${Date.now().toString().slice(-4)}`,
+        tgl_request: serverTimestamp(),
+        guru_name: user.name,
+        guru_uid: user.uid,
+        mapel: user.mapel || 'Guru Mapel',
+        kelas: hpKelas,
+        daftar_siswa: selectedStudentsForHP,
+        status: 'pending'
+      });
+
+      // Notify Wali Asuh and Kepala Sekolah
+      await notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Permohonan Pinjam HP', `Guru Mapel ${user.name} mengajukan peminjaman HP untuk ${selectedStudentsForHP.length} siswa kelas ${hpKelas}.`);
+
+      alert('Permohonan berhasil dikirim!');
+      setSelectedStudentsForHP([]);
+      setViewMode('perizinan');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengirim permohonan');
+    } finally {
+      setIsSubmittingHP(false);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status === 'pending_kelas').length,
@@ -414,6 +503,17 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       <Laptop className="w-4 h-4" />
                     </div>
                     Permohonan Laptop
+                  </button>
+                  <button
+                    onClick={() => { setViewMode('pinjam_hp'); setShowMenu(false); }}
+                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
+                      viewMode === 'pinjam_hp' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl ${viewMode === 'pinjam_hp' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
+                      <Tablet className="w-4 h-4" />
+                    </div>
+                    Permohonan HP
                   </button>
                 </motion.div>
               </>
@@ -576,6 +676,98 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         </div>
       )}
 
+      {viewMode === 'pinjam_hp' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="px-1">
+            <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Permohonan HP</h2>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Pinjaman HP untuk Siswa</p>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-6">
+            <div className="space-y-4">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Kelas</label>
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {CLASSES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      setHpKelas(c);
+                      setSelectedStudentsForHP([]);
+                    }}
+                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                      hpKelas === c
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'bg-slate-50 text-slate-500 border border-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    Kelas {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Daftar Siswa Kelas {hpKelas}</label>
+                <button 
+                  onClick={handleSelectAllInClassHP}
+                  className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                >
+                  Pilih Semua
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {students.filter(s => s.kelas === hpKelas).map(student => (
+                  <button
+                    key={student.id}
+                    onClick={() => handleToggleStudentSelectionHP(student.nama_lengkap)}
+                    className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${
+                      selectedStudentsForHP.includes(student.nama_lengkap)
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
+                        : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {selectedStudentsForHP.includes(student.nama_lengkap) ? (
+                      <CheckSquareIcon className="w-5 h-5 text-indigo-600" />
+                    ) : (
+                      <Square className="w-5 h-5 text-slate-300" />
+                    )}
+                    <span className="text-sm font-bold">{student.nama_lengkap}</span>
+                  </button>
+                ))}
+                {students.filter(s => s.kelas === hpKelas).length === 0 && (
+                  <div className="col-span-full py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Tidak ada siswa di kelas ini</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa Terpilih</p>
+                  <p className="text-xl font-black text-indigo-600">{selectedStudentsForHP.length} <span className="text-xs text-slate-400">Siswa</span></p>
+                </div>
+                <button
+                  onClick={handleSubmitHPRequest}
+                  disabled={isSubmittingHP || selectedStudentsForHP.length === 0}
+                  className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
+                >
+                  {isSubmittingHP ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                  Kirim Permohonan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {viewMode === 'perizinan' && (
         <>
       <div className="grid grid-cols-2 gap-4">
@@ -701,7 +893,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       <div className="space-y-6">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-lg font-black text-slate-900 font-display">
-            {viewMode === 'perizinan' ? 'Riwayat & Permohonan' : 'Riwayat Laptop'}
+            {viewMode === 'perizinan' ? 'Riwayat & Permohonan' : viewMode === 'pinjam_laptop' ? 'Riwayat Laptop' : 'Riwayat HP'}
           </h3>
           <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
             <button 
@@ -710,7 +902,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                 viewMode === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
               }`}
             >
-              Izin Sakit
+              Izin
             </button>
             <button 
               onClick={() => setViewMode('pinjam_laptop')}
@@ -719,6 +911,14 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               }`}
             >
               Laptop
+            </button>
+            <button 
+              onClick={() => setViewMode('pinjam_hp')}
+              className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                viewMode === 'pinjam_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+              }`}
+            >
+              HP
             </button>
           </div>
         </div>
@@ -821,6 +1021,69 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
             {laptopRequests.length === 0 && (
               <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
                 <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada riwayat permohonan</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {viewMode === 'pinjam_hp' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {hpRequests.map(req => (
+              <motion.div
+                key={req.id}
+                layout
+                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                      <Tablet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900">Pinjam HP - {req.kelas}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                    </div>
+                  </div>
+                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                    'bg-amber-50 text-amber-600'
+                  }`}>
+                    {req.status}
+                  </div>
+                </div>
+
+                <div className="py-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daftar Siswa</p>
+                  <p className="text-sm font-bold text-slate-600 leading-relaxed">
+                    {req.daftar_siswa.join(', ')}
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {req.tgl_request && format(req.tgl_request.toDate(), 'dd MMM yyyy')}
+                  </div>
+                  <button
+                    onClick={() => handleHPRequestPDF(req)}
+                    disabled={hpPdfLoading === req.id}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                  >
+                    {hpPdfLoading === req.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Printer className="w-3.5 h-3.5" />
+                    )}
+                    Cetak PDF
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            {hpRequests.length === 0 && (
+              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Tablet className="w-12 h-12 text-slate-200 mx-auto mb-4" />
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada riwayat permohonan</p>
               </div>
             )}

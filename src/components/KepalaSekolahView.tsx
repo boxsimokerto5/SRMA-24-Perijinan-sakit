@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, addDoc, deleteDoc, doc, where, getDocs, writeBatch } from 'firebase/firestore';
-import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest } from '../types';
+import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest, HPRequest } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, subDays } from 'date-fns';
 import { 
@@ -42,9 +42,10 @@ import {
   LogOut,
   Bell,
   ChevronRight,
-  Laptop
+  Laptop,
+  Tablet, Smartphone, Check
 } from 'lucide-react';
-import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -71,10 +72,13 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
   // Memorandum States
-  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop'>('perizinan');
+  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp'>('perizinan');
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
   const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
+  
+  const [hpRequests, setHpRequests] = useState<HPRequest[]>([]);
+  const [hpRequestPdfLoading, setHpRequestPdfLoading] = useState<string | null>(null);
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
   const [newMemo, setNewMemo] = useState({
@@ -166,12 +170,18 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       setLaptopRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LaptopRequest)));
     });
 
+    const qHP = query(collection(db, 'hp_requests'), orderBy('tgl_request', 'desc'));
+    const unsubscribeHP = onSnapshot(qHP, (snapshot) => {
+      setHpRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HPRequest)));
+    });
+
     return () => {
       unsubscribePermits();
       unsubscribeMemos();
       unsubscribeAnnouncements();
       unsubscribeSiswa();
       unsubscribeLaptop();
+      unsubscribeHP();
     };
   }, []);
 
@@ -629,6 +639,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
           <Laptop className="w-3.5 h-3.5" /> Laptop
         </button>
         <button
+          onClick={() => setSubTab('permohonan_hp')}
+          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+            subTab === 'permohonan_hp' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Tablet className="w-3.5 h-3.5" /> HP
+        </button>
+        <button
           onClick={() => setSubTab('kartu_siswa' as any)}
           className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
             (subTab as string) === 'kartu_siswa' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
@@ -965,6 +983,134 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
             )}
           </div>
+        </div>
+      ) : subTab === 'pinjam_laptop' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+          {laptopRequests.map(req => (
+            <motion.div
+              key={req.id}
+              layout
+              className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                    <Laptop className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam Laptop - {req.kelas}</h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                  </div>
+                </div>
+                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                  req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                  req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                  'bg-amber-50 text-amber-600'
+                }`}>
+                  {req.status}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                  <span>Guru Pengaju</span>
+                  <span className="text-slate-900">{req.guru_name}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                  <span>Mata Pelajaran</span>
+                  <span className="text-slate-900">{req.mapel}</span>
+                </div>
+              </div>
+
+              <div className="py-2 bg-slate-50 p-4 rounded-2xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
+                <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                  {req.daftar_siswa.join(', ')}
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-slate-50">
+                <button
+                  onClick={() => generateLaptopRequestPDF(req)}
+                  disabled={req.status !== 'approved'}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Cetak Surat Izin Laptop
+                </button>
+              </div>
+            </motion.div>
+          ))}
+          {laptopRequests.length === 0 && (
+            <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+              <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
+            </div>
+          )}
+        </div>
+      ) : subTab === 'permohonan_hp' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+          {hpRequests.map(req => (
+            <motion.div
+              key={req.id}
+              layout
+              className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                    <Tablet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam HP - {req.kelas}</h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                  </div>
+                </div>
+                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                  req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                  req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                  'bg-amber-50 text-amber-600'
+                }`}>
+                  {req.status}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                  <span>Guru Pengaju</span>
+                  <span className="text-slate-900">{req.guru_name}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                  <span>Mata Pelajaran</span>
+                  <span className="text-slate-900">{req.mapel}</span>
+                </div>
+              </div>
+
+              <div className="py-2 bg-slate-50 p-4 rounded-2xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
+                <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                  {req.daftar_siswa.join(', ')}
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-slate-50">
+                <button
+                  onClick={() => generateHPRequestPDF(req)}
+                  disabled={req.status !== 'approved'}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Cetak Surat Izin HP
+                </button>
+              </div>
+            </motion.div>
+          ))}
+          {hpRequests.length === 0 && (
+            <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+              <Tablet className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan HP masuk</p>
+            </div>
+          )}
         </div>
       ) : (subTab as string) === 'kartu_siswa' ? (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
