@@ -27,7 +27,7 @@ import { collection, query, where, orderBy, onSnapshot, doc, addDoc, Timestamp, 
 import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF } from '../pdfUtils';
+import { generatePermitPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -272,35 +272,50 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
           </div>
 
           <div className="space-y-4">
-            {filteredPermits.map(permit => (
-              <motion.div
-                key={permit.id}
-                layout
-                onClick={() => setSelectedPermit(permit)}
-                className="bg-white p-5 rounded-[2.2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-2xl ${
-                      permit.tipe === 'sakit' ? 'bg-rose-50 text-rose-600' : 
-                      permit.tipe === 'umum' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
-                    }`}>
-                      {permit.tipe === 'sakit' ? <Activity className="w-5 h-5" /> : 
-                       permit.tipe === 'umum' ? <Calendar className="w-5 h-5" /> : <ClipboardList className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <h4 className="font-black text-slate-900 uppercase tracking-tight">{permit.nama_siswa}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{permit.kelas} • {permit.nomor_surat}</p>
-                    </div>
-                  </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    permit.status === 'approved' || permit.status === 'acknowledged' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                  }`}>
-                    {permit.status}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                <AnimatePresence>
+                  {filteredPermits.map(permit => (
+                    <motion.div
+                      key={permit.id}
+                      layout
+                      className="bg-white p-5 rounded-[2.2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group relative"
+                    >
+                      <div className="flex items-center justify-between" onClick={() => setSelectedPermit(permit)}>
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-2xl ${
+                            permit.tipe === 'sakit' ? 'bg-rose-50 text-rose-600' : 
+                            permit.tipe === 'umum' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+                          }`}>
+                            {permit.tipe === 'sakit' ? <Activity className="w-5 h-5" /> : 
+                             permit.tipe === 'umum' ? <Calendar className="w-5 h-5" /> : <ClipboardList className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 uppercase tracking-tight">{permit.nama_siswa}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{permit.kelas} • {permit.nomor_surat}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                            permit.status === 'approved' || permit.status === 'acknowledged' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                          }`}>
+                            {permit.status}
+                          </div>
+                          {permit.tipe === 'sakit' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                generatePermitPDF(permit);
+                              }}
+                              className="p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                              title="Cetak Surat Sakit"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
             {filteredPermits.length === 0 && (
               <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
                 <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
@@ -401,37 +416,47 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
 
           <div className="space-y-4">
              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-2">Riwayat Usulan Anda</h3>
-             {proposalHistory.map(prop => (
-               <div key={prop.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex gap-4">
-                      <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
-                         <Activity className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          {prop.tgl_usulan && typeof prop.tgl_usulan.toDate === 'function' ? format(prop.tgl_usulan.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+                <AnimatePresence>
+                  {proposalHistory.map(prop => (
+                    <div key={prop.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex gap-4">
+                            <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                              <Activity className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                {prop.tgl_usulan && typeof prop.tgl_usulan.toDate === 'function' ? format(prop.tgl_usulan.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+                              </p>
+                              <h4 className="font-bold text-slate-900">{prop.daftar_siswa.length} Siswa diusulkan</h4>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => generateHealthCheckProposalPDF(prop)}
+                              className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                            >
+                              <Printer className="w-3.5 h-3.5" /> Cetak
+                            </button>
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              prop.status === 'processed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                            }`}>
+                              {prop.status}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                          {prop.daftar_siswa.join(', ')}
                         </p>
-                        <h4 className="font-bold text-slate-900">{prop.daftar_siswa.length} Siswa diusulkan</h4>
-                      </div>
+                        {prop.keterangan && (
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex gap-2">
+                            <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                            <p className="text-[10px] text-slate-500 font-bold">{prop.keterangan}</p>
+                          </div>
+                        )}
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                      prop.status === 'processed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                    }`}>
-                      {prop.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    {prop.daftar_siswa.join(', ')}
-                  </p>
-                  {prop.keterangan && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex gap-2">
-                       <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
-                       <p className="text-[10px] text-slate-500 font-bold">{prop.keterangan}</p>
-                    </div>
-                  )}
-               </div>
-             ))}
+                  ))}
+                </AnimatePresence>
              {proposalHistory.length === 0 && (
                <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
                  <Activity className="w-12 h-12 text-slate-200 mx-auto mb-4" />
@@ -531,22 +556,22 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                 </div>
               </div>
 
-              <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                <button
-                  onClick={() => setSelectedPermit(null)}
-                  className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all uppercase tracking-widest text-[10px]"
-                >
-                  Tutup
-                </button>
-                {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && (
+                <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                   <button
-                    onClick={() => generatePermitPDF(selectedPermit)}
-                    className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
+                    onClick={() => setSelectedPermit(null)}
+                    className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all uppercase tracking-widest text-[10px]"
                   >
-                    <Printer className="w-3.5 h-3.5" /> Cetak
+                    Tutup
                   </button>
-                )}
-              </div>
+                  {selectedPermit.tipe === 'sakit' && (
+                    <button
+                      onClick={() => generatePermitPDF(selectedPermit)}
+                      className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
+                    >
+                      <Printer className="w-3.5 h-3.5" /> Cetak
+                    </button>
+                  )}
+                </div>
             </motion.div>
           </div>
         )}

@@ -3,7 +3,7 @@ import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
-import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2, ClipboardList, CheckCircle, Stethoscope, Building } from 'lucide-react';
+import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2, ClipboardList, CheckCircle, Stethoscope, Building, Eye, EyeOff } from 'lucide-react';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -15,39 +15,73 @@ export default function Auth() {
   const [role, setRole] = useState<UserRole>('wali_asuh');
   const [mapel, setMapel] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [retryStatus, setRetryStatus] = useState('');
+  const [shake, setShake] = useState(false);
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
+  const roleLabels: Record<UserRole, string> = {
+    'wali_asuh': 'Wali Asuh',
+    'wali_asrama': 'Wali Asrama',
+    'wali_kelas': 'Wali Kelas',
+    'guru_mapel': 'Guru Mapel',
+    'dokter': 'Dokter',
+    'kepala_sekolah': 'Kepsek'
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      setError('Anda sedang offline. Silakan periksa koneksi internet Anda.');
+      triggerShake();
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password harus minimal 6 karakter.');
+      triggerShake();
+      return;
+    }
+
     setError('');
+    setRetryStatus('');
     setLoading(true);
 
     const performAuth = async (retries = 2): Promise<void> => {
       try {
-        if (isLogin) {
-          await signInWithEmailAndPassword(auth, email, password);
-        } else {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          
-          // Send Verification Email
-          await sendEmailVerification(userCredential.user);
-          
-          await setDoc(doc(db, 'users', userCredential.user.uid), {
-            uid: userCredential.user.uid,
-            email,
-            name,
-            role,
-            ...(role === 'guru_mapel' && { mapel }),
-            createdAt: new Date().toISOString()
-          });
-          
-          setRegistered(true);
-        }
+        const authPromise = isLogin 
+          ? signInWithEmailAndPassword(auth, email, password)
+          : (async () => {
+              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+              await sendEmailVerification(userCredential.user);
+              await setDoc(doc(db, 'users', userCredential.user.uid), {
+                uid: userCredential.user.uid,
+                email,
+                name,
+                role,
+                ...(role === 'guru_mapel' && { mapel }),
+                createdAt: new Date().toISOString()
+              });
+              setRegistered(true);
+            })();
+
+        // Add 15s timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 15000)
+        );
+
+        await Promise.race([authPromise, timeoutPromise]);
       } catch (err: any) {
-        if (err.code === 'auth/network-request-failed' && retries > 0) {
-          console.warn(`Auth network error, retrying... (${retries} left)`);
-          await new Promise(resolve => setTimeout(resolve, 1500));
+        if ((err.code === 'auth/network-request-failed' || err.message === 'timeout') && retries > 0) {
+          setRetryStatus(`Masalah koneksi. Mencoba kembali... (${retries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
           return performAuth(retries - 1);
         }
         throw err;
@@ -58,17 +92,25 @@ export default function Auth() {
       await performAuth();
     } catch (err: any) {
       console.error('Auth Error:', err);
-      if (err.code === 'auth/network-request-failed') {
-        setError('Koneksi ke server identitas gagal. Silakan matikan VPN/Ad-blocker.');
-      } else if (err.code === 'auth/invalid-credential') {
-        setError('Email atau password salah.');
+      triggerShake();
+      if (err.code === 'auth/network-request-failed' || err.message === 'timeout') {
+        setError('Koneksi sangat lambat atau terputus. Silakan coba lagi nanti.');
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError('Email atau password salah. Periksa kembali kredensial Anda.');
       } else if (err.code === 'auth/email-already-in-use') {
-        setError('Email ini sudah terdaftar.');
+        setError('Email ini sudah terdaftar. Gunakan email lain atau silakan Masuk.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Terlalu banyak percobaan. Akun dibekukan sementara. Tunggu beberapa menit.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Format email tidak valid (contoh: nama@sekolah.id).');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password terlalu lemah. Minimal 6 karakter.');
       } else {
-        setError('Terjadi kesalahan: ' + (err.message || 'Gagal memproses permintaan'));
+        setError('Gagal memproses: ' + (err.message || 'Kesalahan sistem tidak terduga.'));
       }
     } finally {
       setLoading(false);
+      setRetryStatus('');
     }
   };
 
@@ -82,7 +124,14 @@ export default function Auth() {
 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{ 
+          opacity: 1, 
+          y: 0,
+          x: shake ? [-10, 10, -10, 10, 0] : 0
+        }}
+        transition={{ 
+          x: { duration: 0.4 } 
+        }}
         className="max-w-md w-full"
       >
         <div className="text-center mb-8">
@@ -95,6 +144,10 @@ export default function Auth() {
           </motion.div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight font-display">SRMA 24 KEDIRI</h2>
           <p className="text-slate-500 text-sm font-bold uppercase tracking-[0.2em] mt-1">Digital Health System</p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50/50 py-2 px-4 rounded-full w-fit mx-auto">
+            <ShieldCheck className="w-4 h-4" />
+            Terverifikasi & Aman
+          </div>
         </div>
 
         <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-indigo-100/50 border border-white p-8 md:p-10">
@@ -135,7 +188,7 @@ export default function Auth() {
                       isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    Sign In
+                    Masuk
                   </button>
                   <button 
                     onClick={() => setIsLogin(false)}
@@ -143,9 +196,24 @@ export default function Auth() {
                       !isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    Sign Up
+                    Daftar Baru
                   </button>
                 </div>
+
+                {!isLogin && (
+                  <div className="mb-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-relaxed text-center">
+                      Bergabunglah untuk akses riwayat kesehatan & perizinan siswa secara real-time.
+                    </p>
+                  </div>
+                )}
+
+                {retryStatus && (
+                  <div className="mb-6 p-3 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-center gap-2">
+                    <Loader2 className="w-3 h-3 text-amber-600 animate-spin" />
+                    <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">{retryStatus}</span>
+                  </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <AnimatePresence mode="wait">
@@ -179,28 +247,57 @@ export default function Auth() {
                       <input
                         type="email"
                         required
+                        autoComplete="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
-                        placeholder="name@example.com"
+                        placeholder="nama@sekolah.id"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                    <div className="flex items-center justify-between ml-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                      {isLogin && (
+                        <button type="button" className="text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-600">Lupa Password?</button>
+                      )}
+                    </div>
                     <div className="relative group">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                       <input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
+                        autoComplete={isLogin ? "current-password" : "new-password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                        className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
+
+                  {isLogin && (
+                    <div className="flex items-center gap-2 ml-1">
+                      <button 
+                        type="button"
+                        onClick={() => setRememberMe(!rememberMe)}
+                        className={`w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${
+                          rememberMe ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-100' : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {rememberMe && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                      </button>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>Ingat Saya</span>
+                    </div>
+                  )}
 
                   {!isLogin && (
                     <motion.div 
@@ -227,7 +324,7 @@ export default function Auth() {
                              r === 'guru_mapel' ? <ClipboardList className="w-5 h-5" /> :
                              r === 'dokter' ? <Stethoscope className="w-5 h-5" /> :
                              <ShieldCheck className="w-5 h-5" />}
-                            <span className="text-[9px] font-black uppercase tracking-tight text-center leading-none">{r.replace('_', ' ')}</span>
+                            <span className="text-[9px] font-black uppercase tracking-tight text-center leading-none">{roleLabels[r]}</span>
                           </button>
                         ))}
                       </div>
@@ -275,7 +372,7 @@ export default function Auth() {
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                       <>
-                        <span className="uppercase tracking-widest text-xs">{isLogin ? 'Sign In Now' : 'Create Account'}</span>
+                        <span className="uppercase tracking-[0.2em] text-[10px]">{isLogin ? 'Masuk Sekarang' : 'Daftar Akun'}</span>
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}

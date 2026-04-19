@@ -18,7 +18,7 @@ import {
 import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -181,7 +181,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   React.useEffect(() => {
     const q = query(
       collection(db, 'izin_sakit'),
-      where('dokter_uid', '==', user.uid),
+      where('tipe', '==', 'sakit'),
       orderBy('tgl_surat', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -218,14 +218,35 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   React.useEffect(() => {
     const q = query(
       collection(db, 'health_check_proposals'),
-      where('status', '==', 'pending'),
-      orderBy('tgl_usulan', 'desc')
+      where('status', '==', 'pending')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setProposals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HealthCheckProposal)));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HealthCheckProposal));
+      // Sort manually to avoid index issues while still providing good UX
+      setProposals(data.sort((a, b) => {
+        const timeA = a.tgl_usulan?.toMillis() || 0;
+        const timeB = b.tgl_usulan?.toMillis() || 0;
+        return timeB - timeA;
+      }));
+    }, (err) => {
+      console.error("Proposals subscription error:", err);
+      handleFirestoreError(err, OperationType.LIST, 'health_check_proposals');
     });
     return () => unsubscribe();
   }, []);
+
+  const resetForm = () => {
+    setNomorSurat(`SRMA-${Date.now().toString().slice(-6)}`);
+    setNamaSiswa('');
+    setDiagnosa('');
+    setJumlahHari(1);
+    setTglMulai(format(new Date(), 'yyyy-MM-dd'));
+    if (WALI_KELAS_LIST.length > 0) {
+      setKelas(WALI_KELAS_LIST[0].kelas);
+      setWaliKelas(WALI_KELAS_LIST[0].name);
+    }
+    setShowForm(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -741,49 +762,64 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       </div>
 
       {/* List Perizinan - Modern Cards */}
-      <div className="grid grid-cols-1 gap-4">
-        {filteredPermits.map((permit) => (
-          <motion.div 
-            key={permit.id}
-            whileHover={{ scale: 1.01 }}
-            onClick={() => setSelectedPermit(permit)}
-            className={`group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border-l-8 hover:border-indigo-200 transition-all cursor-pointer ${
-              permit.tipe === 'sakit' ? 'border-emerald-500' :
-              permit.tipe === 'umum' ? 'border-blue-500' :
-              'border-amber-500'
-            }`}
-          >
-            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
-              permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
-              permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
-              'bg-amber-50 text-amber-600'
-            }`}>
-              <User className="w-8 h-8" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                  permit.tipe === 'sakit' ? 'bg-emerald-100 text-emerald-700' : 
-                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
-                  {permit.tipe === 'catatan' ? 'Input Wali Kelas' : (permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Dokter')}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Clock className="w-3 h-3 text-indigo-500" />
-                <span className="text-[10px] font-bold text-indigo-600">
-                  {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
-                </span>
-              </div>
-            </div>
-            <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
-              <ChevronRight className="w-5 h-5" />
-            </div>
-          </motion.div>
-        ))}
+          <div className="grid grid-cols-1 gap-4">
+            {filteredPermits.map((permit) => (
+              <motion.div 
+                key={permit.id}
+                whileHover={{ scale: 1.01 }}
+                className={`group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border-l-8 hover:border-indigo-200 transition-all cursor-pointer ${
+                  permit.tipe === 'sakit' ? 'border-emerald-500' :
+                  permit.tipe === 'umum' ? 'border-blue-500' :
+                  'border-amber-500'
+                }`}
+              >
+                <div className="flex-1 flex items-center gap-5" onClick={() => setSelectedPermit(permit)}>
+                  <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
+                    permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
+                    permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
+                    'bg-amber-50 text-amber-600'
+                  }`}>
+                    <User className="w-8 h-8" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
+                        permit.tipe === 'sakit' ? 'bg-emerald-100 text-emerald-700' : 
+                        permit.tipe === 'umum' ? 'bg-blue-100 text-blue-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {permit.tipe === 'catatan' ? 'Input Wali Kelas' : (permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Dokter')}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Clock className="w-3 h-3 text-indigo-500" />
+                      <span className="text-[10px] font-bold text-indigo-600">
+                        {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {permit.tipe === 'sakit' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        generatePermitPDF(permit);
+                      }}
+                      className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all"
+                      title="Cetak Surat Sakit"
+                    >
+                      <Printer className="w-5 h-5" />
+                    </button>
+                  )}
+                  <div className="p-2 text-slate-300 group-hover:text-indigo-600 transition-all">
+                    <ChevronRight className="w-5 h-5" />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
 
         {permits.length === 0 && (
           <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
@@ -914,6 +950,11 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                       <button 
                          onClick={(e) => {
                            e.stopPropagation();
+                           // Reset optional fields
+                           setDiagnosa('');
+                           setJumlahHari(1);
+                           setNomorSurat(`SRMA-${Date.now().toString().slice(-6)}`);
+                           
                            setNamaSiswa(student.nama_lengkap);
                            setKelas(student.kelas);
                            const wk = WALI_KELAS_LIST.find(w => w.kelas === student.kelas);
@@ -985,19 +1026,37 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                   <button
                     onClick={() => handleProcessProposal(proposal.id!)}
                     disabled={loading}
-                    className="flex-1 py-3 bg-emerald-600 text-white font-black rounded-2xl shadow-lg shadow-emerald-100 transition-all text-[10px] uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50"
+                    className="flex-1 py-3 bg-emerald-100 text-emerald-700 font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest hover:bg-emerald-200 disabled:opacity-50"
                   >
-                    Tandai Selesai Diperiksa
+                    Selesai
+                  </button>
+                  <button
+                    onClick={() => generateHealthCheckProposalPDF(proposal)}
+                    className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all"
+                    title="Cetak Usulan"
+                  >
+                    <Printer className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => {
+                        // Reset first to ensure clean state
+                        setNamaSiswa('');
+                        setDiagnosa('');
+                        setJumlahHari(1);
+                        setNomorSurat(`SRMA-${Date.now().toString().slice(-6)}`);
+                        
                         // Pre-fill first student in form
                         if (proposal.daftar_siswa.length > 0) {
-                          const firstStudent = students.find(s => s.nama_lengkap === proposal.daftar_siswa[0]);
-                          if (firstStudent) {
-                             selectStudent(firstStudent);
+                          const firstStudentName = proposal.daftar_siswa[0];
+                          const studentData = students.find(s => s.nama_lengkap === firstStudentName);
+                          
+                          if (studentData) {
+                             setNamaSiswa(studentData.nama_lengkap);
+                             setKelas(studentData.kelas);
+                             const wk = WALI_KELAS_LIST.find(w => w.kelas === studentData.kelas);
+                             if (wk) setWaliKelas(wk.name);
                           } else {
-                             setNamaSiswa(proposal.daftar_siswa[0]);
+                             setNamaSiswa(firstStudentName);
                           }
                           setViewMode('perizinan');
                           setShowForm(true);
@@ -1005,7 +1064,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                     }}
                     className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all text-[10px] uppercase tracking-widest hover:bg-indigo-700"
                   >
-                    Buat Surat Izin
+                    Buat Izin
                   </button>
                 </div>
               </motion.div>
@@ -1027,7 +1086,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       <motion.button 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        onClick={() => setShowForm(true)}
+        onClick={resetForm}
         className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
       >
         <Plus className="w-6 h-6" />
