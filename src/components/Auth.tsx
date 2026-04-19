@@ -3,7 +3,7 @@ import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
-import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2, ClipboardList, CheckCircle } from 'lucide-react';
+import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2, ClipboardList, CheckCircle, Stethoscope, Building } from 'lucide-react';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -209,8 +209,8 @@ export default function Auth() {
                       className="space-y-3"
                     >
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Jabatan</label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {(['wali_asuh', 'wali_kelas', 'guru_mapel'] as UserRole[]).map((r) => (
+                      <div className="grid grid-cols-2 gap-3">
+                        {(['wali_asuh', 'wali_kelas', 'guru_mapel', 'dokter', 'kepala_sekolah'] as UserRole[]).map((r) => (
                           <button
                             key={r}
                             type="button"
@@ -223,8 +223,10 @@ export default function Auth() {
                           >
                             {r === 'wali_asuh' ? <Home className="w-5 h-5" /> : 
                              r === 'wali_kelas' ? <CheckSquare className="w-5 h-5" /> : 
-                             <ClipboardList className="w-5 h-5" />}
-                            <span className="text-[10px] font-black uppercase tracking-widest">{r.replace('_', ' ')}</span>
+                             r === 'guru_mapel' ? <ClipboardList className="w-5 h-5" /> :
+                             r === 'dokter' ? <Stethoscope className="w-5 h-5" /> :
+                             <ShieldCheck className="w-5 h-5" />}
+                            <span className="text-[9px] font-black uppercase tracking-tight text-center leading-none">{r.replace('_', ' ')}</span>
                           </button>
                         ))}
                       </div>
