@@ -42,7 +42,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop'>('kartu_siswa');
   const [showMenu, setShowMenu] = useState(false);
   const [pinjamHPList, setPinjamHPList] = useState<PinjamHP[]>([]);
   const [students, setStudents] = useState<Siswa[]>([]);
@@ -93,21 +93,33 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     return matchesSearch && matchesDate && matchesTime;
   });
 
-  const filteredPinjamHP = pinjamHPList.filter(item => {
-    const pinjamDate = item.tgl_pinjam?.toDate();
-    if (!pinjamDate) return false;
+  const filteredPinjamHP = pinjamHPList
+    .filter(item => {
+      const pinjamDate = item.tgl_pinjam?.toDate();
+      
+      // Active borrowings (dipinjam) are ALWAYS shown regardless of time filter
+      // to ensure all Wali Asuh can monitor and process returns.
+      let matchesTime = item.status === 'dipinjam' || timeFilter === 'semua';
+      
+      if (!matchesTime && pinjamDate) {
+        if (timeFilter === 'hari_ini') matchesTime = isToday(pinjamDate);
+        else if (timeFilter === 'kemarin') matchesTime = isYesterday(pinjamDate);
+        else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(pinjamDate, { weekStartsOn: 1 });
+        else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(pinjamDate);
+      }
 
-    // Time Filter Logic
-    let matchesTime = true;
-    if (timeFilter === 'hari_ini') matchesTime = isToday(pinjamDate);
-    else if (timeFilter === 'kemarin') matchesTime = isYesterday(pinjamDate);
-    else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(pinjamDate, { weekStartsOn: 1 });
-    else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(pinjamDate);
-
-    const matchesSearch = item.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch && matchesTime;
-  });
+      const matchesSearch = !searchTerm || item.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch && matchesTime;
+    })
+    // Sort: 'dipinjam' status first, then by date descending
+    .sort((a, b) => {
+      if (a.status === 'dipinjam' && b.status !== 'dipinjam') return -1;
+      if (a.status !== 'dipinjam' && b.status === 'dipinjam') return 1;
+      const dateA = a.tgl_pinjam?.toDate()?.getTime() || 0;
+      const dateB = b.tgl_pinjam?.toDate()?.getTime() || 0;
+      return dateB - dateA;
+    });
 
   const filteredStudents = students.filter(s => {
     const name = s.nama_lengkap || '';
@@ -384,7 +396,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       setNamaSiswa('');
       setAlasan('');
       setJumlahHari(1);
+      alert('Izin umum berhasil dikirim ke Wali Kelas');
     } catch (err) {
+      console.error('Error submitting izin umum:', err);
+      alert('Gagal mengirim izin: ' + (err instanceof Error ? err.message : 'Unknown error'));
       handleFirestoreError(err, OperationType.WRITE, 'izin_sakit');
     } finally {
       setLoading(false);
@@ -414,7 +429,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       const newNotes = { ...catatanKamar };
       delete newNotes[permitId];
       setCatatanKamar(newNotes);
+      alert('Konfirmasi dikirim ke Wali Kelas');
     } catch (err) {
+      console.error('Error updating status:', err);
+      alert('Gagal memperbarui status: ' + (err instanceof Error ? err.message : 'Unknown error'));
       handleFirestoreError(err, OperationType.UPDATE, `izin_sakit/${permitId}`);
     } finally {
       setLoading(false);
@@ -423,27 +441,34 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
   const handleSubmitPinjamHP = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phNamaSiswa || !phKeperluan) {
+      alert('Mohon isi semua field');
+      return;
+    }
     setLoading(true);
     try {
       await addDoc(collection(db, 'pinjam_hp'), {
         nama_siswa: phNamaSiswa,
         kelas: phKelas,
         keperluan: phKeperluan,
-        tgl_pinjam: Timestamp.now(),
+        tgl_pinjam: serverTimestamp(),
         status: 'dipinjam',
-        wali_asuh_name: user.name,
-        wali_asuh_uid: user.uid,
+        wali_asuh_name: user?.name || 'Wali Asuh',
+        wali_asuh_uid: user?.uid || '',
       });
 
-      // Notify Kepala Sekolah
-      notifyAllRoles(['kepala_sekolah'], 'Peminjaman HP Baru', `Wali Asuh ${user.name} membuat riwayat pinjam HP untuk ${phNamaSiswa}.`);
+      // Notify Wali Asuh & Kepala Sekolah
+      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Peminjaman HP Baru', `Siswa ${phNamaSiswa} meminjam HP (Wali Asuh: ${user.name}).`);
 
       setShowPinjamForm(false);
       setPhNamaSiswa('');
       setPhKeperluan('');
       setPhShowSuggestions(false);
       setPhFilteredStudentsList([]);
+      alert('Berhasil menyimpan catatan peminjaman');
     } catch (err) {
+      console.error('Error saving pinjam hp:', err);
+      alert('Gagal menyimpan: ' + (err instanceof Error ? err.message : 'Unknown error'));
       handleFirestoreError(err, OperationType.WRITE, 'pinjam_hp');
     } finally {
       setLoading(false);
@@ -455,11 +480,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     try {
       await updateDoc(doc(db, 'pinjam_hp', id), {
         status: 'dikembalikan',
-        tgl_kembali: Timestamp.now(),
+        tgl_kembali: serverTimestamp(),
         penerima_kembali_name: user.name,
         penerima_kembali_uid: user.uid,
       });
+      alert('Handphone telah dikembalikan');
     } catch (err) {
+      console.error('Error returning hp:', err);
+      alert('Gagal mengupdate status: ' + (err instanceof Error ? err.message : 'Unknown error'));
       handleFirestoreError(err, OperationType.UPDATE, `pinjam_hp/${id}`);
     } finally {
       setLoading(false);
@@ -975,8 +1003,12 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         onChange={(e) => setKelas(e.target.value)}
                         className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                       >
-                        {WALI_KELAS_LIST.map(wk => (
-                          <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
+                        {[
+                          'X-1', 'X-2', 'X-3', 'X-4',
+                          'XI-1', 'XI-2', 'XI-3', 'XI-4',
+                          'XII-1', 'XII-2', 'XII-3', 'XII-4'
+                        ].map(k => (
+                          <option key={k} value={k}>{k}</option>
                         ))}
                       </select>
                     </div>
@@ -1988,7 +2020,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     onChange={(e) => setPhKelas(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all"
                   >
-                    {['X-1', 'X-2', 'X-3', 'X-4'].map(k => (
+                    {[
+                      'X-1', 'X-2', 'X-3', 'X-4',
+                      'XI-1', 'XI-2', 'XI-3', 'XI-4',
+                      'XII-1', 'XII-2', 'XII-3', 'XII-4'
+                    ].map(k => (
                       <option key={k} value={k}>{k}</option>
                     ))}
                   </select>

@@ -23,7 +23,7 @@ import {
   Send
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
@@ -57,6 +57,20 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [proposalNotes, setProposalNotes] = useState('');
   const [proposalHistory, setProposalHistory] = useState<HealthCheckProposal[]>([]);
   const [submittingProposal, setSubmittingProposal] = useState(false);
+
+  const handleProcessProposal = async (id: string) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'health_check_proposals', id), {
+        status: 'processed'
+      });
+      alert('Usulan telah ditandai selesai');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `health_check_proposals/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Permits Watcher - Wali Asrama can see all permits but focus on their role
@@ -432,6 +446,18 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                             {prop.status === 'pending' && (
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   handleProcessProposal(prop.id!);
+                                 }}
+                                 disabled={loading}
+                                 className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
+                               >
+                                 <CheckCircle2 className="w-3.5 h-3.5" /> {loading ? '...' : 'Selesai'}
+                               </button>
+                             )}
                             <button
                               onClick={() => generateHealthCheckProposalPDF(prop)}
                               className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"

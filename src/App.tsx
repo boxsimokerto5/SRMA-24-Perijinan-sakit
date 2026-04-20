@@ -171,54 +171,6 @@ export default function App() {
     return <Auth />;
   }
 
-  // Handle email verification
-  if (!user.emailVerified) {
-    return (
-      <div className="min-h-screen cool-gradient-bg flex items-center justify-center p-4">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-black/5">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
-        </div>
-        <div className="max-w-md w-full bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl shadow-black/10 border border-white text-center">
-          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Mail className="w-10 h-10 text-amber-600" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-2 font-display tracking-tight">Verifikasi Email Anda</h2>
-          <p className="text-slate-500 text-sm mb-8 font-medium leading-relaxed">
-            Akun Anda belum terverifikasi. Silakan periksa kotak masuk email <strong>{user.email}</strong> dan klik tautan verifikasi untuk melanjutkan.
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
-            >
-              Saya sudah verifikasi
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  await sendEmailVerification(user);
-                  alert('Email verifikasi telah dikirim ulang! Silakan periksa folder SPAM jika tidak ada di Inbox.');
-                } catch (err) {
-                  alert('Gagal mengirim email. Silakan coba lagi nanti.');
-                }
-              }}
-              className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 transition-all font-display text-sm tracking-widest uppercase"
-            >
-              Kirim Ulang Email
-            </button>
-            <button
-              onClick={() => auth.signOut()}
-              className="w-full py-2 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:text-rose-600 transition-all pt-4"
-            >
-              Keluar / Ganti Akun
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <Layout 
@@ -226,6 +178,31 @@ export default function App() {
         activeTab={activeTab} 
         onTabChange={setActiveTab}
       >
+        {!user.emailVerified && (
+          <div className="fixed top-20 left-4 right-4 z-[100] bg-amber-50 border border-amber-200 p-3 rounded-2xl shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-xl">
+                <Mail className="w-4 h-4 text-amber-600" />
+              </div>
+              <p className="text-[10px] font-bold text-amber-800 leading-tight">
+                Email belum diverifikasi. Cek inbox Anda untuk keamanan akun.
+              </p>
+            </div>
+            <button 
+              onClick={async () => {
+                try {
+                  await sendEmailVerification(user);
+                  alert('Email verifikasi sent!');
+                } catch (e) {
+                  alert('Error sending email');
+                }
+              }}
+              className="px-3 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-amber-200 shrink-0"
+            >
+              Kirim Lagi
+            </button>
+          </div>
+        )}
         {appUser.role === 'dokter' && <DokterView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_asuh' && <WaliAsuhView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_kelas' && <WaliKelasView user={appUser} activeTab={activeTab} />}

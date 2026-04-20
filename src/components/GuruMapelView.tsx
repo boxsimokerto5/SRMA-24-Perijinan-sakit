@@ -28,7 +28,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'pinjam_laptop' | 'pinjam_hp'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'pinjam_laptop' | 'pinjam_hp'>('kartu_siswa');
   const [showMenu, setShowMenu] = useState(false);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);

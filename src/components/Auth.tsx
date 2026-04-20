@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth, db } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
 import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2, ClipboardList, CheckCircle, Stethoscope, Building, Eye, EyeOff } from 'lucide-react';
@@ -21,6 +21,24 @@ export default function Auth() {
   const [rememberMe, setRememberMe] = useState(true);
   const [retryStatus, setRetryStatus] = useState('');
   const [shake, setShake] = useState(false);
+  const [isCompletingProfile, setIsCompletingProfile] = useState(false);
+
+  // Detect if user is already authenticated but missing profile
+  React.useEffect(() => {
+    const checkAuthStatus = () => {
+      if (auth.currentUser) {
+        setIsCompletingProfile(true);
+        if (!email) setEmail(auth.currentUser.email || '');
+        if (!name) setName(auth.currentUser.displayName || '');
+      } else {
+        setIsCompletingProfile(false);
+      }
+    };
+    checkAuthStatus();
+    // Listening for auth changes to update state immediately
+    const unsubscribe = auth.onAuthStateChanged(checkAuthStatus);
+    return () => unsubscribe();
+  }, []);
 
   const triggerShake = () => {
     setShake(true);
@@ -36,15 +54,50 @@ export default function Auth() {
     'kepala_sekolah': 'Kepsek'
   };
 
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Masukkan email Anda terlebih dahulu.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setError('Tautan atur ulang password telah dikirim ke email Anda.');
+    } catch (err: any) {
+      setError('Gagal mengirim email: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      // App.tsx handles state change, and Auth handles profile completion if needed
+    } catch (err: any) {
+      console.error('Google Auth Error:', err);
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError('Gagal masuk dengan Google: ' + (err.message || 'Terjadi kesalahan.'));
+        triggerShake();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = email.trim();
     if (!navigator.onLine) {
       setError('Anda sedang offline. Silakan periksa koneksi internet Anda.');
       triggerShake();
       return;
     }
 
-    if (password.length < 6) {
+    if (!isCompletingProfile && password.length < 6) {
       setError('Password harus minimal 6 karakter.');
       triggerShake();
       return;
@@ -56,17 +109,35 @@ export default function Auth() {
 
     const performAuth = async (retries = 2): Promise<void> => {
       try {
+        if (isCompletingProfile && auth.currentUser) {
+          // Just save the profile for already logged in user
+          await setDoc(doc(db, 'users', auth.currentUser.uid), {
+            uid: auth.currentUser.uid,
+            email: auth.currentUser.email,
+            name: name.trim(),
+            role,
+            ...(role === 'guru_mapel' && { mapel: mapel.trim() }),
+            createdAt: new Date().toISOString()
+          });
+          // App.tsx will pick up the change
+          return;
+        }
+
         const authPromise = isLogin 
-          ? signInWithEmailAndPassword(auth, email, password)
+          ? signInWithEmailAndPassword(auth, cleanEmail, password)
           : (async () => {
-              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-              await sendEmailVerification(userCredential.user);
+              const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+              try {
+                await sendEmailVerification(userCredential.user);
+              } catch (e) {
+                console.warn('Verification email failed to send:', e);
+              }
               await setDoc(doc(db, 'users', userCredential.user.uid), {
                 uid: userCredential.user.uid,
-                email,
-                name,
+                email: cleanEmail,
+                name: name.trim(),
                 role,
-                ...(role === 'guru_mapel' && { mapel }),
+                ...(role === 'guru_mapel' && { mapel: mapel.trim() }),
                 createdAt: new Date().toISOString()
               });
               setRegistered(true);
@@ -96,7 +167,7 @@ export default function Auth() {
       if (err.code === 'auth/network-request-failed' || err.message === 'timeout') {
         setError('Koneksi sangat lambat atau terputus. Silakan coba lagi nanti.');
       } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError('Email atau password salah. Periksa kembali kredensial Anda.');
+        setError('Email atau password salah. Pastikan Anda sudah terdaftar atau gunakan Google Login.');
       } else if (err.code === 'auth/email-already-in-use') {
         setError('Email ini sudah terdaftar. Gunakan email lain atau silakan Masuk.');
       } else if (err.code === 'auth/too-many-requests') {
@@ -106,7 +177,7 @@ export default function Auth() {
       } else if (err.code === 'auth/weak-password') {
         setError('Password terlalu lemah. Minimal 6 karakter.');
       } else {
-        setError('Gagal memproses: ' + (err.message || 'Kesalahan sistem tidak terduga.'));
+        setError('Terjadi kendala: ' + (err.message || 'Kesalahan sistem tidak terduga.'));
       }
     } finally {
       setLoading(false);
@@ -183,24 +254,39 @@ export default function Auth() {
               <motion.div key="form">
                 <div className="flex p-1 bg-slate-100 rounded-2xl mb-8">
                   <button 
-                    onClick={() => setIsLogin(true)}
+                    onClick={() => {
+                        setIsLogin(true);
+                        setIsCompletingProfile(false);
+                    }}
                     className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
-                      isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      isLogin && !isCompletingProfile ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     Masuk
                   </button>
                   <button 
-                    onClick={() => setIsLogin(false)}
+                    onClick={() => {
+                        setIsLogin(false);
+                        setIsCompletingProfile(false);
+                    }}
                     className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
-                      !isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      !isLogin && !isCompletingProfile ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     Daftar Baru
                   </button>
                 </div>
 
-                {!isLogin && (
+                {isCompletingProfile && (
+                  <div className="mb-8 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                    <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest mb-1 text-center">Lengkapi Profil Anda</h3>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest leading-relaxed text-center">
+                      Anda sudah terverifikasi, silakan pilih jabatan untuk masuk ke dashboard.
+                    </p>
+                  </div>
+                )}
+
+                {!isLogin && !isCompletingProfile && (
                   <div className="mb-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
                     <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-relaxed text-center">
                       Bergabunglah untuk akses riwayat kesehatan & perizinan siswa secara real-time.
@@ -217,7 +303,7 @@ export default function Auth() {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <AnimatePresence mode="wait">
-                    {!isLogin && (
+                    {(isCompletingProfile || !isLogin) && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -240,51 +326,61 @@ export default function Auth() {
                     )}
                   </AnimatePresence>
 
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                      <input
-                        type="email"
-                        required
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
-                        placeholder="nama@sekolah.id"
-                      />
+                  {!isCompletingProfile && (
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                        <input
+                          type="email"
+                          required
+                          autoComplete="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                          placeholder="nama@sekolah.id"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between ml-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
-                      {isLogin && (
-                        <button type="button" className="text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-600">Lupa Password?</button>
-                      )}
+                  {!isCompletingProfile && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between ml-1">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                        {isLogin && (
+                          <button 
+                            type="button" 
+                            onClick={handleResetPassword}
+                            className="text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-600"
+                          >
+                            Lupa Password?
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          autoComplete={isLogin ? "current-password" : "new-password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        required
-                        autoComplete={isLogin ? "current-password" : "new-password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
-                        placeholder="••••••••"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
+                  )}
 
-                  {isLogin && (
+                  {isLogin && !isCompletingProfile && (
                     <div className="flex items-center gap-2 ml-1">
                       <button 
                         type="button"
@@ -299,7 +395,7 @@ export default function Auth() {
                     </div>
                   )}
 
-                  {!isLogin && (
+                  {(isCompletingProfile || !isLogin) && (
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -331,7 +427,7 @@ export default function Auth() {
                     </motion.div>
                   )}
 
-                  {!isLogin && role === 'guru_mapel' && (
+                  {!isLogin && !isCompletingProfile && role === 'guru_mapel' && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -350,6 +446,23 @@ export default function Auth() {
                         />
                       </div>
                     </motion.div>
+                  )}
+
+                  {isCompletingProfile && role === 'guru_mapel' && (
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mata Pelajaran</label>
+                      <div className="relative group">
+                        <ClipboardList className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                        <input
+                          type="text"
+                          required
+                          value={mapel}
+                          onChange={(e) => setMapel(e.target.value)}
+                          className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                          placeholder="Contoh: Matematika"
+                        />
+                      </div>
+                    </div>
                   )}
 
                   {error && (
@@ -372,11 +485,44 @@ export default function Auth() {
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                       <>
-                        <span className="uppercase tracking-[0.2em] text-[10px]">{isLogin ? 'Masuk Sekarang' : 'Daftar Akun'}</span>
+                        <span className="uppercase tracking-[0.2em] text-[10px]">
+                            {isCompletingProfile ? 'Simpan Profil' : (isLogin ? 'Masuk Sekarang' : 'Daftar Akun')}
+                        </span>
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
                   </button>
+
+                  {isLogin && !isCompletingProfile && (
+                    <div className="space-y-4 pt-2">
+                       <div className="flex items-center gap-4">
+                         <div className="flex-1 h-px bg-slate-100" />
+                         <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Atau</span>
+                         <div className="flex-1 h-px bg-slate-100" />
+                       </div>
+                       <button
+                         type="button"
+                         onClick={handleGoogleLogin}
+                         disabled={loading}
+                         className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                       >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24">
+                            <path fill="#EA4335" d="M12.48 10.92v3.28h7.84c-.24 1.84-.9 3.47-1.92 4.67-1.2 1.2-3.04 2.2-6.12 2.2-4.92 0-8.91-4-8.91-8.91s4-8.91 8.91-8.91c2.61 0 4.65.88 6.07 2.29l2.31-2.31c-2.1-2-5-3.23-8.38-3.23C5.48 0 0 5.48 0 12.23s5.48 12.23 12.23 12.23c3.67 0 6.44-1.2 8.63-3.48 2.21-2.21 2.91-5.32 2.91-7.85 0-.58-.05-1.12-.13-1.66h-11.18z" />
+                          </svg>
+                          <span className="text-[10px] uppercase tracking-widest">Masuk dengan Google</span>
+                       </button>
+                    </div>
+                  )}
+
+                  {isCompletingProfile && (
+                    <button
+                      type="button"
+                      onClick={() => auth.signOut()}
+                      className="w-full py-2 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:text-rose-600 transition-all font-display text-center"
+                    >
+                      Bukan akun Anda? Keluar
+                    </button>
+                  )}
                 </form>
               </motion.div>
             )}

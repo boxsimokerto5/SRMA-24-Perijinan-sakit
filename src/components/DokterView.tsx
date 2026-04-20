@@ -55,7 +55,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
   // View Mode
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek'>('kartu_siswa');
   const [selectedClass, setSelectedClass] = useState('Semua');
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
@@ -964,7 +964,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                          }}
                          className={`flex items-center gap-1.5 px-3 py-1.5 bg-${colorClass}-50 text-${colorClass}-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-${colorClass}-600 hover:text-white transition-all shadow-sm`}
                       >
-                        <Plus className="w-3 h-3" /> Rekam Medis
+                        <Plus className="w-3 h-3" /> Buat Surat Baru
                       </button>
                     </div>
                   </div>
@@ -1309,6 +1309,27 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Action Button (FAB) */}
+      {(viewMode === 'perizinan' || viewMode === 'usulan_cek') && (
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setNamaSiswa('');
+            setDiagnosa('');
+            setJumlahHari(1);
+            setNomorSurat(`SRMA-${Date.now().toString().slice(-6)}`);
+            setShowForm(true);
+          }}
+          className="fixed bottom-24 right-6 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-50 transition-all active:scale-95 group border-2 border-slate-800"
+        >
+          <div className="p-2 bg-slate-800 rounded-xl group-hover:bg-indigo-600 transition-colors">
+            <Plus className="w-5 h-5 text-indigo-400 group-hover:text-white" />
+          </div>
+          <span className="text-xs font-black uppercase tracking-widest pr-2">Buat Surat Baru</span>
+        </motion.button>
       )}
 
       {/* Modal Detail Siswa Lengkap */}
