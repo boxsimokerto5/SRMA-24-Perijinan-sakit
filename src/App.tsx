@@ -22,6 +22,7 @@ import KepalaSekolahView from './components/KepalaSekolahView';
 import GuruMapelView from './components/GuruMapelView';
 import WaliAsramaView from './components/WaliAsramaView';
 import SplashScreen from './components/SplashScreen';
+import VersionChecker from './components/VersionChecker';
 import { setupPushNotifications } from './services/notificationService';
 import { Loader2, AlertCircle, Mail } from 'lucide-react';
 
@@ -93,14 +94,12 @@ export default function App() {
             setAppUser(userData);
             setError(null);
             
-            // Setup Push Notifications (DISABLED TEMPORARILY TO PREVENT CRASH)
-            /*
+            // Setup Push Notifications
             try {
               await setupPushNotifications(firebaseUser.uid);
             } catch (pushErr) {
               console.error('Push Notification Setup Error:', pushErr);
             }
-            */
           } else {
             console.warn('User document not found for UID:', firebaseUser.uid);
             // If user exists in Auth but not in Firestore, they might need to sign up again or be created
@@ -209,6 +208,7 @@ export default function App() {
         {appUser.role === 'guru_mapel' && <GuruMapelView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_asrama' && <WaliAsramaView user={appUser} activeTab={activeTab} />}
+        <VersionChecker />
       </Layout>
     </ErrorBoundary>
   );
