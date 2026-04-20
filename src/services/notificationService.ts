@@ -6,27 +6,37 @@ import { db } from '../firebase';
 export const setupPushNotifications = async (userId: string) => {
   try {
     if (!Capacitor.isNativePlatform()) {
-      console.log('Push notifications are only available on native platforms.');
       return;
     }
 
-    // Request permission to use push notifications
-    let permStatus = await PushNotifications.checkPermissions();
+    // Wrap registration in its own try-catch
+    const registerWithRetry = async () => {
+      try {
+        console.log('Requesting push permissions...');
+        let permStatus = await PushNotifications.checkPermissions();
 
-    if (permStatus.receive === 'prompt') {
-      permStatus = await PushNotifications.requestPermissions();
-    }
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
 
-    if (permStatus.receive !== 'granted') {
-      console.warn('User denied push notification permissions');
-      return;
-    }
+        if (permStatus.receive !== 'granted') {
+          console.warn('User denied push notification permissions');
+          return;
+        }
 
-    // Register with Apple / Google to receive push notifications
-    // This can throw an error if google-services.json is missing or invalid
-    await PushNotifications.register();
+        console.log('Registering for push...');
+        // This is often where the force close / crash happens if google-services.json is missing
+        await PushNotifications.register();
+      } catch (regErr) {
+        console.error('Push Registration native crash prevention:', regErr);
+        // Silently fail to prevent app crash
+      }
+    };
 
-    // On success, we should be able to receive notifications
+    // Delay registration slightly to ensure native bridge is stable
+    setTimeout(registerWithRetry, 2000);
+
+    // Listeners should be added regardless of registration success to prevent null ref errors
     PushNotifications.addListener('registration', async (token) => {
       console.log('Push registration success, token: ' + token.value);
       
