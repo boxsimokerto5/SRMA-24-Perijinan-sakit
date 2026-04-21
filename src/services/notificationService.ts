@@ -12,29 +12,28 @@ export const setupPushNotifications = async (userId: string) => {
     // Wrap registration in its own try-catch
     const registerWithRetry = async () => {
       try {
-        console.log('Requesting push permissions...');
-        let permStatus = await PushNotifications.checkPermissions();
-
-        if (permStatus.receive === 'prompt') {
-          permStatus = await PushNotifications.requestPermissions();
-        }
+        console.log('Push: Requesting permissions...');
+        const permStatus = await PushNotifications.requestPermissions();
 
         if (permStatus.receive !== 'granted') {
-          console.warn('User denied push notification permissions');
+          console.warn('Push: Permission not granted:', permStatus.receive);
           return;
         }
 
-        console.log('Registering for push...');
-        // This is often where the force close / crash happens if google-services.json is missing
+        console.log('Push: Registering with native platform...');
+        // CRITICAL: This is where mismatched google-services.json causes native crash.
+        // JS try-catch CANNOT catch a native crash.
         await PushNotifications.register();
-      } catch (regErr) {
-        console.error('Push Registration native crash prevention:', regErr);
-        // Silently fail to prevent app crash
+        console.log('Push: Registration call sent.');
+      } catch (regErr: any) {
+        console.error('Push: Registration Bridge Error:', regErr);
+        // This only catches JS bridge errors, not native crashes
       }
     };
 
-    // Delay registration slightly to ensure native bridge is stable
-    setTimeout(registerWithRetry, 2000);
+    // Delay registration significantly to allow the app to fully stabilize
+    console.log('Push: Scheduling registration in 5 seconds...');
+    setTimeout(registerWithRetry, 5000);
 
     // Listeners should be added regardless of registration success to prevent null ref errors
     PushNotifications.addListener('registration', async (token) => {

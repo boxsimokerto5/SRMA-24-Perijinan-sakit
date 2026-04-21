@@ -1,33 +1,33 @@
 {
   "project_info": {
-    "project_number": "93789615976",
-    "project_id": "gen-lang-client-0442824614",
-    "storage_bucket": "gen-lang-client-0442824614.firebasestorage.app"
+    "project_number": "971103124961",
+    "project_id": "gen-lang-client-0621544649",
+    "storage_bucket": "gen-lang-client-0621544649.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:93789615976:android:3e553e524dedfe596b48dd",
+        "mobilesdk_app_id": "1:971103124961:android:9c3a51649c7d1d904c26a0",
         "android_client_info": {
           "package_name": "com.srma24kediri.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "93789615976-ks1j5oarvtpn5vp0c1qh2bkregbvbfqj.apps.googleusercontent.com",
+          "client_id": "971103124961-201l61cetn51mjnn58rke0hfhk4t5dcg.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBAWgwLJrJl6HmoCG3dk6p9EJFXhnU-m-M"
+          "current_key": "AIzaSyC_DVWbZpgX6smLk9yKjELlbCXkAKR9c8c"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "93789615976-ks1j5oarvtpn5vp0c1qh2bkregbvbfqj.apps.googleusercontent.com",
+              "client_id": "971103124961-201l61cetn51mjnn58rke0hfhk4t5dcg.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
