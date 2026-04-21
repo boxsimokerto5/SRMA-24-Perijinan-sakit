@@ -25,11 +25,18 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Allow the default admin email or anyone with the kepala_sekolah role
-      return isEmailVerified() && (
-        request.auth.token.email == "boxsimokerto5@gmail.com" || 
-        getUserData().role == 'kepala_sekolah'
-      );
+      // Emergency access for the master admin or kepala_sekolah with verified email
+      return isMasterAdmin() || (isEmailVerified() && getUserData().role == 'kepala_sekolah');
+    }
+    
+    function isMasterAdmin() {
+      // Fastest path for system administrator - no email verification needed for emergencies
+      return isSignedIn() && request.auth.token.email == "boxsimokerto5@gmail.com";
+    }
+
+    function isSystemAdmin() {
+      // Emergency access for the verified developer account
+      return isEmailVerified() && request.auth.token.email == "boxsimokerto5@gmail.com";
     }
 
     // Pillar 2: Validation Blueprints (The "Anti-Update-Gap")
@@ -114,6 +121,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       
       allow create: if isSignedIn() && isValidIzinSakit(incoming()) && (
+        isMasterAdmin() ||
         (hasRole('dokter') && incoming().tipe == 'sakit') ||
         (hasRole('wali_asuh') && incoming().tipe == 'umum') ||
         ((hasRole('wali_kelas') || hasRole('guru_mapel')) && incoming().tipe == 'catatan') ||
@@ -121,6 +129,7 @@ service cloud.firestore {
       );
 
       allow update: if isSignedIn() && (
+        isMasterAdmin() ||
         (hasRole('wali_asuh') && existing().status == 'pending_asuh' && incoming().status == 'pending_kelas' &&
          incoming().diff(existing()).affectedKeys().hasAny(['catatan_kamar', 'status'])) ||
          
@@ -136,16 +145,17 @@ service cloud.firestore {
         isAdmin()
       );
 
-      allow delete: if isAdmin();
+      allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
     }
 
     match /notifications/{notifId} {
-      allow list: if isSignedIn() && (getUserData().role in resource.data.recipientRoles || isAdmin());
-      allow get: if isSignedIn() && (getUserData().role in resource.data.recipientRoles || isAdmin());
+      allow list: if isSignedIn() && (isMasterAdmin() || getUserData().role in resource.data.recipientRoles || isAdmin() || isSystemAdmin());
+      allow get: if isSignedIn() && (isMasterAdmin() || getUserData().role in resource.data.recipientRoles || isAdmin() || isSystemAdmin());
       
       allow create: if isSignedIn() && isValidNotification(incoming());
       
       allow update: if isSignedIn() && (
+        isMasterAdmin() ||
         (incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) && 
          incoming().readBy.hasAll(existing().readBy) &&
          incoming().readBy.size() == existing().readBy.size() + 1 &&
@@ -153,20 +163,20 @@ service cloud.firestore {
         isAdmin()
       );
       
-      allow delete: if isAdmin();
+      allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
     }
 
     match /memorandums/{memoId} {
-      allow read: if isSignedIn() && (hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima));
-      allow create: if hasRole('kepala_sekolah') && (incoming().pengirim_uid == request.auth.uid);
-      allow delete: if isAdmin();
+      allow read: if isSignedIn() && (isMasterAdmin() || hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima) || isSystemAdmin());
+      allow create: if (isMasterAdmin() || hasRole('kepala_sekolah') || isSystemAdmin()) && (incoming().pengirim_uid == request.auth.uid);
+      allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
     }
 
     match /pinjam_hp/{pinjamId} {
       allow read: if isSignedIn();
       allow create: if hasRole('wali_asuh') || isAdmin();
       allow update: if hasRole('wali_asuh') || isAdmin();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (hasRole('wali_asuh') && existing().wali_asuh_uid == request.auth.uid);
     }
 
     match /siswa/{siswaId} {
@@ -176,8 +186,8 @@ service cloud.firestore {
 
     match /announcements/{annId} {
       allow read: if isSignedIn();
-      allow create: if hasRole('kepala_sekolah') || isAdmin();
-      allow delete: if isAdmin();
+      allow create: if isMasterAdmin() || hasRole('kepala_sekolah') || isAdmin() || isSystemAdmin();
+      allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
     }
 
     match /hp_requests/{requestId} {
@@ -190,7 +200,7 @@ service cloud.firestore {
       );
       allow create: if (hasRole('guru_mapel') || hasRole('wali_asuh')) && isValidHPRequest(incoming());
       allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (hasRole('guru_mapel') && existing().guru_uid == request.auth.uid);
     }
     
     match /health_check_proposals/{proposalId} {
@@ -202,7 +212,7 @@ service cloud.firestore {
       );
       allow create: if hasRole('wali_asrama') && isValidHealthCheckProposal(incoming());
       allow update: if (hasRole('dokter') || hasRole('wali_asrama') || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (hasRole('wali_asrama') && existing().proposer_uid == request.auth.uid);
     }
 
     match /laptop_requests/{requestId} {
@@ -215,7 +225,7 @@ service cloud.firestore {
       );
       allow create: if hasRole('guru_mapel') && isValidLaptopRequest(incoming());
       allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (hasRole('guru_mapel') && existing().guru_uid == request.auth.uid);
     }
   }
 }

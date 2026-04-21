@@ -178,6 +178,7 @@ export default function App() {
         user={appUser} 
         activeTab={activeTab} 
         onTabChange={setActiveTab}
+        hideChrome={appUser.role === 'wali_asuh'}
       >
         {!user.emailVerified && (
           <div className="fixed top-20 left-4 right-4 z-[100] bg-amber-50 border border-amber-200 p-3 rounded-2xl shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">

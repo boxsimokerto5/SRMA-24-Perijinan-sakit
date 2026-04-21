@@ -43,7 +43,7 @@ import {
   Bell,
   ChevronRight,
   Laptop,
-  Tablet, Smartphone, Check
+  Tablet, Smartphone, Check, Database
 } from 'lucide-react';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
@@ -72,7 +72,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
   // Memorandum States
-  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp'>('perizinan');
+  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'pangkalan_data'>('perizinan');
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
   const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
@@ -257,7 +257,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       });
 
       // Broadcast Notification
-      notifyAllRoles(['dokter', 'wali_asuh', 'wali_kelas'], 'Pengumuman Baru', `Ada pengumuman baru dari Kepala Sekolah: ${newAnnouncement.title}`);
+      notifyAllRoles(['dokter', 'wali_asuh', 'wali_kelas'], 'Pengumuman Baru', `Ada pengumuman baru dari Kepala Sekolah: ${newAnnouncement.title}`, 'view:home');
 
       setNewAnnouncement({ title: '', content: '' });
       setShowAnnouncementModal(false);
@@ -286,6 +286,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
   useEffect(() => {
     const autoCleanup = async () => {
+      if (!auth.currentUser?.emailVerified) {
+        console.log('Auto-cleanup skipped: Email not verified');
+        return;
+      }
       try {
         const sevenDaysAgo = Timestamp.fromDate(subDays(new Date(), 7));
         const conf = [
@@ -295,13 +299,26 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         ];
 
         for (const item of conf) {
-          const q = query(collection(db, item.col), where(item.field, '<', sevenDaysAgo));
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            const batch = writeBatch(db);
-            snap.docs.forEach(d => batch.delete(d.ref));
-            await batch.commit();
-            console.log(`Auto-cleaned ${snap.size} old records from ${item.col}`);
+          try {
+            const q = query(collection(db, item.col), where(item.field, '<', sevenDaysAgo));
+            const snap = await getDocs(q);
+            
+            if (!snap.empty) {
+              const docs = snap.docs;
+              const chunkSize = 250; // Use conservative batch size
+              
+              for (let i = 0; i < docs.length; i += chunkSize) {
+                const chunk = docs.slice(i, i + chunkSize);
+                const batch = writeBatch(db);
+                chunk.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+              }
+              
+              console.log(`Auto-cleaned ${snap.size} old records from ${item.col} successfully.`);
+            }
+          } catch (colErr) {
+            console.error(`Auto-cleanup failed for collection ${item.col}:`, colErr);
+            // Don't throw, continue to next collection
           }
         }
       } catch (e) {
@@ -333,7 +350,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       await addDoc(collection(db, 'memorandums'), memoData);
 
       // Notify targeted roles
-      notifyAllRoles(newMemo.penerima, 'Memorandum Baru', `Kepala Sekolah mengirimkan memorandum: ${newMemo.perihal}`);
+      notifyAllRoles(newMemo.penerima, 'Memorandum Baru', `Kepala Sekolah mengirimkan memorandum: ${newMemo.perihal}`, 'view:memos');
 
       setShowMemoModal(false);
       setNewMemo({ perihal: '', isi: '', penerima: [] });
@@ -645,6 +662,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
           }`}
         >
           <Tablet className="w-3.5 h-3.5" /> HP
+        </button>
+        <button
+          onClick={() => setSubTab('pangkalan_data' as any)}
+          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+            subTab === 'pangkalan_data' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5" /> Database
         </button>
         <button
           onClick={() => setSubTab('kartu_siswa' as any)}
@@ -1207,6 +1232,17 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 })}
             </div>
           </div>
+        </div>
+      ) : subTab === 'pangkalan_data' ? (
+        <div className="h-[calc(100vh-200px)] w-full bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <iframe 
+            src="https://app.box.com/s/3ogn8xtw84he8uxb1yfnvum9mgwpc7db"
+            className="w-full h-full border-none"
+            title="Pangkalan Data Wali Asuh"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+            sandbox="allow-forms allow-modals allow-orientation-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
+          />
         </div>
       ) : null}
 

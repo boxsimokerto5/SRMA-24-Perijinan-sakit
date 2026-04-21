@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -11,15 +11,14 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest } from '../types';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
-import { Contact, GraduationCap, IdCard, Info, Laptop, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsuhViewProps {
@@ -42,7 +41,91 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop'>('kartu_siswa');
+  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh'>('home');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  // Banner & Time states
+  const [showBanner, setShowBanner] = useState(true);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatRealTime = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date).replace(/\./g, ':');
+  };
+
+  useEffect(() => {
+    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+      setAnnouncements(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'announcements');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const defaultBanners = [
+    {
+      id: 'def-1',
+      title: "Informasi Kesehatan",
+      content: "Jaga kebersihan diri dan lingkungan asrama untuk mencegah penyebaran penyakit.",
+      color: "from-indigo-600 to-violet-600",
+      icon: Info
+    },
+    {
+      id: 'def-2',
+      title: "Update Sistem",
+      content: "Fitur Kartu Siswa kini lebih lengkap dengan data orang tua dan alamat.",
+      color: "from-emerald-600 to-teal-600",
+      icon: BarChart3
+    },
+    {
+      id: 'def-3',
+      title: "Pemberitahuan",
+      content: "Pastikan semua perizinan sakit telah diverifikasi oleh dokter UKS.",
+      color: "from-amber-500 to-orange-600",
+      icon: Bell
+    }
+  ];
+
+  const banners = announcements.length > 0 
+    ? announcements.map(ann => ({
+        id: ann.id,
+        title: ann.title,
+        content: ann.content,
+        color: "from-rose-600 to-orange-600",
+        icon: Bell,
+        author: "Kepala Sekolah"
+      }))
+    : defaultBanners.map(b => ({ ...b, author: "Sistem" }));
+
+  useEffect(() => {
+    if (banners.length === 0) return;
+    const timer = setInterval(() => {
+      setBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
   const [showMenu, setShowMenu] = useState(false);
   const [pinjamHPList, setPinjamHPList] = useState<PinjamHP[]>([]);
   const [students, setStudents] = useState<Siswa[]>([]);
@@ -63,6 +146,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [phNamaSiswa, setPhNamaSiswa] = useState('');
   const [phKelas, setPhKelas] = useState('X-1');
   const [phKeperluan, setPhKeperluan] = useState('');
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [editStudentData, setEditStudentData] = useState<Partial<Siswa>>({});
 
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
   const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
@@ -350,6 +435,21 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientRoles', 'array-contains', user.role),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification));
+      setNotifications(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'notifications');
+    });
+    return () => unsubscribe();
+  }, [user.role]);
+
   const handleGeneratePDF = async (permit: IzinSakit) => {
     setPdfLoading(permit.id!);
     try {
@@ -516,6 +616,45 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateStudent = async () => {
+    if (!selectedStudent) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'siswa', selectedStudent.id), editStudentData);
+      
+      // Update local state is handled by onSnapshot
+      setIsEditingStudent(false);
+      setSelectedStudent({ ...selectedStudent, ...editStudentData } as Siswa);
+      alert('Data siswa berhasil diperbarui di seluruh sistem.');
+    } catch (err) {
+      console.error('Error updating student:', err);
+      alert('Gagal memperbarui data siswa: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      handleFirestoreError(err, OperationType.UPDATE, `siswa/${selectedStudent.id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNotificationClick = async (notif: AppNotification) => {
+    if (notif.link) {
+      if (notif.link.startsWith('view:')) {
+        setViewMode(notif.link.split(':')[1] as any);
+      }
+    }
+    
+    // Mark as read
+    if (!notif.readBy.includes(user.uid)) {
+      try {
+        await updateDoc(doc(db, 'notifications', notif.id!), {
+          readBy: arrayUnion(user.uid)
+        });
+      } catch (err) {
+        console.error('Error marking notification as read:', err);
+      }
+    }
+    setShowNotifications(false);
   };
 
   const handleAcknowledgeCatatan = async (permitId: string) => {
@@ -692,104 +831,524 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     );
   }
 
+  const viewTitles: Record<string, string> = {
+    home: 'Dashboard',
+    izin_umum: 'Izin Umum',
+    perizinan: 'Perizinan',
+    pinjam_hp: 'Peminjaman HP',
+    kartu_siswa: 'Kartu Siswa',
+    pangkalan_data_wali_asuh: 'Pangkalan Data Wali Asuh',
+    permohonan_hp: 'Permohonan HP',
+    pinjam_laptop: 'Pinjam Laptop',
+    memos: 'Memorandum',
+    siswa: 'Daftar Siswa',
+    settings: 'Pengaturan'
+  };
+
   return (
-    <div className="space-y-8 pb-24 animate-in fade-in duration-700 relative">
-      {/* Welcome Section */}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Halo, {user.name.split(' ')[0]}!</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Wali Asuh Terverifikasi</p>
-        </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200/60 text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          
-          <AnimatePresence>
-            {showMenu && (
-              <>
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowMenu(false)}
-                />
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full right-0 mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-4 z-50 overflow-hidden"
-                >
-                  <div className="px-6 py-2 mb-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Menu Navigasi</p>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+      {/* Sidebar Navigation */}
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#0b5d73] text-white z-[70] shadow-2xl flex flex-col"
+            >
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-6 border-b border-white/10">
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mb-8 border border-white/20">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white p-2 rounded-xl shadow-lg ring-4 ring-white/10 group-hover:scale-110 transition-transform">
+                        <GraduationCap className="w-5 h-5 text-[#0b5d73]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-white text-sm leading-none uppercase tracking-tighter">SRMA 24 KEDIRI</span>
+                        <span className="text-[9px] font-bold text-indigo-200 uppercase tracking-[0.2em] mt-1 opacity-70">SEKOLAH RAKYAT</span>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => { setViewMode('perizinan'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'perizinan' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'perizinan' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <ClipboardList className="w-4 h-4" />
+
+                  <div className="space-y-6">
+                    <div>
+                      <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-4">HOME</p>
+                      <div className="space-y-1">
+                        {[
+                          { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
+                          { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
+                          { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
+                          { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
+                          { id: 'memos', label: 'Memorandum', icon: Mail },
+                          { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone },
+                          { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
+                          { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop }
+                        ].map((item: any) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setViewMode(item.id);
+                            setShowSidebar(false);
+                          }}
+                          className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                            viewMode === item.id ? 'bg-white text-[#0b5d73]' : 'bg-transparent text-white/80 hover:bg-white/10'
+                          }`}
+                        >
+                          <item.icon className="w-5 h-5" />
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
-                    Perizinan Siswa
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('pinjam_hp'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'pinjam_hp' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'pinjam_hp' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <Smartphone className="w-4 h-4" />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-4">TOKO & AKUN</p>
+                    <div className="space-y-1">
+                      {[
+                        { id: 'profil', label: 'Profil Pengguna', icon: User },
+                        { id: 'pengaturan', label: 'Pengaturan', icon: Settings },
+                        { id: 'rekening', label: 'Data Bank', icon: CreditCard }
+                      ].map((item: any) => (
+                        <button
+                          key={item.id}
+                          className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold bg-transparent text-white/80 hover:bg-white/10 transition-all"
+                        >
+                          <item.icon className="w-5 h-5" />
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
-                    Pinjam Handphone (Individu)
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('permohonan_hp'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'permohonan_hp' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'permohonan_hp' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <Tablet className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto p-6 border-t border-white/10 bg-[#0b5d73]">
+                <button
+                  onClick={() => auth.signOut()}
+                  className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold bg-red-500/20 text-red-100 hover:bg-red-500/30 transition-all"
+                >
+                  <LogOut className="w-5 h-5" />
+                  Keluar Akun
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Top Header Navigation */}
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
+        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowSidebar(true)}
+              className={`p-3 rounded-2xl transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-slate-800 text-slate-200 hover:bg-slate-700 shadow-lg shadow-black/20' 
+                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 shadow-sm'
+              } active:scale-95`}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col">
+              <h1 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'} leading-none mb-0.5`}>
+                {viewTitles[viewMode] || 'SRMA 24'}
+              </h1>
+              <p className={`text-[9px] font-bold uppercase tracking-tighter opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Digital Health System
+              </p>
+            </div>
+          </div>
+
+          <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
+             <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-full border border-slate-200/50 dark:border-slate-700/50">
+               <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Live Status</span>
+             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-3 rounded-2xl transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-slate-800 text-amber-400 hover:bg-slate-700 shadow-lg shadow-black/20' 
+                  : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+              } active:scale-95`}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`p-3 rounded-2xl transition-all duration-300 ${
+                  isDarkMode 
+                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 shadow-lg shadow-black/20' 
+                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100 shadow-sm'
+                } active:scale-95 group`}
+              >
+                <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                {notifications.filter(n => !n.readBy.includes(user.uid)).length > 0 && (
+                  <span className="absolute top-2.5 right-2.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800 ring-2 ring-rose-500/20 animate-bounce">
+                    {notifications.filter(n => !n.readBy.includes(user.uid)).length}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowNotifications(false)}
+                      className="fixed inset-0 z-40"
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className={`absolute right-0 mt-3 w-80 z-50 rounded-3xl shadow-2xl overflow-hidden border ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-indigo-50'
+                      }`}
+                    >
+                      <div className="p-5 border-b border-slate-100/10 bg-indigo-600 flex items-center justify-between">
+                        <h4 className="font-black text-white text-[10px] uppercase tracking-widest">Notifikasi Baru</h4>
+                        <button 
+                          onClick={() => setShowNotifications(false)}
+                          className="p-1 hover:bg-white/10 rounded-full text-white transition-colors"
+                        >
+                          <Plus className="w-4 h-4 rotate-45" />
+                        </button>
+                      </div>
+                      
+                      <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                        {notifications.length > 0 ? (
+                          notifications.map((notif) => (
+                            <button
+                              key={notif.id}
+                              onClick={() => handleNotificationClick(notif)}
+                              className={`w-full p-4 flex items-start gap-4 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 relative group ${
+                                notif.readBy.includes(user.uid) ? 'opacity-60' : ''
+                              }`}
+                            >
+                              {!notif.readBy.includes(user.uid) && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600" />
+                              )}
+                              <div className={`p-2 rounded-xl shrink-0 ${
+                                notif.type === 'success' ? 'bg-emerald-50 text-emerald-600' :
+                                notif.type === 'error' ? 'bg-rose-50 text-rose-600' :
+                                notif.type === 'warning' ? 'bg-amber-50 text-amber-600' :
+                                'bg-indigo-50 text-indigo-600'
+                              }`}>
+                                {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> :
+                                 notif.type === 'error' ? <X className="w-4 h-4" /> :
+                                 notif.type === 'warning' ? <Info className="w-4 h-4" /> :
+                                 <Bell className="w-4 h-4" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className={`text-xs font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{notif.title}</h5>
+                                <p className={`text-[10px] line-clamp-2 mt-0.5 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{notif.description}</p>
+                                <span className="text-[8px] font-bold text-slate-400 mt-2 block uppercase tracking-tighter">
+                                  {notif.createdAt && typeof notif.createdAt.toDate === 'function' ? format(notif.createdAt.toDate(), 'HH:mm, dd MMM') : '-'}
+                                </span>
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-10 text-center">
+                            <Bell className="w-10 h-10 text-slate-100 mx-auto mb-3" />
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Belum ada notifikasi <br/>untuk saat ini</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <button 
+                        onClick={() => setShowNotifications(false)}
+                        className="w-full py-4 bg-slate-50 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:bg-slate-100 transition-colors"
+                      >
+                        Tutup Panel
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <button className={`p-3 rounded-2xl transition-all duration-300 ${
+              isDarkMode 
+                ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20' 
+                : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700'
+            } active:scale-95 ml-1`}>
+              <User className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        {/* Subtle accent line */}
+        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-30" />
+      </header>
+
+      {/* Top Banner / Announcement (Mobile Native Style) */}
+      <AnimatePresence mode="wait">
+        {showBanner && banners.length > 0 && banners[bannerIndex] && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color} p-4 text-white shadow-lg ${isDarkMode ? 'shadow-black/20' : 'shadow-indigo-100'}`}>
+                <div className="relative z-10 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5" })}
                     </div>
-                    Permohonan HP (Batch)
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('kartu_siswa'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'kartu_siswa' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'kartu_siswa' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <IdCard className="w-4 h-4" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author || 'Sistem'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
                     </div>
-                    Cartu Siswa
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('pinjam_laptop'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'pinjam_laptop' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
+                  </div>
+                  <button 
+                    onClick={() => setShowBanner(false)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
                   >
-                    <div className={`p-2 rounded-xl ${viewMode === 'pinjam_laptop' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <Laptop className="w-4 h-4" />
-                    </div>
-                    Pinjam Laptop
+                    <X className="w-4 h-4" />
                   </button>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
+                </div>
+                {/* Decorative circles */}
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-black/10 rounded-full blur-2xl" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shrunken Real-time Clock Bar */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
+        <div className={`p-[1px] rounded-xl ${isDarkMode ? 'bg-slate-800' : 'bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20'}`}>
+          <div className={`flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] ${isDarkMode ? 'bg-slate-900' : 'bg-white/80'} backdrop-blur-sm`}>
+            <span className="w-1 h-1 bg-indigo-500 rounded-full animate-ping" />
+            <p className={`text-[8px] font-bold uppercase tracking-[0.2em] flex items-center gap-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-indigo-500 rounded-full animate-ping" />
+          </div>
         </div>
       </div>
 
-      {viewMode === 'perizinan' && (
+      <div className="p-6 max-w-7xl mx-auto pb-24 space-y-8">
+        {viewMode === 'pangkalan_data_wali_asuh' && (
+          <div className="h-[calc(100vh-140px)] w-full bg-white rounded-[3rem] shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 border border-slate-100">
+            <iframe 
+              src="https://app.box.com/s/3ogn8xtw84he8uxb1yfnvum9mgwpc7db"
+              className="w-full h-full border-none"
+              title="Pangkalan Data Wali Asuh"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+              sandbox="allow-forms allow-modals allow-orientation-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
+            />
+          </div>
+        )}
+
+        {viewMode === 'home' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div>
+              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Selamat Datang {user.email}</h2>
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => setViewMode('perizinan')}
+                  className="flex-1 py-3 px-6 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95"
+                >
+                  Lihat Perizinan
+                </button>
+                <button
+                  onClick={() => setViewMode('kartu_siswa')}
+                  className="flex-1 py-3 px-6 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95"
+                >
+                  Lihat Siswa
+                </button>
+              </div>
+            </div>
+
+            {/* Information Card */}
+            <div className={`bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}>
+              <div className="p-6 flex items-center justify-between border-b border-slate-100">
+                <h3 className={`font-black text-lg ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Informasi Wali Asuh</h3>
+                <button className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50 transition-all">
+                  Detail Profil
+                </button>
+              </div>
+              
+              <div className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                  <div className="flex justify-between items-center group">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Nama Jabatan</span>
+                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Wali Asuh SRMA 24</span>
+                  </div>
+                  <div className="flex flex-col space-y-2">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Link Dashboard</span>
+                    <div className="flex items-center gap-2 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100 group">
+                      <p className="text-xs font-medium text-indigo-600 truncate flex-1 leading-none">
+                        https://srma24kediri.app/dashboard/{user.uid}
+                      </p>
+                      <button className="p-1.5 bg-white rounded-lg shadow-sm text-indigo-400">
+                        <ClipboardList className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Status Akun</span>
+                    <span className="px-4 py-1 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">AKTIF</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Kategori Peran</span>
+                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Verifikator</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Tipe Akses</span>
+                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Full Access</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Verifikasi Email</span>
+                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>{auth.currentUser?.emailVerified ? 'Sudah' : 'Belum'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Ulasan Sistem</span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className="w-4 h-4 fill-orange-500 text-orange-500" />
+                      ))}
+                      <span className="ml-2 text-sm font-black text-slate-900">5.0</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-slate-50/50 border-t border-slate-100">
+                <button
+                  onClick={() => setViewMode('perizinan')}
+                  className="px-6 py-3 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-300 transition-all text-sm"
+                >
+                  Lihat Data Dasbor
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'izin_umum' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} font-display uppercase tracking-tight`}>Layanan Izin Umum</h2>
+                <p className={`text-sm font-bold opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.1em] mt-1`}>Pengajuan Izin Keluar & Kegiatan Non-Medis</p>
+              </div>
+              <button
+                onClick={() => setShowForm(true)}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 text-white font-black rounded-3xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 group"
+              >
+                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                BUAT IZIN BARU
+              </button>
+            </div>
+
+            {/* Feature Cards / Bento Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { title: 'Izin Pulang', desc: 'Keperluan keluarga atau mendesak', icon: Home, color: 'text-amber-600', bg: 'bg-amber-100' },
+                { title: 'Izin Kegiatan', desc: 'Lomba atau acara luar sekolah', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+                { title: 'Izin Mendadak', desc: 'Keadaan darurat / force majeure', icon: Info, color: 'text-rose-600', bg: 'bg-rose-100' }
+              ].map((f, i) => (
+                <div key={i} className={`p-6 rounded-[2.5rem] ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} border shadow-sm`}>
+                  <div className={`p-4 ${f.bg} ${f.color} rounded-2xl w-fit mb-4`}>
+                    <f.icon className="w-6 h-6" />
+                  </div>
+                  <h3 className={`font-black uppercase tracking-widest text-xs mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{f.title}</h3>
+                  <p className={`text-xs font-bold leading-relaxed opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{f.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className={`bg-white rounded-[3rem] border border-slate-100 overflow-hidden shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}>
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <h3 className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Riwayat Izin Umum Anda</h3>
+                </div>
+              </div>
+              
+              <div className="divide-y divide-slate-50">
+                {permits.filter(p => p.tipe === 'umum').length > 0 ? (
+                  permits.filter(p => p.tipe === 'umum').map((permit) => (
+                    <div key={permit.id} className="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                      <div className="flex items-center gap-5">
+                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                          {permit.nama_siswa.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900 font-display'}`}>{permit.nama_siswa}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{permit.kelas}</span>
+                            <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{permit.alasan}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right hidden sm:block">
+                          <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Status</p>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mt-1 ${
+                            permit.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {permit.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => setSelectedPermit(permit)}
+                          className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 shadow-sm transition-all"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-20 text-center space-y-4">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                      <ClipboardList className="w-8 h-8 text-slate-300" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Belum ada riwayat izin umum<br/>yang Anda ajukan.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'perizinan' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           {/* Dashboard Grid - Modern Bento Style */}
           <div className="grid grid-cols-2 gap-4">
@@ -896,196 +1455,45 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           </div>
 
           <div className="space-y-6">
-            {/* Filters & Search */}
+            {/* Filters & Search - Restored */}
             <div className="space-y-6">
-            {/* Horizontal Time Categories */}
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {[ 
-                { id: 'hari_ini', label: 'Hari Ini' },
-                { id: 'kemarin', label: 'Kemarin' },
-                { id: 'minggu_ini', label: 'Minggu Ini' },
-                { id: 'bulan_ini', label: 'Bulan Ini' },
-                { id: 'semua', label: 'Semua' }
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setTimeFilter(cat.id as any)}
-                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                    timeFilter === cat.id
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                      : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Cari nama siswa atau nomor surat..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  />
-                </div>
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {[ 
+                  { id: 'hari_ini', label: 'Hari Ini' },
+                  { id: 'kemarin', label: 'Kemarin' },
+                  { id: 'minggu_ini', label: 'Minggu Ini' },
+                  { id: 'bulan_ini', label: 'Bulan Ini' },
+                  { id: 'semua', label: 'Semua' }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTimeFilter(cat.id as any)}
+                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                      timeFilter === cat.id
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
               </div>
-            </div>
-          </div>
 
-          {showForm && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-600" />
-                  Form Input Izin Umum / Lainnya
-                </h3>
-              </div>
-              <form onSubmit={handleSubmitUmum} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nomor Surat</label>
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                       type="text"
-                      readOnly
-                      value={nomorSurat}
-                      className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-mono text-slate-600 outline-none"
+                      placeholder="Cari nama siswa atau nomor surat..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Siswa</label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        required
-                        value={namaSiswa}
-                        onChange={(e) => handleNamaSiswaChange(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                        placeholder="Masukkan nama siswa"
-                      />
-                      <AnimatePresence>
-                        {showSuggestions && filteredStudentsList.length > 0 && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
-                          >
-                            {filteredStudentsList.map((student) => (
-                              <button
-                                key={student.id}
-                                type="button"
-                                onClick={() => selectStudent(student)}
-                                className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
-                              >
-                                <div>
-                                  <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
-                                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
-                                </div>
-                                <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kelas</label>
-                      <select
-                        value={kelas}
-                        onChange={(e) => setKelas(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      >
-                        {[
-                          'X-1', 'X-2', 'X-3', 'X-4',
-                          'XI-1', 'XI-2', 'XI-3', 'XI-4',
-                          'XII-1', 'XII-2', 'XII-3', 'XII-4'
-                        ].map(k => (
-                          <option key={k} value={k}>{k}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Wali Kelas</label>
-                      <select
-                        value={waliKelas}
-                        onChange={(e) => setWaliKelas(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      >
-                        {WALI_KELAS_LIST.map(wk => (
-                          <option key={wk.name} value={wk.name}>{wk.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
                 </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Alasan Izin</label>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                      <textarea
-                        required
-                        value={alasan}
-                        onChange={(e) => setAlasan(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[100px]"
-                        placeholder="Contoh: Keperluan keluarga mendesak"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Jumlah Hari</label>
-                      <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="number"
-                          min="1"
-                          required
-                          value={jumlahHari || ''}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setJumlahHari(isNaN(val) ? 0 : val);
-                          }}
-                          className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tgl Mulai</label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="date"
-                          required
-                          value={tglMulai}
-                          onChange={(e) => setTglMulai(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-100 transition-all disabled:opacity-50"
-                    >
-                      {loading ? 'Menyimpan...' : 'Simpan & Kirim ke Wali Kelas'}
-                    </button>
-                  </div>
-                </div>
-              </form>
+              </div>
             </div>
-          )}
 
           {/* Memorandum Section */}
           {memos.length > 0 && (
@@ -1261,6 +1669,60 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
               </div>
             )}
+          </div>
+        )}
+
+        {viewMode === 'memos' && (
+          <div className="space-y-6 animate-in fade-in duration-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Memorandum</h2>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Pesan Resmi Manajemen Sekolah</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {memos.length > 0 ? (
+                memos.map((memo) => (
+                  <motion.div
+                    key={memo.id}
+                    layout
+                    onClick={() => setSelectedMemo(memo)}
+                    className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group cursor-pointer hover:shadow-xl hover:shadow-indigo-100 transition-all border-l-4 border-l-indigo-500"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                          <Mail className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-slate-900 font-display leading-tight">{memo.pengirim_name}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{memo.nomor_memo}</p>
+                        </div>
+                      </div>
+                      <div className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-widest">
+                        {memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <h5 className="text-sm font-black text-slate-900 line-clamp-1">{memo.perihal}</h5>
+                       <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-medium">{memo.isi}</p>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Buka Selengkapnya</span>
+                      <ChevronRight className="w-4 h-4 text-indigo-300 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                  <Mail className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada memorandum masuk</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1565,40 +2027,118 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
 
             {/* Student Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredStudents.map((student) => (
                 <motion.div
                   key={student.id}
-                  whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
+                  whileHover={{ y: -8, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedStudent(student)}
-                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
+                  className={`relative group cursor-pointer aspect-[1.6/1] w-full rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(79,70,229,0.1)] transition-all duration-500 border-2 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+                  }`}
                 >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-600 transition-colors duration-500" />
+                  {/* Premium Background Elements */}
+                  <div className="absolute inset-0 opacity-[0.05] pointer-events-none">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(79,70,229,1)_1px,transparent_0)] bg-[size:24px_24px]" />
+                  </div>
+                  <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px]" />
+                  <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-purple-500/5 rounded-full blur-[80px]" />
                   
-                  <div className="flex items-center gap-4 relative">
-                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500">
-                      {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
+                  {/* Decorative Side Label */}
+                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center justify-center border-l dark:border-slate-800">
+                    <span className="rotate-90 text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.3em] whitespace-nowrap">
+                      STUDENT • SRMA 24
+                    </span>
+                  </div>
+
+                  {/* ID Card Header */}
+                  <div className="h-16 bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 flex items-center justify-between relative overflow-hidden">
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 shadow-lg group-hover:scale-110 transition-transform duration-500">
+                        <GraduationCap className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-white leading-none uppercase tracking-tight">SRMA 24 KEDIRI</span>
+                        <span className="text-[8px] font-bold text-indigo-200 uppercase tracking-[0.2em] mt-1">SEKOLAH RAKYAT</span>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap || 'Tanpa Nama'}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black rounded-md uppercase tracking-widest">
-                          Kelas {student.kelas}
-                        </span>
+                    
+                    <div className="relative z-10 hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-lg border border-white/10">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[8px] font-black text-white uppercase tracking-widest">ACTIVE</span>
+                    </div>
+                  </div>
+
+                  <div className="p-8 flex gap-8 items-start h-full pb-16">
+                    {/* Professional Photo Frame */}
+                    <div className="relative group/photo shrink-0">
+                      <div className="w-28 h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden shadow-inner border-4 border-white dark:border-slate-700 flex flex-col items-center justify-center group-hover:border-indigo-100 dark:group-hover:border-indigo-900 transition-colors duration-500">
+                        <div className="text-3xl font-black text-slate-300 dark:text-slate-600">
+                          {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
+                        </div>
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 p-1.5 bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-100 dark:border-slate-800">
+                        <Check className="w-3 h-3 text-emerald-500" />
+                      </div>
+                    </div>
+
+                    {/* Student Identity Core */}
+                    <div className="flex-1 min-w-0 pt-2">
+                      <h3 className={`text-lg font-black truncate font-display group-hover:text-indigo-600 transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-slate-900'
+                      }`}>
+                        {student.nama_lengkap || 'Tanpa Nama'}
+                      </h3>
+                      
+                      <div className="mt-5 space-y-4">
+                        <div className="flex flex-col">
+                          <label className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Nomor Registrasi (NIK)</label>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[12px] font-bold font-mono tracking-[0.1em] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                              {student.nik || 'XXXXXXXXXX'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-6">
+                          <div className="flex flex-col">
+                            <label className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Kelas</label>
+                            <span className={`text-[12px] font-black ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                              {student.kelas}
+                            </span>
+                          </div>
+                          <div className="flex flex-col">
+                            <label className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Status</label>
+                            <span className={`text-[10px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                              Residen
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">NIK Siswa</p>
-                      <p className="text-xs font-bold text-slate-600 font-mono">{student.nik}</p>
+                  {/* ID Card Security Stripes & QR Placeholder */}
+                  <div className="absolute bottom-6 left-8 right-16 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-5">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2 opacity-30">
+                        <div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full" />
+                        <Shield className="w-3 h-3 text-slate-400" />
+                      </div>
+                      <p className="text-[6px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">Digital Student Passport • kediri</p>
                     </div>
-                    <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-indigo-600 transition-all shadow-sm">
-                      <ChevronRight className="w-4 h-4" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 border-2 border-slate-100 dark:border-slate-800 rounded-lg p-1.5 flex flex-wrap gap-1 opacity-40">
+                         {[...Array(9)].map((_, i) => (
+                           <div key={i} className={`w-1.5 h-1.5 rounded-sm ${i % 3 === 0 ? 'bg-indigo-400' : 'bg-slate-300'}`} />
+                         ))}
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Hover Decoration */}
+                  <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-indigo-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-top" />
                 </motion.div>
               ))}
               
@@ -1613,22 +2153,23 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         </div>
       )}
 
-      {/* Floating Action Button (FAB) */}
-      {(viewMode === 'perizinan' || viewMode === 'pinjam_hp') && (
-        <motion.button 
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => viewMode === 'perizinan' ? setShowForm(true) : setShowPinjamForm(true)}
-          className="fixed bottom-24 right-6 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="text-xs font-black uppercase tracking-widest">
-            {viewMode === 'perizinan' ? 'Buat Izin Baru' : 'Catat Pinjam HP'}
-          </span>
-        </motion.button>
-      )}
+        {/* Floating Action Button (FAB) */}
+        {(viewMode === 'perizinan' || viewMode === 'pinjam_hp') && (
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => viewMode === 'perizinan' ? setShowForm(true) : setShowPinjamForm(true)}
+            className="fixed bottom-24 right-6 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-[40]"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="text-xs font-black uppercase tracking-widest">
+              {viewMode === 'perizinan' ? 'Buat Izin Baru' : 'Catat Pinjam HP'}
+            </span>
+          </motion.button>
+        )}
+      </div>
 
-      {/* Modal Detail Perizinan */}
+      {/* Modals are placed outside the main scroll container but inside the component root helper */}
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1809,6 +2350,168 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Form Modal for Izin Umum */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-indigo-600 flex items-center justify-between relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10 pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(255,255,255,1)_1px,transparent_0)] bg-[size:16px_16px]" />
+              </div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl border border-white/20">
+                  <ShieldCheck className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white uppercase tracking-tight">Form Pengajuan Izin Umum</h3>
+                  <p className="text-[10px] text-indigo-100 font-mono uppercase tracking-widest">{nomorSurat}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowForm(false)}
+                className="p-2 hover:bg-white/20 rounded-full transition-colors text-white relative z-10"
+              >
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitUmum} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={namaSiswa}
+                        onChange={(e) => handleNamaSiswaChange(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                        placeholder="Cari nama siswa..."
+                      />
+                      <AnimatePresence>
+                        {showSuggestions && filteredStudentsList.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                          >
+                            {filteredStudentsList.map((student) => (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => selectStudent(student)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                              >
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
+                                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                                </div>
+                                <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kelas & Wali Kelas</label>
+                      <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas</span>
+                          <span className="text-xs font-black text-slate-900">{kelas}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wali Kelas</span>
+                          <span className="text-xs font-black text-slate-900">{waliKelas}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Keperluan Izin</label>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                      <textarea
+                        required
+                        value={alasan}
+                        onChange={(e) => setAlasan(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[120px] text-sm"
+                        placeholder="Contoh: Menghadiri pernikahan kakak kandung"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Durasi</label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={jumlahHari || ''}
+                          onChange={(e) => setJumlahHari(parseInt(e.target.value) || 0)}
+                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mulai</label>
+                      <input
+                        type="date"
+                        required
+                        value={tglMulai}
+                        onChange={(e) => setTglMulai(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-4">
+                <Info className="w-5 h-5 text-indigo-500 mt-1" />
+                <p className="text-[10px] font-bold text-indigo-600 leading-relaxed uppercase tracking-wider">
+                  PENGAJUAN INI AKAN LANGSUNG TERKONEKSI KE WALI KELAS UNTUK MENDAPATKAN PERSETUJUAN AKHIR. PASTIKAN SEMUA DATA SUDAH BENAR.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  AJUKAN IZIN SEKARANG
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2060,124 +2763,380 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       {/* Modal Detail Siswa */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-xl">
-                  <IdCard className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-indigo-600 flex items-center justify-between relative overflow-hidden">
+               <div className="absolute inset-0 opacity-10 pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(255,255,255,1)_1px,transparent_0)] bg-[size:16px_16px]" />
+              </div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl border border-white/20">
+                  <GraduationCap className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900">Profil Lengkap Siswa</h3>
-                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">NIK: {selectedStudent.nik}</p>
+                  <h3 className="font-black text-white uppercase tracking-tight">
+                    {isEditingStudent ? 'Edit Data Siswa' : 'Profil Lengkap Siswa'}
+                  </h3>
+                  <p className="text-[10px] text-indigo-100 font-mono uppercase tracking-widest">SRMA 24 KEDIRI • SEKOLAH RAKYAT</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedStudent(null)}
-                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
-              >
-                <Plus className="w-6 h-6 rotate-45" />
-              </button>
+              <div className="flex items-center gap-2 relative z-10">
+                {!isEditingStudent && (
+                  <button 
+                    onClick={() => {
+                      setIsEditingStudent(true);
+                      setEditStudentData({ ...selectedStudent });
+                    }}
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Edit Data
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setIsEditingStudent(false);
+                  }}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
+                >
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+              <div className="absolute -right-12 -top-12 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
             </div>
             
-            <div className="p-8 space-y-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
-              {/* Header Info */}
-              <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
-                <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center text-indigo-600 font-black text-4xl shadow-inner mb-4">
-                  {selectedStudent.nama_lengkap ? selectedStudent.nama_lengkap.charAt(0) : '?'}
-                </div>
-                <h2 className="text-2xl font-black text-slate-900 font-display leading-tight">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-full uppercase tracking-widest">
-                    Kelas {selectedStudent.kelas}
-                  </span>
-                  <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black rounded-full uppercase tracking-widest">
-                    {selectedStudent.jenis_kelamin}
-                  </span>
-                </div>
-              </div>
-
-              {/* Data Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Identitas Section */}
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Identitas Dasar</h4>
-                  <div className="space-y-3">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nomor KK</label>
-                      <p className="text-sm font-black text-slate-900 font-mono">{selectedStudent.nomor_kk}</p>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Tempat, Tgl Lahir</label>
-                      <p className="text-sm font-black text-slate-900">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Agama</label>
-                        <p className="text-sm font-black text-slate-900">{selectedStudent.agama}</p>
+            <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              {isEditingStudent ? (
+                <div className="space-y-8">
+                  {/* Edit Identity Section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Identitas Dasar</h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nama Lengkap</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.nama_lengkap || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, nama_lengkap: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">NIK</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.nik || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, nik: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Kelas</label>
+                            <select 
+                              value={editStudentData.kelas || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, kelas: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            >
+                              {['X-1', 'X-2', 'X-3', 'X-4', 'XI-1', 'XI-2', 'XI-3', 'XI-4', 'XII-1', 'XII-2', 'XII-3', 'XII-4'].map(k => (
+                                <option key={k} value={k}>{k}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Tempat Lahir</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.tempat_lahir || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, tempat_lahir: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Tanggal Lahir</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.tanggal_lahir || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, tanggal_lahir: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              placeholder="DD-MM-YYYY"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Agama</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.agama || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, agama: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Umur</label>
+                            <input 
+                              type="number"
+                              value={editStudentData.umur || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, umur: parseInt(e.target.value) || 0 })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Jenis Kelamin</label>
+                            <select 
+                              value={editStudentData.jenis_kelamin || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, jenis_kelamin: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            >
+                              <option value="Laki-laki">Laki-laki</option>
+                              <option value="Perempuan">Perempuan</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nomor KK</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.nomor_kk || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, nomor_kk: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Umur</label>
-                        <p className="text-sm font-black text-slate-900">{selectedStudent.umur} Tahun</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Data Orang Tua</h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nama Ayah</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.ayah || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, ayah: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nama Ibu</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.ibu || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, ibu: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Anak Ke</label>
+                            <input 
+                              type="number"
+                              value={editStudentData.anak_ke || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, anak_ke: parseInt(e.target.value) || 1 })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Jumlah Saudara</label>
+                            <input 
+                              type="number"
+                              value={editStudentData.saudara || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, saudara: parseInt(e.target.value) || 1 })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Data Domisili</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="md:col-span-2">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Alamat Jalan</label>
+                        <textarea 
+                          value={editStudentData.alamat || ''}
+                          onChange={(e) => setEditStudentData({ ...editStudentData, alamat: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold min-h-[80px]"
+                          placeholder="Alamat lengkap..."
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">RT</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.rt || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, rt: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">RW</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.rw || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, rw: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Kelurahan</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.kelurahan || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, kelurahan: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Kecamatan</label>
+                          <input 
+                            type="text"
+                            value={editStudentData.kecamatan || ''}
+                            onChange={(e) => setEditStudentData({ ...editStudentData, kecamatan: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Keluarga Section */}
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Data Keluarga</h4>
-                  <div className="space-y-3">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ayah</label>
-                      <p className="text-sm font-black text-slate-900">{selectedStudent.ayah || '-'}</p>
+              ) : (
+                <>
+                  {/* Header Info */}
+                  <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
+                    <div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-600 font-black text-4xl shadow-inner mb-4 relative group">
+                      <User className="w-10 h-10" />
+                      <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors rounded-[2.5rem] flex items-center justify-center">
+                        <Camera className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ibu</label>
-                      <p className="text-sm font-black text-slate-900">{selectedStudent.ibu || '-'}</p>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Anak Ke / Saudara</label>
-                      <p className="text-sm font-black text-slate-900">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
+                    <h2 className="text-2xl font-black text-slate-900 font-display leading-tight">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
+                    <div className="flex items-center gap-2 mt-3">
+                      <span className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg shadow-indigo-100">
+                        Kelas {selectedStudent.kelas}
+                      </span>
+                      <span className="px-4 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-black rounded-full uppercase tracking-widest">
+                        {selectedStudent.jenis_kelamin}
+                      </span>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Alamat Section */}
-              <div className="space-y-4 pt-4 border-t border-slate-100">
-                <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Alamat Domisili</h4>
-                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-indigo-500 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-black text-slate-900 leading-relaxed">{selectedStudent.alamat || '-'}</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">RT/RW</label>
-                          <p className="text-xs font-black text-slate-700">{selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</p>
+                  {/* Data Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Identitas Section */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Identitas Dasar</h4>
+                      <div className="space-y-3">
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">NIK Siswa</label>
+                          <p className="text-sm font-black text-slate-900 font-mono tracking-wider">{selectedStudent.nik || '-'}</p>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kelurahan</label>
-                          <p className="text-xs font-black text-slate-700">{selectedStudent.kelurahan || '-'}</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Tempat, Tgl Lahir</label>
+                          <p className="text-sm font-black text-slate-900">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kecamatan</label>
-                          <p className="text-xs font-black text-slate-700">{selectedStudent.kecamatan || '-'}</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Agama</label>
+                            <p className="text-sm font-black text-slate-900">{selectedStudent.agama}</p>
+                          </div>
+                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Umur</label>
+                            <p className="text-sm font-black text-slate-900">{selectedStudent.umur} Tahun</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Keluarga Section */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Data Keluarga</h4>
+                      <div className="space-y-3">
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ayah</label>
+                          <p className="text-sm font-black text-slate-900">{selectedStudent.ayah || '-'}</p>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ibu</label>
+                          <p className="text-sm font-black text-slate-900">{selectedStudent.ibu || '-'}</p>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Anak Ke / Saudara</label>
+                          <p className="text-sm font-black text-slate-900">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+
+                  {/* Alamat Section */}
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Alamat Domisili</h4>
+                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
+                          <MapPin className="w-5 h-5 text-indigo-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-black text-slate-900 leading-relaxed">{selectedStudent.alamat || '-'}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mt-6">
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">RT / RW</label>
+                              <p className="text-xs font-black text-slate-700">{selectedStudent.rt || '00'} / {selectedStudent.rw || '00'}</p>
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kelurahan</label>
+                              <p className="text-xs font-black text-slate-700">{selectedStudent.kelurahan || '-'}</p>
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kecamatan</label>
+                              <p className="text-xs font-black text-slate-700">{selectedStudent.kecamatan || '-'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
-              >
-                Tutup Profil
-              </button>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              {isEditingStudent ? (
+                <>
+                  <button
+                    onClick={() => setIsEditingStudent(false)}
+                    className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleUpdateStudent}
+                    disabled={loading}
+                    className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Simpan Perubahan
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setSelectedStudent(null)}
+                  className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                >
+                  Tutup Profil
+                </button>
+              )}
             </div>
           </div>
         </div>
