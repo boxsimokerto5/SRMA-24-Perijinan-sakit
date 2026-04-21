@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.0.6';
+export const APP_VERSION = '1.0.7';
 export const APP_BUILD_DATE = '2026-04-20';
 
 // Configuration for Update Checks

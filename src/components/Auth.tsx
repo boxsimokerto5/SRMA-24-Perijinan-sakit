@@ -235,9 +235,10 @@ export default function Auth() {
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-slate-900 mb-2">Verifikasi Email</h3>
-                  <p className="text-sm text-slate-500 font-medium">
+                  <p className="text-sm text-slate-500 font-medium leading-relaxed">
                     Kami telah mengirimkan tautan verifikasi ke <strong>{email}</strong>. 
-                    Silakan periksa kotak masuk atau folder spam Anda sebelum masuk.
+                    <br />
+                    <span className="text-amber-600 font-bold">Email verifikasi biasanya berada di folder spam, silahkan cek disana.</span>
                   </p>
                 </div>
                 <button
@@ -288,8 +289,11 @@ export default function Auth() {
 
                 {!isLogin && !isCompletingProfile && (
                   <div className="mb-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
-                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-relaxed text-center">
+                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-relaxed text-center mb-1">
                       Bergabunglah untuk akses riwayat kesehatan & perizinan siswa secara real-time.
+                    </p>
+                    <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest text-center italic">
+                      Email verivikasi biasanya berada di folder spam ,silahkan cek disana
                     </p>
                   </div>
                 )}
@@ -403,7 +407,7 @@ export default function Auth() {
                     >
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Jabatan</label>
                       <div className="grid grid-cols-2 gap-3">
-                        {(['wali_asuh', 'wali_asrama', 'wali_kelas', 'guru_mapel', 'dokter', 'kepala_sekolah'] as UserRole[]).map((r) => (
+                        {(['wali_asuh', 'wali_asrama', 'wali_kelas', 'guru_mapel'] as UserRole[]).map((r) => (
                           <button
                             key={r}
                             type="button"
@@ -417,9 +421,7 @@ export default function Auth() {
                             {r === 'wali_asuh' ? <Home className="w-5 h-5" /> : 
                              r === 'wali_asrama' ? <Building className="w-5 h-5" /> :
                              r === 'wali_kelas' ? <CheckSquare className="w-5 h-5" /> : 
-                             r === 'guru_mapel' ? <ClipboardList className="w-5 h-5" /> :
-                             r === 'dokter' ? <Stethoscope className="w-5 h-5" /> :
-                             <ShieldCheck className="w-5 h-5" />}
+                             <ClipboardList className="w-5 h-5" />}
                             <span className="text-[9px] font-black uppercase tracking-tight text-center leading-none">{roleLabels[r]}</span>
                           </button>
                         ))}
