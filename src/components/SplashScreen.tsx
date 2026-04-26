@@ -21,7 +21,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] bg-indigo-600 flex flex-col items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] bg-[#0ea5e9] flex flex-col items-center justify-center overflow-hidden"
         >
           {/* Background Decorative Circles */}
           <motion.div
@@ -91,7 +91,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
             </motion.div>
 
             {/* Loading Bar */}
-            <div className="mt-12 w-48 h-1 bg-indigo-800 rounded-full overflow-hidden">
+            <div className="mt-12 w-48 h-1 bg-[#0369a1] rounded-full overflow-hidden">
               <motion.div
                 initial={{ x: "-100%" }}
                 animate={{ x: "100%" }}
@@ -100,7 +100,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                   repeat: Infinity,
                   ease: "linear"
                 }}
-                className="w-full h-full bg-white/40"
+                className="w-full h-full bg-white/60"
               />
             </div>
           </div>

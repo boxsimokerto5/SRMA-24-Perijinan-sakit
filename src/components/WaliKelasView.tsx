@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, AppNotification, Announcement, Siswa } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
-import { Siswa } from '../types';
 
 interface WaliKelasViewProps {
   user: AppUser;
@@ -28,8 +27,94 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa'>('kartu_siswa');
-  const [showMenu, setShowMenu] = useState(false);
+  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil'>('home');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  const stats = {
+    total: permits.length,
+    selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
+    pending: permits.filter(p => p.status === 'pending_kelas').length,
+    catatan: permits.filter(p => p.tipe === 'catatan').length,
+    memos: memos.length
+  };
+
+  // Banner & Time states
+  const [showBanner, setShowBanner] = useState(true);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatRealTime = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date).replace(/\./g, ':');
+  };
+
+  useEffect(() => {
+    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+      setAnnouncements(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'announcements');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const banners = announcements.length > 0 ? announcements.map(a => ({
+    id: a.id,
+    title: a.title,
+    content: a.content,
+    color: "from-indigo-600 to-violet-600",
+    icon: Bell,
+    author: a.authorName
+  })) : [
+    {
+      id: 'def-1',
+      title: "Informasi Kesehatan",
+      content: "Jaga kebersihan diri dan lingkungan asrama untuk mencegah penyebaran penyakit.",
+      color: "from-indigo-600 to-violet-600",
+      icon: CheckCircle2
+    }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientRoles', 'array-contains', 'wali_kelas'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification)));
+    }, (err) => {
+      console.error('Notifications Error:', err);
+    });
+    return () => unsubscribe();
+  }, []);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
 
@@ -225,327 +310,528 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     }
   };
 
-  const stats = {
-    total: permits.length,
-    pending: permits.filter(p => p.status === 'pending_kelas').length,
-    selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
-    memos: memos.length
+  const viewTitles: Record<string, string> = {
+    home: 'Dashboard',
+    perizinan: 'Perizinan',
+    kartu_siswa: 'Kartu Siswa',
+    memos: 'Memorandum',
+    pangkalan_data: 'Pangkalan Data Wali Asuh',
+    profil: 'Profil Saya',
+    mading: 'Mading Sekolah',
+    settings: 'Pengaturan'
   };
 
-  if (activeTab === 'profil') {
-    return <ProfileView user={user} />;
-  }
-
-  if (activeTab === 'statistik') {
-    return (
-      <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900">Statistik Wali Kelas</h2>
-            <p className="text-sm text-slate-500">Data kesehatan siswa di kelas Anda.</p>
-          </div>
-          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
-            <BarChart3 className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center py-20">
-          <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-          <h3 className="text-slate-900 font-bold text-xl">Statistik Segera Hadir</h3>
-          <p className="text-slate-500 mt-2">Fitur analisis mendalam sedang dalam pengembangan.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
-      {/* Welcome & Menu Section */}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Halo, {user.name.split(' ')[0]}!</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Wali Kelas {myClass}</p>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+            >
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-6">
+                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
+                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
+                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div>
+                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
+                          { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
+                          { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
+                          { id: 'memos', label: 'Memorandum', icon: Mail },
+                          { id: 'profil', label: 'Profil Saya', icon: User }
+                        ].map((item: any) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setViewMode(item.id);
+                              setShowSidebar(false);
+                            }}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                              viewMode === item.id 
+                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
+                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Logout Section */}
+              <div className="p-6 border-t border-white/10">
+                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <button 
+                  onClick={() => auth.signOut()}
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                >
+                  <LogOut className="w-5 h-5 text-cyan-300" />
+                  Keluar Akun
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
+        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowSidebar(true)}
+              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e]">
+              {viewTitles[viewMode] || 'SRMA 24'}
+            </h1>
+          </div>
         </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200/60 text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          
-          <AnimatePresence>
-            {showMenu && (
-              <>
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowMenu(false)}
+      </header>
+
+      <div className="p-6 max-w-7xl mx-auto pb-24 space-y-8">
+        {viewMode === 'profil' && <ProfileView user={user} />}
+        {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        
+        {viewMode === 'kartu_siswa' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex flex-col gap-6">
+              <div className="px-1">
+                <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Data Siswa</h2>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Daftar Lengkap Siswa Kelas {myClass}</p>
+              </div>
+
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Cari nama atau NIK siswa..."
+                  value={studentSearchTerm}
+                  onChange={(e) => setStudentSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
                 />
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full right-0 mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-4 z-50 overflow-hidden"
-                >
-                  <div className="px-6 py-2 mb-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Menu Navigasi</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredStudents.map((student) => (
+                  <motion.div
+                    key={student.id}
+                    whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
+                    onClick={() => setSelectedStudent(student)}
+                    className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-600 transition-colors duration-500" />
+                    
+                    <div className="flex items-center gap-4 relative">
+                      <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500">
+                        {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap || 'Tanpa Nama'}</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NIK: {student.nik}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Orang Tua</p>
+                        <p className="text-xs font-bold text-slate-600">{student.ayah || '-'}</p>
+                      </div>
+                      <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-indigo-600 transition-all shadow-sm">
+                        <ChevronRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                
+                {filteredStudents.length === 0 && (
+                  <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                    <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Siswa tidak ditemukan</p>
                   </div>
-                  <button
-                    onClick={() => { setViewMode('perizinan'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'perizinan' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'perizinan' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <ClipboardList className="w-4 h-4" />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {(viewMode === 'home' || viewMode === 'perizinan') && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Total Perizinan */}
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
+                className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                      <ClipboardList className="w-6 h-6" />
                     </div>
-                    Dashboard & Riwayat
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('kartu_siswa'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'kartu_siswa' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'kartu_siswa' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <User className="w-4 h-4" />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
+                </div>
+              </motion.div>
+
+              {/* Card 2: Izin Selesai */}
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
+                className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                      <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    Data Siswa Kelas {myClass}
-                  </button>
-                </motion.div>
-              </>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
+                </div>
+              </motion.div>
+
+              {/* Card 3: Perlu Persetujuan */}
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
+                className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Perlu<br />Persetujuan</p>
+                </div>
+              </motion.div>
+
+              {/* Card 4: Memorandum */}
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
+                className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
+                    <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Memorandum Section */}
+            {memos.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <Mail className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Memorandum Intern</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {memos.map(memo => (
+                    <motion.div 
+                      key={memo.id}
+                      whileHover={{ scale: 1.01 }}
+                      onClick={() => setSelectedMemo(memo)}
+                      className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
+                          <Mail className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 font-display group-hover:text-cyan-700 transition-colors">{memo.perihal}</h4>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
+                        </div>
+                      </div>
+                      <div className="p-2 bg-white rounded-xl text-cyan-400 group-hover:text-cyan-600 transition-all">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
-      </div>
 
-      {viewMode === 'kartu_siswa' ? (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="flex flex-col gap-6">
-            <div className="px-1">
-              <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Data Siswa</h2>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Daftar Lengkap Siswa Kelas {myClass}</p>
+            {/* Riwayat Terakhir Header */}
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monitoring Kesehatan Siswa</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setStartDate('');
+                  setEndDate('');
+                  setTimeFilter('hari_ini');
+                }}
+                className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Reset Filter
+              </button>
             </div>
 
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-              <input
-                type="text"
-                placeholder="Cari nama atau NIK siswa..."
-                value={studentSearchTerm}
-                onChange={(e) => setStudentSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
-              />
+            {/* Filters & Search */}
+            <div className="space-y-6">
+              {/* Horizontal Time Categories */}
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {[ 
+                  { id: 'hari_ini', label: 'Hari Ini' },
+                  { id: 'kemarin', label: 'Kemarin' },
+                  { id: 'minggu_ini', label: 'Minggu Ini' },
+                  { id: 'bulan_ini', label: 'Bulan Ini' },
+                  { id: 'semua', label: 'Semua' }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTimeFilter(cat.id as any)}
+                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                      timeFilter === cat.id
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
+                <div className="flex flex-col gap-4">
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                    <input
+                      type="text"
+                      placeholder="Cari nama siswa atau nomor surat..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredStudents.map((student) => (
-                <motion.div
-                  key={student.id}
-                  whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
-                  onClick={() => setSelectedStudent(student)}
-                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
+            {/* List Perizinan - Modern Cards */}
+            <div className="grid grid-cols-1 gap-4">
+              {filteredPermits.map((permit) => (
+                <motion.div 
+                  key={permit.id}
+                  whileHover={{ scale: 1.01 }}
+                  onClick={() => setSelectedPermit(permit)}
+                  className={`group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border-l-8 hover:border-indigo-200 transition-all cursor-pointer ${
+                    permit.tipe === 'sakit' ? 'border-emerald-500' :
+                    permit.tipe === 'umum' ? 'border-blue-500' :
+                    'border-amber-500'
+                  }`}
                 >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-600 transition-colors duration-500" />
-                  
-                  <div className="flex items-center gap-4 relative">
-                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500">
-                      {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
+                  <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
+                    permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
+                    permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
+                    'bg-amber-50 text-amber-600'
+                  }`}>
+                    <User className="w-8 h-8" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
+                        permit.tipe === 'sakit' ? 'bg-emerald-100 text-emerald-700' : 
+                        permit.tipe === 'umum' ? 'bg-blue-100 text-blue-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {permit.tipe === 'sakit' ? 'Input Dokter' : permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Wali Kelas'}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap || 'Tanpa Nama'}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NIK: {student.nik}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Clock className="w-3 h-3 text-indigo-500" />
+                      <span className="text-[10px] font-bold text-indigo-600">
+                        {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Orang Tua</p>
-                      <p className="text-xs font-bold text-slate-600">{student.ayah || '-'}</p>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
+                      <ChevronRight className="w-5 h-5" />
                     </div>
-                    <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-indigo-600 transition-all shadow-sm">
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
+                    {permit.status === 'pending_kelas' && (
+                      <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                    )}
                   </div>
                 </motion.div>
               ))}
-              
-              {filteredStudents.length === 0 && (
-                <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                  <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Siswa tidak ditemukan</p>
+
+              {filteredPermits.length === 0 && (
+                <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                  <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada data perizinan</p>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      ) : (
-        <>
-      {/* Dashboard Grid - Bento Style */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Card 1: Total Perizinan */}
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <ClipboardList className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
-          </div>
-        </motion.div>
+        )}
 
-        {/* Card 2: Izin Selesai */}
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
+        {viewMode === 'pangkalan_data' && (
+          <div className="h-[calc(100vh-220px)] w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-200/60 animate-in fade-in zoom-in-95 duration-500">
+             <iframe 
+               src="https://app.box.com/s/3ogn8xtw84he8uxb1yfnvum9mgwpc7db"
+               className="w-full h-full border-none"
+               title="Pangkalan Data Wali Asuh"
+               allow="autoplay; fullscreen"
+             />
           </div>
-        </motion.div>
-
-        {/* Card 3: Perlu Persetujuan */}
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <Clock className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Perlu<br />Persetujuan</p>
-          </div>
-        </motion.div>
-
-        {/* Card 4: Memorandum */}
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <Mail className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
-          </div>
-        </motion.div>
+        )}
       </div>
 
-      {/* Memorandum Section */}
-      {memos.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 px-1">
-            <Mail className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Memorandum Intern</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4">
-            {memos.map(memo => (
-              <motion.div 
-                key={memo.id}
-                whileHover={{ scale: 1.01 }}
-                onClick={() => setSelectedMemo(memo)}
-                className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className={`p-8 flex items-center justify-between text-white relative overflow-hidden ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-gradient-to-r from-pink-500 to-rose-600' : 'bg-gradient-to-r from-indigo-600 to-blue-700'}`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+              <div className="flex items-center gap-6 relative z-10">
+                <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center text-4xl font-black border border-white/30 shadow-2xl animate-in fade-in zoom-in duration-500">
+                  {selectedStudent.nama_lengkap ? selectedStudent.nama_lengkap.charAt(0) : '?'}
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black font-display tracking-tight uppercase">{selectedStudent.nama_lengkap}</h3>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black uppercase tracking-widest border border-white/20">
+                      Kelas {selectedStudent.kelas}
+                    </span>
+                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black uppercase tracking-widest border border-white/20">
+                      NIY: {selectedStudent.niy || '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedStudent(null)} 
+                className="p-3 hover:bg-white rounded-full transition-all text-white hover:text-slate-600 shadow-sm"
               >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
-                    <Mail className="w-5 h-5" />
+                <Plus className="w-8 h-8 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Data Pribadi */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-1.5 h-6 rounded-full ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Data Personal</h4>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 font-display group-hover:text-cyan-700 transition-colors">{memo.perihal}</h4>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">NIK</label>
+                      <p className="text-sm font-mono font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all font-display">{selectedStudent.nik || '-'}</p>
+                    </div>
+                    
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tempat, Tanggal Lahir</label>
+                      <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ttl || `${selectedStudent.tempat_lahir}, ${selectedStudent.tanggal_lahir}` || '-'}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Jenis Kelamin</label>
+                        <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.jenis_kelamin || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Agama</label>
+                        <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.agama || '-'}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="p-2 bg-white rounded-xl text-cyan-400 group-hover:text-cyan-600 transition-all">
-                  <Plus className="w-4 h-4" />
+
+                {/* Data Keluarga & Alamat */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-1.5 h-6 rounded-full ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Keluarga & Alamat</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="group">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ayah</label>
+                        <p className="text-sm font-black text-slate-700 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 group-hover:border-indigo-200 transition-all font-display">{selectedStudent.ayah || '-'}</p>
+                      </div>
+                      <div className="group">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ibu</label>
+                        <p className="text-sm font-black text-slate-700 bg-rose-50/30 p-4 rounded-2xl border border-rose-100 group-hover:border-rose-200 transition-all font-display">{selectedStudent.ibu || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="group">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Alamat Lengkap</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed mb-2">{selectedStudent.alamat || 'Alamat tidak tersedia'}</p>
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50">
+                          <span className="text-[9px] font-black text-slate-400 uppercase">Kec: {selectedStudent.kecamatan || '-'}</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">NIY Wali: {selectedStudent.niy_waliklas || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </motion.div>
-            ))}
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <button 
+                onClick={() => setSelectedStudent(null)}
+                className="w-full py-5 bg-white border border-slate-200 text-slate-600 font-black rounded-3xl hover:bg-slate-100 hover:shadow-lg transition-all uppercase tracking-widest text-xs"
+              >
+                Tutup Profil Siswa
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-      {/* Riwayat Terakhir Header */}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monitoring Kesehatan Siswa</p>
-        </div>
-        <button 
-          onClick={() => {
-            setSearchTerm('');
-            setStartDate('');
-            setEndDate('');
-            setTimeFilter('hari_ini');
-          }}
-          className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
-        >
-          Reset Filter
-        </button>
-      </div>
-
-      {/* Filters & Search */}
-      <div className="space-y-6">
-        {/* Horizontal Time Categories */}
-        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-          {[ 
-            { id: 'hari_ini', label: 'Hari Ini' },
-            { id: 'kemarin', label: 'Kemarin' },
-            { id: 'minggu_ini', label: 'Minggu Ini' },
-            { id: 'bulan_ini', label: 'Bulan Ini' },
-            { id: 'semua', label: 'Semua' }
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setTimeFilter(cat.id as any)}
-              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                timeFilter === cat.id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                  : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
-          <div className="flex flex-col gap-4">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-              <input
-                type="text"
-                placeholder="Cari nama siswa atau nomor surat..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
 
       {showCatatanForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -672,66 +958,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {/* List Perizinan - Modern Cards */}
-      <div className="grid grid-cols-1 gap-4">
-        {filteredPermits.map((permit) => (
-          <motion.div 
-            key={permit.id}
-            whileHover={{ scale: 1.01 }}
-            onClick={() => setSelectedPermit(permit)}
-            className={`group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border-l-8 hover:border-indigo-200 transition-all cursor-pointer ${
-              permit.tipe === 'sakit' ? 'border-emerald-500' :
-              permit.tipe === 'umum' ? 'border-blue-500' :
-              'border-amber-500'
-            }`}
-          >
-            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
-              permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
-              permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
-              'bg-amber-50 text-amber-600'
-            }`}>
-              <User className="w-8 h-8" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                  permit.tipe === 'sakit' ? 'bg-emerald-100 text-emerald-700' : 
-                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
-                  {permit.tipe === 'sakit' ? 'Input Dokter' : permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Wali Kelas'}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Clock className="w-3 h-3 text-indigo-500" />
-                <span className="text-[10px] font-bold text-indigo-600">
-                  {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
-                <ChevronRight className="w-5 h-5" />
-              </div>
-              {permit.status === 'pending_kelas' && (
-                <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-              )}
-            </div>
-          </motion.div>
-        ))}
-
-        {permits.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-            <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada data perizinan</p>
-          </div>
-        )}
-      </div>
-      </>
-      )}
-
       {/* Floating Action Button (FAB) */}
       <motion.button 
         whileHover={{ scale: 1.05 }}
@@ -741,7 +967,9 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       >
         <Plus className="w-6 h-6" />
         <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
-      </motion.button>      {/* Modal Detail Perizinan */}
+      </motion.button>
+      
+      {/* Modal Detail Perizinan */}
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">

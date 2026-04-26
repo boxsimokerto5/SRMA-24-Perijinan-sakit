@@ -20,7 +20,13 @@ import {
   Building,
   Users,
   AlertCircle,
-  Send
+  Send,
+  GraduationCap,
+  LogOut,
+  LayoutDashboard,
+  IdCard,
+  Database,
+  BookOpen
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
@@ -29,6 +35,7 @@ import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import MadingSekolahView from './MadingSekolahView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -46,8 +53,11 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum'>('perizinan');
-  const [showMenu, setShowMenu] = useState(false);
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading'>('perizinan');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [students, setStudents] = useState<Siswa[]>([]);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('Semua');
@@ -193,71 +203,125 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
 
   const classes = ['Semua', ...Array.from(new Set(students.map(s => s.kelas))).sort()];
 
-  if (activeTab === 'profil') {
-    return <ProfileView user={user} />;
-  }
+  const viewTitles: Record<string, string> = {
+    perizinan: 'Riwayat Perizinan',
+    cek_kesehatan: 'Usulan Cek Kesehatan',
+    memorandum: 'Memorandum',
+    pangkalan_data: 'Pangkalan Data Wali Asuh',
+    profil: 'Profil Saya',
+    mading: 'Mading Sekolah'
+  };
+
+  const navItems = [
+    { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
+    { id: 'cek_kesehatan', label: 'Usulan Cek', icon: Activity },
+    { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Tablet },
+    { id: 'memorandum', label: 'Memorandum', icon: Mail },
+    { id: 'profil', label: 'Profil Saya', icon: User }
+  ];
 
   return (
-    <div className="space-y-8 pb-24 animate-in fade-in duration-700 relative">
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Halo, {user.name.split(' ')[0]}!</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Wali Asrama</p>
-        </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200/60 text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          
-          <AnimatePresence>
-            {showMenu && (
-              <>
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowMenu(false)}
-                />
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full right-0 mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-4 z-50 overflow-hidden"
-                >
-                  <button
-                    onClick={() => { setViewMode('perizinan'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'perizinan' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'perizinan' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <ClipboardList className="w-4 h-4" />
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+            >
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-6">
+                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
+                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
+                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                      </div>
                     </div>
-                    Riwayat Perizinan
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('cek_kesehatan'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'cek_kesehatan' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'cek_kesehatan' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <Activity className="w-4 h-4" />
-                    </div>
-                    Usulan Cek Kesehatan
-                  </button>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+                  </div>
 
-      {viewMode === 'perizinan' && (
+                  <div className="space-y-8">
+                    <div>
+                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
+                          { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
+                          { id: 'memorandum', label: 'Memorandum', icon: Mail },
+                          { id: 'profil', label: 'Profil Saya', icon: User }
+                        ].map((item: any) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setViewMode(item.id);
+                              setShowSidebar(false);
+                            }}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                              viewMode === item.id 
+                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
+                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-indigo-100/60'} backdrop-blur-xl border-b shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
+        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowSidebar(true)}
+              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all active:scale-95"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e]">
+              {viewTitles[viewMode] || 'Dashboard'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+             <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-slate-800 text-amber-400' : 'bg-slate-100 text-slate-500'} transition-all`}
+            >
+              {isDarkMode ? <Activity className="w-5 h-5" /> : <Activity className="w-5 h-5 rotate-180" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="p-6 max-w-7xl mx-auto pb-24">
+        {viewMode === 'profil' && <ProfileView user={user} />}
+        {viewMode === 'mading' && <MadingSekolahView user={user} />}
+
+        {viewMode === 'perizinan' && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
@@ -492,6 +556,19 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
           </div>
         </div>
       )}
+
+      {viewMode === 'pangkalan_data' && (
+        <div className="h-[calc(100vh-180px)] w-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-200/60 animate-in fade-in zoom-in-95 duration-500">
+           <iframe 
+             src="https://app.box.com/s/3ogn8xtw84he8uxb1yfnvum9mgwpc7db"
+             className="w-full h-full border-none"
+             title="Pangkalan Data Wali Asuh"
+             allow="autoplay; fullscreen"
+           />
+        </div>
+      )}
+
+      </main>
 
       {/* Modal Detail Izin (View Only) */}
       <AnimatePresence>

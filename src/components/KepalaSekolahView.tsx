@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, addDoc, deleteDoc, doc, where, getDocs, writeBatch } from 'firebase/firestore';
-import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest, HPRequest } from '../types';
+import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest, HPRequest, AppNotification } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, subDays } from 'date-fns';
 import { 
@@ -39,14 +39,14 @@ import {
   Send,
   Mail,
   ShieldCheck,
-  LogOut,
   Bell,
   ChevronRight,
   Laptop,
-  Tablet, Smartphone, Check, Database
+  Tablet, Smartphone, Check, Menu, GraduationCap, IdCard, LayoutDashboard, LogOut, BookOpen
 } from 'lucide-react';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import MadingSekolahView from './MadingSekolahView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface KepalaSekolahViewProps {
@@ -71,12 +71,82 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
-  // Memorandum States
-  const [subTab, setSubTab] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'pangkalan_data'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil'>('statistik');
+
+  useEffect(() => {
+    if (activeTab === 'profil') setViewMode('profil');
+    else if (activeTab === 'statistik') setViewMode('statistik');
+    else if (activeTab === 'perizinan') setViewMode('perizinan');
+  }, [activeTab]);
+
+  const [laptopTimeFilter, setLaptopTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
+  const [hpTimeFilter, setHpTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  // Banner & Time states
+  const [showBanner, setShowBanner] = useState(true);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatRealTime = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date).replace(/\./g, ':');
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBannerIndex((prev) => (prev + 1) % 1); // For now just one banner
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientRoles', 'array-contains', 'kepala_sekolah'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification)));
+    }, (err) => {
+      console.error('Notifications Error:', err);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const viewTitles: Record<string, string> = {
+    statistik: 'Statistik & Dashboard',
+    perizinan: 'Perizinan Siswa',
+    memorandum: 'Memorandum',
+    pengumuman: 'Pengumuman',
+    pinjam_laptop: 'Peminjaman Laptop',
+    permohonan_hp: 'Peminjaman HP',
+    kartu_siswa: 'Kartu Siswa',
+    profil: 'Profil Saya',
+    mading: 'Mading Sekolah',
+    settings: 'Pengaturan'
+  };
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
   const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
-  
   const [hpRequests, setHpRequests] = useState<HPRequest[]>([]);
   const [hpRequestPdfLoading, setHpRequestPdfLoading] = useState<string | null>(null);
   const [showMemoModal, setShowMemoModal] = useState(false);
@@ -389,6 +459,17 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     }
   };
 
+  const handleHPPDF = async (request: HPRequest) => {
+    setHpRequestPdfLoading(request.id!);
+    try {
+      await generateHPRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Error:", error);
+    } finally {
+      setHpRequestPdfLoading(null);
+    }
+  };
+
   const filteredPermits = permits.filter(p => {
     const permitDate = p.tgl_surat?.toDate();
     if (!permitDate) return false;
@@ -430,7 +511,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     );
   }
 
-  if (activeTab === 'statistik') {
+  const renderStatistik = () => {
     // Prepare data for charts
     const diagnosisData = Object.entries(
       permits
@@ -613,83 +694,131 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         </div>
       </div>
     );
-  }
-
-  if (activeTab === 'profil') {
-    return <ProfileView user={user} />;
-  }
+  };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Tabs */}
-      <div className="flex bg-white p-1 rounded-[1.2rem] shadow-sm border border-slate-200/60 self-start overflow-x-auto print:hidden">
-        <button
-          onClick={() => setSubTab('perizinan')}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            subTab === 'perizinan' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <ClipboardList className="w-3.5 h-3.5" /> Perizinan
-        </button>
-        <button
-          onClick={() => setSubTab('memorandum')}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            subTab === 'memorandum' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Mail className="w-3.5 h-3.5" /> Memorandum
-        </button>
-        <button
-          onClick={() => setSubTab('pengumuman')}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            subTab === 'pengumuman' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Bell className="w-3.5 h-3.5" /> Pengumuman
-        </button>
-        <button
-          onClick={() => setSubTab('pinjam_laptop')}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            subTab === 'pinjam_laptop' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Laptop className="w-3.5 h-3.5" /> Laptop
-        </button>
-        <button
-          onClick={() => setSubTab('permohonan_hp')}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            subTab === 'permohonan_hp' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Tablet className="w-3.5 h-3.5" /> HP
-        </button>
-        <button
-          onClick={() => setSubTab('pangkalan_data' as any)}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            subTab === 'pangkalan_data' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Database className="w-3.5 h-3.5" /> Database
-        </button>
-        <button
-          onClick={() => setSubTab('kartu_siswa' as any)}
-          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-            (subTab as string) === 'kartu_siswa' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <User className="w-3.5 h-3.5" /> Kartu Siswa
-        </button>
-      </div>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+      {/* Sidebar Navigation */}
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+            >
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-6">
+                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
+                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
+                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                      </div>
+                    </div>
+                  </div>
 
-      {subTab === 'perizinan' ? (
-        <>
-          {/* Header & Stats */}
-          {activeTab === 'dashboard' && (
-            <div className="grid grid-cols-2 gap-4">
-              {/* Card 1: Siswa Sakit */}
+                  <div className="space-y-8">
+                    <div>
+                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">UTAMA</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { id: 'statistik', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'perizinan', label: 'Perizinan Siswa', icon: ClipboardList },
+                          { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
+                          { id: 'memorandum', label: 'Memorandum', icon: Mail },
+                          { id: 'pengumuman', label: 'Pengumuman', icon: Bell },
+                          { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
+                          { id: 'permohonan_hp', label: 'Permohonan HP', icon: Smartphone },
+                          { id: 'profil', label: 'Profil Saya', icon: User }
+                        ].map((item: any) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setViewMode(item.id);
+                              setShowSidebar(false);
+                            }}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                              viewMode === item.id 
+                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
+                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Logout Section */}
+              <div className="p-6 border-t border-white/10">
+                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <button 
+                  onClick={() => auth.signOut()}
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                >
+                  <LogOut className="w-5 h-5 text-cyan-300" />
+                  Keluar Akun
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
+        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowSidebar(true)}
+              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col">
+              <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e] leading-none mb-0.5">
+                {viewTitles[viewMode] || 'SRMA 24'}
+              </h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-6 max-w-7xl mx-auto pb-24 space-y-8">
+        {viewMode === 'profil' && <ProfileView user={user} />}
+        {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        
+        {viewMode === 'statistik' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+             {renderStatistik()}
+          </div>
+        )}
+
+        {viewMode === 'perizinan' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header & Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => { setFilterType('sakit'); setFilterStatus('all'); setSubTab('perizinan'); }}
+                onClick={() => { setFilterType('sakit'); setFilterStatus('all'); }}
                 className="relative overflow-hidden bg-slate-900 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
@@ -704,10 +833,9 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 </div>
               </motion.div>
 
-              {/* Card 2: Izin Disetujui */}
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => { setFilterType('all'); setFilterStatus('selesai'); setSubTab('perizinan'); }}
+                onClick={() => { setFilterType('all'); setFilterStatus('selesai'); }}
                 className="relative overflow-hidden bg-indigo-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
@@ -722,10 +850,9 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 </div>
               </motion.div>
 
-              {/* Card 3: Dokter UKS */}
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => { setFilterType('all'); setFilterStatus('pending_asuh'); setSubTab('perizinan'); }}
+                onClick={() => { setFilterType('all'); setFilterStatus('pending_asuh'); }}
                 className="relative overflow-hidden bg-emerald-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
@@ -740,10 +867,9 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 </div>
               </motion.div>
 
-              {/* Card 4: Memorandum */}
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => setSubTab('memorandum')}
+                onClick={() => setViewMode('memorandum')}
                 className="relative overflow-hidden bg-orange-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
@@ -758,24 +884,23 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 </div>
               </motion.div>
             </div>
-          )}
 
-          {/* Riwayat Aktivitas Header */}
-          <div className="flex items-center justify-between mt-4">
-            <div>
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Aktivitas</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Konsolidasi Data Seluruh Staf</p>
+            {/* Riwayat Aktivitas Header */}
+            <div className="flex items-center justify-between mt-4">
+              <div>
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Aktivitas</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Konsolidasi Data Seluruh Staf</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setTimeFilter('hari_ini');
+                }}
+                className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-widest bg-indigo-50 px-3 py-1.5 rounded-full"
+              >
+                Reset
+              </button>
             </div>
-            <button 
-              onClick={() => {
-                setSearchTerm('');
-                setTimeFilter('hari_ini');
-              }}
-              className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-widest bg-indigo-50 px-3 py-1.5 rounded-full"
-            >
-              Reset
-            </button>
-          </div>
 
           <div className="space-y-6">
             {/* Horizontal Time Categories */}
@@ -875,25 +1000,11 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
             )}
           </div>
+        </div>
+        )}
 
-      {/* Floating Action Button (FAB) */}
-      <motion.button 
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => {
-          if ((subTab as string) === 'memorandum') setShowMemoModal(true);
-          else if ((subTab as string) === 'pengumuman') setShowAnnouncementModal(true);
-        }}
-        className="fixed bottom-24 right-6 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 z-30"
-      >
-        <Plus className="w-5 h-5" />
-        <span className="text-xs font-black uppercase tracking-widest">
-          {(subTab as string) === 'pengumuman' ? 'Buat Pengumuman' : 'Buat Memo Baru'}
-        </span>
-      </motion.button>
-      </>
-      ) : subTab === 'memorandum' ? (
-        <div className="space-y-6">
+        {viewMode === 'memorandum' && (
+          <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Memorandum Intern</h2>
@@ -962,8 +1073,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             )}
           </div>
         </div>
-      ) : subTab === 'pengumuman' ? (
-        <div className="space-y-6">
+        )}
+
+        {viewMode === 'pengumuman' && (
+          <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Pengumuman Banner</h2>
@@ -1009,136 +1122,240 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             )}
           </div>
         </div>
-      ) : subTab === 'pinjam_laptop' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
-          {laptopRequests.map(req => (
-            <motion.div
-              key={req.id}
-              layout
-              className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                    <Laptop className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam Laptop - {req.kelas}</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
-                  </div>
+        )}
+
+        {viewMode === 'pinjam_laptop' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Professional Filter UI */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                  <Laptop className="w-5 h-5" />
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                  req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                  req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                  'bg-amber-50 text-amber-600'
-                }`}>
-                  {req.status}
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Permohonan Laptop</h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Manajemen Izin Inventaris</p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                  <span>Guru Pengaju</span>
-                  <span className="text-slate-900">{req.guru_name}</span>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50">
+                  {(['semua', 'hari_ini', 'kemarin', 'minggu_ini', 'bulan_ini'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setLaptopTimeFilter(f)}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                        laptopTimeFilter === f 
+                          ? 'bg-white text-indigo-600 shadow-sm' 
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {f === 'semua' ? 'Semua' : 
+                       f === 'hari_ini' ? 'Hari Ini' :
+                       f === 'kemarin' ? 'Kemarin' :
+                       f === 'minggu_ini' ? 'Minggu Ini' : 'Bulan Ini'}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                  <span>Mata Pelajaran</span>
-                  <span className="text-slate-900">{req.mapel}</span>
-                </div>
               </div>
-
-              <div className="py-2 bg-slate-50 p-4 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
-                <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
-                  {req.daftar_siswa.join(', ')}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-slate-50">
-                <button
-                  onClick={() => generateLaptopRequestPDF(req)}
-                  disabled={req.status !== 'approved'}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Cetak Surat Izin Laptop
-                </button>
-              </div>
-            </motion.div>
-          ))}
-          {laptopRequests.length === 0 && (
-            <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-              <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
             </div>
-          )}
-        </div>
-      ) : subTab === 'permohonan_hp' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
-          {hpRequests.map(req => (
-            <motion.div
-              key={req.id}
-              layout
-              className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                    <Tablet className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam HP - {req.kelas}</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
-                  </div>
-                </div>
-                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                  req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                  req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                  'bg-amber-50 text-amber-600'
-                }`}>
-                  {req.status}
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                  <span>Guru Pengaju</span>
-                  <span className="text-slate-900">{req.guru_name}</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                  <span>Mata Pelajaran</span>
-                  <span className="text-slate-900">{req.mapel}</span>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {laptopRequests
+                .filter(req => {
+                  const reqDate = req.tgl_request.toDate();
+                  if (laptopTimeFilter === 'hari_ini') return isToday(reqDate);
+                  if (laptopTimeFilter === 'kemarin') return isYesterday(reqDate);
+                  if (laptopTimeFilter === 'minggu_ini') return isThisWeek(reqDate, { weekStartsOn: 1 });
+                  if (laptopTimeFilter === 'bulan_ini') return isThisMonth(reqDate);
+                  return true;
+                })
+                .map(req => (
+                  <motion.div
+                    key={req.id}
+                    layout
+                    className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                          <Laptop className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam Laptop - {req.kelas}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(req.tgl_request.toDate(), 'EEEE, dd MMM yyyy, HH:mm')}</p>
+                        </div>
+                      </div>
+                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                        req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                        'bg-amber-50 text-amber-600'
+                      }`}>
+                        {req.status}
+                      </div>
+                    </div>
 
-              <div className="py-2 bg-slate-50 p-4 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
-                <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
-                  {req.daftar_siswa.join(', ')}
-                </p>
-              </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                        <span>Guru Pengaju</span>
+                        <span className="text-slate-900">{req.guru_name}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                        <span>Mata Pelajaran</span>
+                        <span className="text-slate-900">{req.mapel}</span>
+                      </div>
+                    </div>
 
-              <div className="pt-4 border-t border-slate-50">
-                <button
-                  onClick={() => generateHPRequestPDF(req)}
-                  disabled={req.status !== 'approved'}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Cetak Surat Izin HP
-                </button>
-              </div>
-            </motion.div>
-          ))}
-          {hpRequests.length === 0 && (
-            <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-              <Tablet className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan HP masuk</p>
+                    <div className="py-2 bg-slate-50 p-4 rounded-2xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
+                      <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                        {req.daftar_siswa.join(', ')}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-50">
+                      <button
+                        onClick={() => handleLaptopPDF(req)}
+                        disabled={laptopPdfLoading === req.id || req.status !== 'approved'}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
+                      >
+                        {laptopPdfLoading === req.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Printer className="w-3.5 h-3.5" />
+                        )}
+                        Cetak Surat Izin Laptop
+                      </button>
+                    </div>
+                  </motion.div>
+              ))}
+              {laptopRequests.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                  <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ) : (subTab as string) === 'kartu_siswa' ? (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          </div>
+        )}
+
+        {viewMode === 'permohonan_hp' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Professional Filter UI */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Permohonan HP</h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Manajemen Izin Gadget</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50">
+                  {(['semua', 'hari_ini', 'kemarin', 'minggu_ini', 'bulan_ini'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setHpTimeFilter(f)}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                        hpTimeFilter === f 
+                          ? 'bg-white text-indigo-600 shadow-sm' 
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {f === 'semua' ? 'Semua' : 
+                       f === 'hari_ini' ? 'Hari Ini' :
+                       f === 'kemarin' ? 'Kemarin' :
+                       f === 'minggu_ini' ? 'Minggu Ini' : 'Bulan Ini'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {hpRequests
+                .filter(req => {
+                  const reqDate = req.tgl_request.toDate();
+                  if (hpTimeFilter === 'hari_ini') return isToday(reqDate);
+                  if (hpTimeFilter === 'kemarin') return isYesterday(reqDate);
+                  if (hpTimeFilter === 'minggu_ini') return isThisWeek(reqDate, { weekStartsOn: 1 });
+                  if (hpTimeFilter === 'bulan_ini') return isThisMonth(reqDate);
+                  return true;
+                })
+                .map(req => (
+                  <motion.div
+                    key={req.id}
+                    layout
+                    className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                          <Smartphone className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam HP - {req.kelas}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(req.tgl_request.toDate(), 'EEEE, dd MMM yyyy, HH:mm')}</p>
+                        </div>
+                      </div>
+                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                        req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                        'bg-amber-50 text-amber-600'
+                      }`}>
+                        {req.status}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                        <span>Guru Pengaju</span>
+                        <span className="text-slate-900">{req.guru_name}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                        <span>Mata Pelajaran</span>
+                        <span className="text-slate-900">{req.mapel}</span>
+                      </div>
+                    </div>
+
+                    <div className="py-2 bg-slate-50 p-4 rounded-2xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
+                      <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                        {req.daftar_siswa.join(', ')}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-50">
+                      <button
+                        onClick={() => handleHPPDF(req)}
+                        disabled={hpRequestPdfLoading === req.id || req.status !== 'approved'}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
+                      >
+                        {hpRequestPdfLoading === req.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Printer className="w-3.5 h-3.5" />
+                        )}
+                        Cetak Surat Izin HP
+                      </button>
+                    </div>
+                  </motion.div>
+              ))}
+              {hpRequests.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                  <Smartphone className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan HP masuk</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'kartu_siswa' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="space-y-6">
             <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 space-y-6">
               <div className="relative group">
@@ -1233,18 +1450,8 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             </div>
           </div>
         </div>
-      ) : subTab === 'pangkalan_data' ? (
-        <div className="h-[calc(100vh-200px)] w-full bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <iframe 
-            src="https://app.box.com/s/3ogn8xtw84he8uxb1yfnvum9mgwpc7db"
-            className="w-full h-full border-none"
-            title="Pangkalan Data Wali Asuh"
-            allowFullScreen
-            referrerPolicy="no-referrer"
-            sandbox="allow-forms allow-modals allow-orientation-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
-          />
-        </div>
-      ) : null}
+        )}
+      </div>
 
       {/* Modal Buat Memo */}
       {showMemoModal && (
@@ -1826,7 +2033,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                       <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ttl || `${selectedStudent.tempat_lahir}, ${selectedStudent.tanggal_lahir}` || '-'}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Jenis Kelamin</label>
                         <p className="text-sm font-black text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{selectedStudent.jenis_kelamin || '-'}</p>
@@ -1847,7 +2054,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   </div>
 
                   <div className="grid grid-cols-1 gap-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="group">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ayah</label>
                         <p className="text-sm font-black text-slate-700 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 group-hover:border-indigo-200 transition-all">{selectedStudent.ayah || '-'}</p>

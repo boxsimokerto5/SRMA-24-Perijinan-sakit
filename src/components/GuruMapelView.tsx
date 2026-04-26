@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { UserRole, AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, LaptopRequest, HPRequest } from '../types';
+import { UserRole, AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, LaptopRequest, HPRequest, AppNotification, Announcement, Siswa } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Laptop, Users, CheckSquare as CheckSquareIcon, Square, Tablet } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Laptop, Users, CheckSquare as CheckSquareIcon, Square, Tablet, GraduationCap, LayoutDashboard, Database, LogOut } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import MadingSekolahView from './MadingSekolahView';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
-import { Siswa } from '../types';
 
 interface GuruMapelViewProps {
   user: AppUser;
@@ -28,8 +28,28 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'pinjam_laptop' | 'pinjam_hp'>('kartu_siswa');
-  const [showMenu, setShowMenu] = useState(false);
+  const [viewMode, setViewMode] = useState<string>('perizinan');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const viewTitles: Record<string, string> = {
+    perizinan: 'Perizinan',
+    kartu_siswa: 'Data Siswa',
+    pinjam_laptop: 'Peminjaman Laptop',
+    pinjam_hp: 'Peminjaman HP',
+    memos: 'Memorandum',
+    profil: 'Profil Saya',
+    mading: 'Mading Sekolah',
+    riwayat_sakit: 'Perizinan Sakit'
+  };
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
 
@@ -412,117 +432,115 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     memos: memos.length
   };
 
-  if (activeTab === 'profil') {
-    return <ProfileView user={user} />;
-  }
-
-  if (activeTab === 'statistik') {
-    return (
-      <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900">Statistik Guru Mata Pelajaran</h2>
-            <p className="text-sm text-slate-500">Data kesehatan siswa yang Anda ampu.</p>
-          </div>
-          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
-            <BarChart3 className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center py-20">
-          <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-          <h3 className="text-slate-900 font-bold text-xl">Statistik Segera Hadir</h3>
-          <p className="text-slate-500 mt-2">Fitur analisis mendalam sedang dalam pengembangan.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Halo, {user.name.split(' ')[0]}!</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Guru Mapel {user.mapel || ''}</p>
-        </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200/60 text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          
-          <AnimatePresence>
-            {showMenu && (
-              <>
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowMenu(false)}
-                />
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full right-0 mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-4 z-50 overflow-hidden"
-                >
-                  <div className="px-6 py-2 mb-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Menu Navigasi</p>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+      {/* Sidebar Navigation */}
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+            >
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-6">
+                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
+                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
+                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => { setViewMode('perizinan'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'perizinan' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'perizinan' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <ClipboardList className="w-4 h-4" />
-                    </div>
-                    Dashboard & Riwayat
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('kartu_siswa'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'kartu_siswa' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'kartu_siswa' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <User className="w-4 h-4" />
-                    </div>
-                    Data Siswa
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('pinjam_laptop'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'pinjam_laptop' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'pinjam_laptop' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <Laptop className="w-4 h-4" />
-                    </div>
-                    Permohonan Laptop
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('pinjam_hp'); setShowMenu(false); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 text-sm font-bold transition-all ${
-                      viewMode === 'pinjam_hp' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl ${viewMode === 'pinjam_hp' ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>
-                      <Tablet className="w-4 h-4" />
-                    </div>
-                    Permohonan HP
-                  </button>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
 
-      {viewMode === 'kartu_siswa' && (
+                  <div className="space-y-8">
+                    <div>
+                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'riwayat_sakit', label: 'Perizinan Sakit', icon: Activity },
+                          { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
+                          { id: 'pinjam_hp', label: 'Pinjam HP', icon: Tablet },
+                          { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
+                          { id: 'memos', label: 'Memorandum', icon: Mail },
+                          { id: 'profil', label: 'Profil Saya', icon: User }
+                        ].map((item: any) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setViewMode(item.id);
+                              setShowSidebar(false);
+                            }}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                              viewMode === item.id 
+                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
+                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Logout Section */}
+              <div className="p-6 border-t border-white/10">
+                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <button 
+                  onClick={() => auth.signOut()}
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                >
+                  <LogOut className="w-5 h-5 text-cyan-300" />
+                  Keluar Akun
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Top Header */}
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-sm`}>
+        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowSidebar(true)}
+              className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e]">
+              {viewTitles[viewMode] || 'SRMA 24'}
+            </h1>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto pb-24 space-y-8">
+        {viewMode === 'profil' && <ProfileView user={user} />}
+        {viewMode === 'mading' && <MadingSekolahView user={user} />}
+
+        {viewMode === 'kartu_siswa' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex flex-col gap-6">
             <div className="px-1">
@@ -768,201 +786,188 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         </div>
       )}
 
+      {/* Dashboard Section */}
       {viewMode === 'perizinan' && (
-        <>
-      <div className="grid grid-cols-2 gap-4">
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <ClipboardList className="w-6 h-6" />
-              </div>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Greeting Section */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+            <div className="relative z-10">
+              <h2 className="text-2xl font-black text-slate-900 font-display">
+                Selamat {new Date().getHours() < 12 ? 'Pagi' : new Date().getHours() < 15 ? 'Siang' : new Date().getHours() < 18 ? 'Sore' : 'Malam'}, 
+                <span className="text-sky-600"> {user.name}</span>
+              </h2>
+              <p className="text-sm font-bold text-slate-500 mt-1">
+                sebagai Guru Mapel {user.mapel || '(Mata Pelajaran Belum Diatur)'}
+              </p>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
           </div>
-        </motion.div>
 
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <Clock className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Perlu<br />Persetujuan</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                <Mail className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
-          </div>
-        </motion.div>
-      </div>
-
-      {memos.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 px-1">
-            <Mail className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Memorandum Intern</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4">
-            {memos.map(memo => (
-              <motion.div 
-                key={memo.id}
-                whileHover={{ scale: 1.01 }}
-                onClick={() => setSelectedMemo(memo)}
-                className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 font-display group-hover:text-cyan-700 transition-colors">{memo.perihal}</h4>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <ClipboardList className="w-6 h-6" />
                   </div>
                 </div>
-                <div className="p-2 bg-white rounded-xl text-cyan-400 group-hover:text-cyan-600 transition-all">
-                  <Plus className="w-4 h-4" />
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
                 </div>
-              </motion.div>
-            ))}
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <Clock className="w-6 h-6" />
+                  </div>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Perlu<br />Persetujuan</p>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <Mail className="w-6 h-6" />
+                  </div>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
+              </div>
+            </motion.div>
           </div>
+
+          {/* Petunjuk Penggunaan */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 font-display">Petunjuk Penggunaan Aplikasi</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Panduan Singkat Guru Mapel</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">1</div>
+                <div>
+                  <p className="text-xs font-black text-slate-900">Pantau Perizinan Sakit</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Gunakan menu "Perizinan Sakit" untuk melihat siswa yang sedang izin sakit resmi dari dokter.</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">2</div>
+                <div>
+                  <p className="text-xs font-black text-slate-900">Pinjam Fasilitas</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Gunakan menu Pinjam Laptop/HP untuk mengajukan penggunaan fasilitas sekolah saat KBM.</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">3</div>
+                <div>
+                  <p className="text-xs font-black text-slate-900">Cek Data Siswa</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Cari data lengkap siswa seperti NIK atau Alamat pada menu Kartu Siswa jika diperlukan.</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">4</div>
+                <div>
+                  <p className="text-xs font-black text-slate-900">Menu Memorandum</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Selalu cek menu Memorandum untuk pengumuman atau instruksi resmi dari pimpinan sekolah.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {memos.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <Mail className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Memorandum Intern</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {memos.map(memo => (
+                  <motion.div 
+                    key={memo.id}
+                    whileHover={{ scale: 1.01 }}
+                    onClick={() => setSelectedMemo(memo)}
+                    className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
+                        <Mail className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 font-display group-hover:text-cyan-700 transition-colors">{memo.perihal}</h4>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white rounded-xl text-cyan-400 group-hover:text-cyan-600 transition-all">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* New Catatan Button */}
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCatatanForm(true)}
+            className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
+          >
+            <Plus className="w-6 h-6" />
+            <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
+          </motion.button>
         </div>
       )}
-        </>
-      )}
 
-      {viewMode !== 'kartu_siswa' && (
-        <>
-          <div className="flex items-center justify-between px-1">
-        <div>
-          <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest">Riwayat Perizinan</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monitoring Kesehatan Siswa</p>
-        </div>
-        <button 
-          onClick={() => {
-            setSearchTerm('');
-            setStartDate('');
-            setEndDate('');
-            setTimeFilter('hari_ini');
-          }}
-          className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
-        >
-          Reset Filter
-        </button>
-      </div>
-
+      {/* Facility History Section - Refactored */}
       <div className="space-y-6">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-lg font-black text-slate-900 font-display">
-            {viewMode === 'perizinan' ? 'Riwayat & Permohonan' : viewMode === 'pinjam_laptop' ? 'Riwayat Laptop' : 'Riwayat HP'}
+            {viewMode === 'pinjam_laptop' ? 'Riwayat Laptop Saya' : 'Riwayat HP Saya'}
           </h3>
-          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-            <button 
-              onClick={() => setViewMode('perizinan')}
-              className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                viewMode === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-              }`}
-            >
-              Izin
-            </button>
-            <button 
-              onClick={() => setViewMode('pinjam_laptop')}
-              className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                viewMode === 'pinjam_laptop' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-              }`}
-            >
-              Laptop
-            </button>
-            <button 
-              onClick={() => setViewMode('pinjam_hp')}
-              className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                viewMode === 'pinjam_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-              }`}
-            >
-              HP
-            </button>
-          </div>
+          {/* Removed History Tabs */}
         </div>
 
-        {viewMode === 'perizinan' && (
-          <>
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {[ 
-                { id: 'hari_ini', label: 'Hari Ini' },
-            { id: 'kemarin', label: 'Kemarin' },
-            { id: 'minggu_ini', label: 'Minggu Ini' },
-            { id: 'bulan_ini', label: 'Bulan Ini' },
-            { id: 'semua', label: 'Semua' }
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setTimeFilter(cat.id as any)}
-              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                timeFilter === cat.id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                  : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
-          <div className="flex flex-col gap-4">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-              <input
-                type="text"
-                placeholder="Cari nama siswa atau nomor surat..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
-              />
-            </div>
-          </div>
-        </div>
-        </>
-        )}
+        {/* perizinan history removed from this section */}
 
         {viewMode === 'pinjam_laptop' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1089,8 +1094,108 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
             )}
           </div>
         )}
-      </div>
 
+        {viewMode === 'riwayat_sakit' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex flex-col gap-6">
+              <div className="px-1">
+                <h2 className="text-3xl font-black text-slate-900 font-display tracking-tight">Perizinan Sakit</h2>
+                <div className="mt-6 flex flex-wrap items-center gap-2 bg-white/50 backdrop-blur-sm p-1.5 rounded-[2rem] border border-slate-200/60 shadow-sm w-fit">
+                  {[
+                    { id: 'hari_ini', label: 'Hari Ini' },
+                    { id: 'kemarin', label: 'Kemarin' },
+                    { id: 'minggu_ini', label: 'Minggu Ini' },
+                    { id: 'bulan_ini', label: 'Bulan Ini' },
+                    { id: 'semua', label: 'Semua' }
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setTimeFilter(cat.id as any)}
+                      className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                        timeFilter === cat.id
+                          ? 'bg-[#0ea5e9] text-white shadow-lg shadow-sky-100'
+                          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative group px-1">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-sky-600 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa atau nomor surat..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-14 pr-6 py-5 bg-white border border-slate-200/60 rounded-[2.5rem] shadow-sm focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all outline-none text-sm font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {filteredPermits.filter(p => p.tipe === 'sakit').map((permit) => (
+                  <motion.div
+                    key={permit.id}
+                    layout
+                    whileHover={{ scale: 1.01 }}
+                    className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-sky-300 transition-all duration-300"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white shadow-lg ${
+                        permit.status === 'approved' ? 'bg-emerald-500 shadow-emerald-100' : 
+                        permit.status === 'pending_kelas' ? 'bg-amber-500 shadow-amber-100' : 'bg-sky-500 shadow-sky-100'
+                      }`}>
+                        {permit.nama_siswa.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-900 font-display">{permit.nama_siswa}</h4>
+                          <span className="px-2 py-0.5 bg-sky-50 text-sky-600 rounded text-[8px] font-black uppercase tracking-tighter border border-sky-100">
+                            {permit.kelas}
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                          {permit.nomor_surat} • {permit.tgl_surat?.toDate ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy') : '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right hidden sm:block">
+                        <p className={`text-[9px] font-black uppercase tracking-widest ${
+                          permit.status === 'approved' ? 'text-emerald-600' :
+                          permit.status === 'pending_kelas' ? 'text-amber-600' : 'text-sky-600'
+                        }`}>
+                          {permit.status === 'approved' ? 'Disetujui' : 
+                           permit.status === 'pending_kelas' ? 'Perlu Persetujuan' : 'Diterima'}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400">Status Izin</p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedPermit(permit)}
+                        className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-sky-50 hover:text-sky-600 transition-all group-hover:scale-110"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+
+                {filteredPermits.filter(p => p.tipe === 'sakit').length === 0 && (
+                  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                    <Activity className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada riwayat perizinan sakit</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Removed pangkalan_data view */}
+      
       {showCatatanForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1186,74 +1291,64 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4">
-        {filteredPermits.map((permit) => (
-          <motion.div 
-            key={permit.id}
-            whileHover={{ scale: 1.01 }}
-            onClick={() => setSelectedPermit(permit)}
-            className={`group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border-l-8 hover:border-indigo-200 transition-all cursor-pointer ${
-              permit.tipe === 'sakit' ? 'border-emerald-500' :
-              permit.tipe === 'umum' ? 'border-blue-500' :
-              'border-amber-500'
-            }`}
-          >
-            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500 ${
-              permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
-              permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
-              'bg-amber-50 text-amber-600'
-            }`}>
-              <User className="w-8 h-8" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-black text-slate-900 truncate font-display">{permit.nama_siswa}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                  permit.tipe === 'sakit' ? 'bg-emerald-100 text-emerald-700' : 
-                  permit.tipe === 'umum' ? 'bg-blue-100 text-blue-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
-                  {permit.tipe === 'sakit' ? 'Input Dokter' : permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Wali Kelas'}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {permit.kelas}</span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Clock className="w-3 h-3 text-indigo-500" />
-                <span className="text-[10px] font-bold text-indigo-600">
-                  {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM, HH:mm') : '-'}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
-                <ChevronRight className="w-5 h-5" />
-              </div>
-              {permit.status === 'pending_kelas' && (
-                <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-              )}
-            </div>
-          </motion.div>
-        ))}
+      {/* Removed Redundant Section */}
 
-        {permits.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-            <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada data perizinan</p>
-          </div>
-        )}
-      </div>
-
-      <motion.button 
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setShowCatatanForm(true)}
-        className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
-      >
-        <Plus className="w-6 h-6" />
-        <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
-      </motion.button>
-        </>
+      {viewMode === 'perizinan' && (
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowCatatanForm(true)}
+          className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
+        >
+          <Plus className="w-6 h-6" />
+          <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
+        </motion.button>
       )}
+
+      {/* Duplicate block removed from here */}
+
+      {/* Profile View */}
+      {viewMode === 'profil' && <ProfileView user={user} />}
+
+      {/* Memorandum View */}
+      {viewMode === 'memorandum' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 gap-4">
+            {memos.map(memo => (
+              <motion.div 
+                key={memo.id}
+                whileHover={{ scale: 1.01 }}
+                onClick={() => setSelectedMemo(memo)}
+                className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 hover:border-indigo-200 transition-all cursor-pointer"
+              >
+                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                  <Mail className="w-8 h-8" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-black text-slate-900 truncate font-display">{memo.perihal}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dari: {memo.pengirim_name}</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 transition-all">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
+              </motion.div>
+            ))}
+            {memos.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Mail className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada memorandum</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
       
       {selectedPermit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1497,5 +1592,6 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         </div>
       )}
     </div>
+  </div>
   );
 }

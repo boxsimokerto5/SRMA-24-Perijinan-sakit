@@ -22,7 +22,6 @@ import KepalaSekolahView from './components/KepalaSekolahView';
 import GuruMapelView from './components/GuruMapelView';
 import WaliAsramaView from './components/WaliAsramaView';
 import SplashScreen from './components/SplashScreen';
-import VersionChecker from './components/VersionChecker';
 import { setupPushNotifications } from './services/notificationService';
 import { Loader2, AlertCircle, Mail } from 'lucide-react';
 
@@ -178,7 +177,7 @@ export default function App() {
         user={appUser} 
         activeTab={activeTab} 
         onTabChange={setActiveTab}
-        hideChrome={appUser.role === 'wali_asuh'}
+        hideChrome={['wali_asuh', 'dokter', 'wali_kelas', 'guru_mapel', 'kepala_sekolah', 'wali_asrama'].includes(appUser.role)}
       >
         {!user.emailVerified && (
           <div className="fixed top-20 left-4 right-4 z-[100] bg-amber-50 border border-amber-200 p-3 rounded-2xl shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
@@ -211,7 +210,6 @@ export default function App() {
         {appUser.role === 'guru_mapel' && <GuruMapelView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_asrama' && <WaliAsramaView user={appUser} activeTab={activeTab} />}
-        <VersionChecker />
       </Layout>
     </ErrorBoundary>
   );

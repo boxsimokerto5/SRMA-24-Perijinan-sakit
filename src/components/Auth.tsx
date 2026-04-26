@@ -186,11 +186,11 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen cool-gradient-bg flex items-center justify-center p-4 font-sans overflow-hidden relative">
+    <div className="min-h-screen bg-[#0ea5e9] flex items-center justify-center p-4 font-sans overflow-hidden relative">
       {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-black/5">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-[120px]" />
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-black/10">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-sky-200/20 rounded-full blur-[120px]" />
       </div>
 
       <motion.div 
@@ -209,13 +209,13 @@ export default function Auth() {
           <motion.div 
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="inline-flex p-4 bg-white rounded-[2rem] shadow-xl shadow-indigo-100 mb-4 border border-indigo-50"
+            className="inline-flex p-4 bg-white rounded-[2.5rem] shadow-xl shadow-black/10 mb-4 border border-white/50"
           >
             <Logo size="lg" showText={false} />
           </motion.div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight font-display">SRMA 24 KEDIRI</h2>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-[0.2em] mt-1">Digital Health System</p>
-          <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50/50 py-2 px-4 rounded-full w-fit mx-auto">
+          <h2 className="text-3xl font-black text-white tracking-tight font-display uppercase">SRMA 24 KEDIRI</h2>
+          <p className="text-sky-100 text-sm font-bold uppercase tracking-[0.2em] mt-1">Digital Health System</p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black text-sky-400 uppercase tracking-widest bg-black/20 py-2 px-4 rounded-full w-fit mx-auto border border-white/10">
             <ShieldCheck className="w-4 h-4" />
             Terverifikasi & Aman
           </div>
@@ -260,7 +260,7 @@ export default function Auth() {
                         setIsCompletingProfile(false);
                     }}
                     className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
-                      isLogin && !isCompletingProfile ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      isLogin && !isCompletingProfile ? 'bg-[#0ea5e9] text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     Masuk
@@ -271,7 +271,7 @@ export default function Auth() {
                         setIsCompletingProfile(false);
                     }}
                     className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
-                      !isLogin && !isCompletingProfile ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      !isLogin && !isCompletingProfile ? 'bg-[#0ea5e9] text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     Daftar Baru
@@ -481,7 +481,7 @@ export default function Auth() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="group w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                    className="group w-full py-4 bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-black rounded-2xl shadow-xl shadow-black/10 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

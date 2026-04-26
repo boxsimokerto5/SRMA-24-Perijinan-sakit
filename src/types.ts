@@ -116,6 +116,8 @@ export interface Siswa {
   saudara?: number;
   ayah?: string;
   ibu?: string;
+  niy?: string;
+  niy_waliklas?: string;
 }
 
 export interface LaptopRequest {
@@ -155,6 +157,15 @@ export interface AppNotification {
   link?: string;
 }
 
+export interface MadingPost {
+  id?: string;
+  content: string;
+  authorName: string;
+  authorUid: string;
+  authorRole: UserRole;
+  createdAt: Timestamp;
+}
+
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
   // Trim and convert to upper case for consistency
@@ -181,8 +192,8 @@ export const normalizeKelas = (kelas: string): string => {
 };
 
 export const WALI_KELAS_LIST = [
-  { name: "Nadhifa Is'ad, S.Pd", kelas: "X-4" },
-  { name: "Diyah Maruti Handayani, S.Pd", kelas: "X-3" },
-  { name: "Nella Puji Rahayu, S.Pd", kelas: "X-2" },
-  { name: "Ida Fitriana, S.Pd", kelas: "X-1" },
+  { name: "Nadhifa Is'ad, S.Pd", kelas: "X-1" },
+  { name: "Diyah Maruti Handayani, S.Pd", kelas: "X-2" },
+  { name: "Nella Puji Rahayu, S.Pd", kelas: "X-3" },
+  { name: "Ida Fitriana, S.Pd", kelas: "X-4" },
 ];

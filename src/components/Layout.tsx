@@ -116,7 +116,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
       id: 'def-1',
       title: "Informasi Kesehatan",
       content: "Jaga kebersihan diri dan lingkungan asrama untuk mencegah penyebaran penyakit.",
-      color: "from-indigo-600 to-violet-600",
+      color: "from-sky-600 to-blue-600",
       icon: Info
     },
     {
@@ -168,7 +168,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
         <header className="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/60 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-1.5 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-200">
+              <div className="p-1.5 bg-[#0ea5e9] rounded-xl shadow-lg shadow-sky-200">
                 <Logo size="sm" showText={false} />
               </div>
               <div>
@@ -182,7 +182,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
                   className={`p-2 rounded-full transition-all relative ${
-                    showNotifications ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                    showNotifications ? 'bg-[#0ea5e9] text-white shadow-lg shadow-sky-200' : 'text-slate-400 hover:text-[#0ea5e9] hover:bg-sky-50'
                   }`}
                 >
                   <BellIcon className="w-5 h-5" />
@@ -207,9 +207,9 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-3 w-80 md:w-96 bg-white rounded-2xl shadow-2xl shadow-indigo-200/50 border border-indigo-50 overflow-hidden z-50 origin-top-right"
+                        className="absolute right-0 mt-3 w-80 md:w-96 bg-white rounded-2xl shadow-2xl shadow-sky-200/50 border border-sky-50 overflow-hidden z-50 origin-top-right"
                       >
-                        <div className="p-4 bg-indigo-600 text-white">
+                        <div className="p-4 bg-[#0ea5e9] text-white">
                           <div className="flex items-center justify-between mb-1">
                             <h3 className="font-black uppercase tracking-widest text-xs">Pemberitahuan</h3>
                             <div className="flex items-center gap-2">
@@ -248,7 +248,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                                   key={notif.id}
                                   onClick={() => markAsRead(notif.id!)}
                                   className={`p-4 hover:bg-slate-50 transition-colors cursor-pointer group relative ${
-                                    !notif.readBy.includes(user.uid) ? 'bg-indigo-50/30' : ''
+                                    !notif.readBy.includes(user.uid) ? 'bg-sky-50/30' : ''
                                   }`}
                                 >
                                   <div className="flex gap-3">
@@ -256,7 +256,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                                       notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
                                       notif.type === 'warning' ? 'bg-amber-100 text-amber-600' :
                                       notif.type === 'error' ? 'bg-rose-100 text-rose-600' :
-                                      'bg-indigo-100 text-indigo-600'
+                                      'bg-sky-100 text-sky-600'
                                     }`}>
                                       <Bell className="w-4 h-4" />
                                     </div>
@@ -272,7 +272,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                                       </span>
                                     </div>
                                     {!notif.readBy.includes(user.uid) && (
-                                      <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2" />
+                                      <div className="w-2 h-2 bg-sky-600 rounded-full mt-2" />
                                     )}
                                   </div>
                                 </div>
@@ -295,7 +295,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                           <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
                             <button 
                               onClick={() => setShowNotifications(false)}
-                              className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-indigo-600 transition-colors"
+                              className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-sky-600 transition-colors"
                             >
                               Tutup Panel
                             </button>
@@ -330,7 +330,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
               className="overflow-hidden"
             >
               <div className="max-w-7xl mx-auto px-4 pt-4">
-                <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color} p-4 text-white shadow-lg shadow-indigo-100`}>
+                <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color} p-4 text-white shadow-lg shadow-sky-100`}>
                   <div className="relative z-10 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -366,13 +366,13 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
       {/* Real-time Clock Bar */}
       {!hideChrome && (
         <div className="max-w-7xl mx-auto w-full px-4 mt-4">
-          <div className="animate-flowing-bg bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-[2px] rounded-2xl shadow-lg shadow-indigo-100/50">
+          <div className="animate-flowing-bg bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-500 p-[2px] rounded-2xl shadow-lg shadow-sky-100/50">
             <div className="flex items-center justify-center gap-4 py-2 px-6 bg-white/90 backdrop-blur-sm rounded-[calc(1rem-2px)]">
-              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
+              <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-ping" />
               <p className="text-[11px] font-black text-slate-700 uppercase tracking-[0.25em] flex items-center gap-2">
                 {formatRealTime(currentTime)}
               </p>
-              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
+              <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-ping" />
             </div>
           </div>
         </div>
@@ -397,12 +397,12 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                   activeTab === tab.id ? 'scale-110' : 'opacity-50 hover:opacity-100'
                 }`}>
                   <div className={`p-1 rounded-lg transition-colors ${
-                    activeTab === tab.id ? 'text-indigo-600' : 'text-slate-600'
+                    activeTab === tab.id ? 'text-[#0ea5e9]' : 'text-slate-600'
                   }`}>
                     <tab.icon className="w-5 h-5" />
                   </div>
                   <span className={`text-[9px] font-black uppercase tracking-tighter transition-colors ${
-                    activeTab === tab.id ? 'text-indigo-600' : 'text-slate-600'
+                    activeTab === tab.id ? 'text-[#0ea5e9]' : 'text-slate-600'
                   }`}>
                     {tab.label}
                   </span>
@@ -410,7 +410,7 @@ export default function Layout({ children, user, activeTab = 'dashboard', onTabC
                 {activeTab === tab.id && (
                   <motion.div 
                     layoutId="activeTab"
-                    className="absolute -bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-full"
+                    className="absolute -bottom-0 left-0 right-0 h-1 bg-[#0ea5e9] rounded-full"
                   />
                 )}
               </button>

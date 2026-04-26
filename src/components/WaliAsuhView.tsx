@@ -19,6 +19,7 @@ import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import MadingSekolahView from './MadingSekolahView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsuhViewProps {
@@ -842,7 +843,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     pinjam_laptop: 'Pinjam Laptop',
     memos: 'Memorandum',
     siswa: 'Daftar Siswa',
-    settings: 'Pengaturan'
+    settings: 'Pengaturan',
+    mading: 'Mading Sekolah'
   };
 
   return (
@@ -863,28 +865,30 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-[#0b5d73] text-white z-[70] shadow-2xl flex flex-col"
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="p-6 border-b border-white/10">
-                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mb-8 border border-white/20">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-xl shadow-lg ring-4 ring-white/10 group-hover:scale-110 transition-transform">
-                        <GraduationCap className="w-5 h-5 text-[#0b5d73]" />
+                <div className="p-6">
+                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
+                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-black text-white text-sm leading-none uppercase tracking-tighter">SRMA 24 KEDIRI</span>
-                        <span className="text-[9px] font-bold text-indigo-200 uppercase tracking-[0.2em] mt-1 opacity-70">SEKOLAH RAKYAT</span>
+                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
+                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-8">
                     <div>
-                      <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-4">HOME</p>
-                      <div className="space-y-1">
+                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
+                      <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
                           { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
                           { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
@@ -894,51 +898,35 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop }
                         ].map((item: any) => (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            setViewMode(item.id);
-                            setShowSidebar(false);
-                          }}
-                          className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                            viewMode === item.id ? 'bg-white text-[#0b5d73]' : 'bg-transparent text-white/80 hover:bg-white/10'
-                          }`}
-                        >
-                          <item.icon className="w-5 h-5" />
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-4">TOKO & AKUN</p>
-                    <div className="space-y-1">
-                      {[
-                        { id: 'profil', label: 'Profil Pengguna', icon: User },
-                        { id: 'pengaturan', label: 'Pengaturan', icon: Settings },
-                        { id: 'rekening', label: 'Data Bank', icon: CreditCard }
-                      ].map((item: any) => (
-                        <button
-                          key={item.id}
-                          className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold bg-transparent text-white/80 hover:bg-white/10 transition-all"
-                        >
-                          <item.icon className="w-5 h-5" />
-                          {item.label}
-                        </button>
-                      ))}
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setViewMode(item.id);
+                              setShowSidebar(false);
+                            }}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                              viewMode === item.id 
+                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
+                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-auto p-6 border-t border-white/10 bg-[#0b5d73]">
-                <button
+              <div className="p-6 border-t border-white/10">
+                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <button 
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold bg-red-500/20 text-red-100 hover:bg-red-500/30 transition-all"
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-5 h-5 text-cyan-300" />
                   Keluar Akun
                 </button>
               </div>
@@ -962,7 +950,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex flex-col">
-              <h1 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'} leading-none mb-0.5`}>
+              <h1 className={`text-sm font-black uppercase tracking-widest text-[#075e6e] leading-none mb-0.5`}>
                 {viewTitles[viewMode] || 'SRMA 24'}
               </h1>
               <p className={`text-[9px] font-bold uppercase tracking-tighter opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -1157,6 +1145,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       </div>
 
       <div className="p-6 max-w-7xl mx-auto pb-24 space-y-8">
+        {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'pangkalan_data_wali_asuh' && (
           <div className="h-[calc(100vh-140px)] w-full bg-white rounded-[3rem] shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 border border-slate-100">
             <iframe 
@@ -1350,8 +1339,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
         {viewMode === 'perizinan' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          {/* Dashboard Grid - Modern Bento Style */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Card 1: Total Perizinan */}
             <motion.div 
               whileHover={{ y: -4 }}
