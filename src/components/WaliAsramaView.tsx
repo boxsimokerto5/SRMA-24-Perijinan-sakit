@@ -36,6 +36,7 @@ import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns'
 import { generatePermitPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
+import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -244,9 +245,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                   <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
                     <div className="flex items-center gap-4 relative z-10">
-                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
-                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
-                      </div>
+                      <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
                         <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
                         <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
@@ -317,7 +316,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         </div>
       </header>
 
-      <main className="p-6 max-w-7xl mx-auto pb-24">
+      <main className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
 

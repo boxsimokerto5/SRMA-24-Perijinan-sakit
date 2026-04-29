@@ -141,6 +141,19 @@
         "keterangan": { "type": "string" }
       },
       "required": ["proposer_name", "proposer_uid", "asrama", "tgl_usulan", "daftar_siswa", "status"]
+    },
+    "MadingPost": {
+      "title": "Mading Post",
+      "description": "School bulletin board post",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "authorRole": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content", "authorName", "authorUid", "authorRole", "createdAt"]
     }
   },
   "firestore": {
@@ -175,6 +188,10 @@
     "/health_check_proposals/{proposalId}": {
       "schema": "HealthCheckProposal",
       "description": "Health check proposals initiated by wali asrama"
+    },
+    "/mading/{postId}": {
+      "schema": "MadingPost",
+      "description": "School bulletin board posts"
     }
   }
 }

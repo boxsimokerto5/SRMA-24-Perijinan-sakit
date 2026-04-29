@@ -66,8 +66,8 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700 pb-24 px-4">
-      <div className="flex items-center justify-between">
+    <div className="w-full h-full space-y-6 animate-in fade-in duration-700 pb-24 px-4 sm:px-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm sticky top-0 z-10">
         <div>
           <h2 className="text-3xl font-black text-slate-900 font-display tracking-tight flex items-center gap-3">
             <BookOpen className="w-8 h-8 text-[#075e6e]" />
@@ -78,10 +78,10 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
         
         <button
           onClick={() => setShowInput(true)}
-          className="p-4 bg-[#075e6e] text-white rounded-2xl shadow-xl shadow-[#075e6e]/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 font-black text-sm"
+          className="w-full sm:w-auto p-4 bg-[#075e6e] text-white rounded-2xl shadow-xl shadow-[#075e6e]/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 font-black text-sm"
         >
           <PenTool className="w-5 h-5" />
-          <span className="hidden sm:inline">Tulis Catatan</span>
+          <span>Tulis Catatan Baru</span>
         </button>
       </div>
 
@@ -144,7 +144,7 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                       <Clock className="w-5 h-5 animate-spin" />
                     ) : (
                       <>
-                        <Plus className="w-5 h-5" />
+                        <Send className="w-5 h-5" />
                         Posting ke Mading
                       </>
                     )}
@@ -156,67 +156,52 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
         )}
       </AnimatePresence>
 
-      {/* Mading Wall - Diary Style */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+      {/* Mading List View */}
+      <div className="space-y-4">
         {posts.map((post, idx) => (
           <motion.div
             key={post.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
             transition={{ delay: idx * 0.05 }}
-            className="group relative"
+            className="group bg-white rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:items-center"
           >
-            {/* Paper Shadow Effect */}
-            <div className="absolute inset-0 bg-slate-200 rounded-[2.5rem] translate-x-1 translate-y-1 group-hover:translate-x-2 group-hover:translate-y-2 transition-transform" />
-            
-            <div className="relative bg-[#fdfbf6] p-8 rounded-[2.5rem] border-2 border-white shadow-sm flex flex-col min-h-[250px] overflow-hidden">
-              {/* Diary Holes Effect */}
-              <div className="absolute top-0 left-8 right-8 h-8 flex justify-between px-4">
-                {[1,2,3,4,5,6].map(h => (
-                  <div key={h} className="w-4 h-4 rounded-full bg-slate-100 shadow-inner -mt-2" />
-                ))}
+            {/* Meta Info Sidebar (Left) */}
+            <div className="flex sm:flex-col items-center sm:items-start gap-3 sm:gap-1 sm:w-48 shrink-0">
+               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 text-[#075e6e] shrink-0">
+                <User className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-
-              {/* Red Margin Line */}
-              <div className="absolute top-0 bottom-0 left-8 w-[2px] bg-red-200/40" />
-
-              <div className="flex-1 mt-4">
-                <blockquote className="text-slate-800 font-medium leading-relaxed italic whitespace-pre-wrap">
-                  "{post.content}"
-                </blockquote>
+              <div className="flex-1">
+                <p className="text-sm font-black text-slate-900 truncate leading-tight">{post.authorName}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{getRoleLabel(post.authorRole)}</p>
               </div>
-
-              <div className="mt-8 pt-6 border-t border-slate-100 flex items-end justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-50 flex items-center justify-center">
-                    <User className="w-5 h-5 text-[#075e6e]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-900 leading-tight">{post.authorName}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{getRoleLabel(post.authorRole)}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1.5 justify-end text-slate-400">
-                    <Clock className="w-3 h-3" />
-                    <p className="text-[9px] font-black uppercase tracking-tighter">
-                      {post.createdAt ? format(post.createdAt.toDate(), 'HH:mm', { locale: id }) : '--:--'}
-                    </p>
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                    {post.createdAt ? format(post.createdAt.toDate(), 'EEEE, dd MMM', { locale: id }) : '-'}
-                  </p>
-                </div>
+              <div className="hidden sm:block mt-2 h-px w-full bg-slate-50" />
+              <div className="flex items-center gap-2 text-slate-400 mt-1">
+                <Clock className="w-3 h-3" />
+                <p className="text-[9px] font-black uppercase tracking-tight">
+                  {post.createdAt ? format(post.createdAt.toDate(), 'HH:mm • dd/MM', { locale: id }) : '--:--'}
+                </p>
               </div>
+            </div>
 
-              {/* Decorative Tape Effect */}
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-16 h-6 bg-[#075e6e]/10 backdrop-blur-sm -rotate-2" />
+            {/* Content Section (Center/Right) */}
+            <div className="flex-1 bg-slate-50/50 rounded-2xl p-4 border border-slate-100/50 group-hover:bg-white transition-colors duration-300">
+               <p className="text-slate-700 font-medium leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+                {post.content}
+              </p>
+            </div>
+
+            {/* Mobile Time (only visible on mobile as small accent) */}
+            <div className="sm:hidden flex justify-end">
+              <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">
+                {post.createdAt ? format(post.createdAt.toDate(), 'HH:mm | dd MMM yyyy') : '-'}
+              </span>
             </div>
           </motion.div>
         ))}
 
         {posts.length === 0 && (
-          <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+          <div className="py-24 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
             <BookOpen className="w-16 h-16 text-slate-200 mx-auto mb-4" />
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada catatan di mading</p>
             <button

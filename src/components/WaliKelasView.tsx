@@ -3,10 +3,12 @@ import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, AppNotification, Announcement, Siswa } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database, BookOpen } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
+import MadingSekolahView from './MadingSekolahView';
+import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
 
@@ -27,7 +29,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -77,6 +79,12 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'profil') setViewMode('profil');
+    else if (activeTab === 'dashboard') setViewMode('home');
+    else if (activeTab === 'riwayat') setViewMode('perizinan');
+  }, [activeTab]);
 
   const banners = announcements.length > 0 ? announcements.map(a => ({
     id: a.id,
@@ -345,9 +353,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                   <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
                     <div className="flex items-center gap-4 relative z-10">
-                      <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black/10">
-                        <GraduationCap className="w-6 h-6 text-[#075e6e]" />
-                      </div>
+                      <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
                         <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
                         <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
@@ -363,7 +369,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
-                          { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
+                          { id: 'perizinan', label: 'Riwayat Izin', icon: ClipboardList },
                           { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
                           { id: 'memos', label: 'Memorandum', icon: Mail },
                           { id: 'profil', label: 'Profil Saya', icon: User }
@@ -392,7 +398,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
 
               {/* Bottom Logout Section */}
               <div className="p-6 border-t border-white/10">
-                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">AKUN & SISTEM</p>
                 <button 
                   onClick={() => auth.signOut()}
                   className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
@@ -411,7 +417,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
-              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"
+              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl transition-all active:scale-95"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -422,9 +428,58 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       </header>
 
-      <div className="p-6 max-w-7xl mx-auto pb-24 space-y-8">
+      <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        
+        {viewMode === 'memos' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center gap-2 px-1">
+              <Mail className="w-6 h-6 text-indigo-600" />
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight uppercase">Memorandum Intern</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Komunikasi Resmi Kepala Sekolah</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {memos.map(memo => (
+                <motion.div 
+                  key={memo.id}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() => setSelectedMemo(memo)}
+                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col gap-4 group relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-12 -mt-12 group-hover:bg-orange-500 transition-colors duration-500" />
+                  
+                  <div className="flex items-center gap-4 relative">
+                    <div className="p-4 bg-orange-100 text-orange-600 rounded-2xl group-hover:scale-110 transition-transform">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900 font-display group-hover:text-orange-700 transition-colors">{memo.perihal}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{format(memo.tgl_memo.toDate(), 'dd MMMM yyyy')}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between mt-auto">
+                    <p className="text-xs font-bold text-slate-500">Dari: {memo.pengirim_name}</p>
+                    <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-orange-500 transition-all">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {memos.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Mail className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada memorandum</p>
+              </div>
+            )}
+          </div>
+        )}
         
         {viewMode === 'kartu_siswa' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -924,36 +979,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Kirim ke Wali Asuh</>}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Memorandum Section */}
-      {memos.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-slate-900">
-            <Mail className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-black">Memorandum dari Kepala Sekolah</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {memos.map(memo => (
-              <div 
-                key={memo.id}
-                onClick={() => setSelectedMemo(memo)}
-                className="bg-orange-50 p-4 rounded-3xl border border-orange-100 border-l-8 border-l-orange-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 text-orange-600 rounded-xl group-hover:scale-110 transition-transform">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors">{memo.perihal}</h4>
-                    <p className="text-[10px] font-bold text-slate-500">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
-                  </div>
-                </div>
-                <Plus className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
-              </div>
-            ))}
           </div>
         </div>
       )}

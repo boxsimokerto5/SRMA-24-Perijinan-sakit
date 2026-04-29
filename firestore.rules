@@ -100,6 +100,15 @@ service cloud.firestore {
              (!('keterangan' in data) || (data.keterangan is string && data.keterangan.size() <= 1000));
     }
 
+    function isValidMadingPost(data) {
+      return data.keys().hasAll(['content', 'authorName', 'authorUid', 'authorRole', 'createdAt']) &&
+             data.content is string && data.content.size() <= 2000 &&
+             data.authorName is string && data.authorName.size() <= 128 &&
+             data.authorUid == request.auth.uid &&
+             data.authorRole in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah', 'guru_mapel', 'wali_asrama'] &&
+             data.createdAt == request.time;
+    }
+
     function isValidId(id) { 
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
     }
@@ -226,6 +235,12 @@ service cloud.firestore {
       allow create: if hasRole('guru_mapel') && isValidLaptopRequest(incoming());
       allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
       allow delete: if isAdmin() || (hasRole('guru_mapel') && existing().guru_uid == request.auth.uid);
+    }
+
+    match /mading/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidMadingPost(incoming());
+      allow delete: if isAdmin() || (isSignedIn() && existing().authorUid == request.auth.uid);
     }
   }
 }
