@@ -1397,7 +1397,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               >
                 Tutup
               </button>
-              {currentSelectedPermit.status === 'approved' && (
+              {currentSelectedPermit && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(currentSelectedPermit);

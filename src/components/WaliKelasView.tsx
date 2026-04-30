@@ -3,14 +3,15 @@ import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, AppNotification, Announcement, Siswa } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database, BookOpen } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database, BookOpen, Laptop, Smartphone } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
+import { LaptopRequest, HPRequest } from '../types';
 
 interface WaliKelasViewProps {
   user: AppUser;
@@ -29,11 +30,15 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading' | 'pinjam_laptop' | 'pinjam_hp'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
+  const [hpRequests, setHpRequests] = useState<HPRequest[]>([]);
+  const [laptopPdfLoading, setLaptopPdfLoading] = useState<string | null>(null);
+  const [hpPdfLoading, setHpPdfLoading] = useState<string | null>(null);
 
   const stats = {
     total: permits.length,
@@ -247,14 +252,59 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       where('penerima', 'array-contains', 'wali_kelas'),
       orderBy('tgl_memo', 'desc')
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeMemos = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memorandum));
       setMemos(data);
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, 'memorandums');
     });
-    return () => unsubscribe();
+
+    // Fetch Laptop Requests
+    const qLaptop = query(
+      collection(db, 'laptop_requests'),
+      orderBy('tgl_request', 'desc')
+    );
+    const unsubscribeLaptop = onSnapshot(qLaptop, (snapshot) => {
+      setLaptopRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LaptopRequest)));
+    });
+
+    // Fetch HP Requests
+    const qHP = query(
+      collection(db, 'hp_requests'),
+      orderBy('tgl_request', 'desc')
+    );
+    const unsubscribeHP = onSnapshot(qHP, (snapshot) => {
+      setHpRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HPRequest)));
+    });
+
+    return () => {
+      unsubscribeMemos();
+      unsubscribeLaptop();
+      unsubscribeHP();
+    };
   }, []);
+
+  const handleLaptopPDF = async (request: LaptopRequest) => {
+    setLaptopPdfLoading(request.id!);
+    try {
+      await generateLaptopRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Error:", error);
+    } finally {
+      setLaptopPdfLoading(null);
+    }
+  };
+
+  const handleHPPDF = async (request: HPRequest) => {
+    setHpPdfLoading(request.id!);
+    try {
+      await generateHPRequestPDF(request);
+    } catch (error) {
+      console.error("PDF Error:", error);
+    } finally {
+      setHpPdfLoading(null);
+    }
+  };
 
   const handleApprove = async (permitId: string) => {
     setLoading(true);
@@ -326,6 +376,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     pangkalan_data: 'Pangkalan Data Wali Asuh',
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
+    pinjam_laptop: 'Peminjaman Laptop',
+    pinjam_hp: 'Peminjaman HP',
     settings: 'Pengaturan'
   };
 
@@ -391,6 +443,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'perizinan', label: 'Riwayat Izin', icon: ClipboardList },
+                          { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
+                          { id: 'pinjam_hp', label: 'Pinjam HP', icon: Smartphone },
                           { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
                           { id: 'memos', label: 'Memorandum', icon: Mail },
                           { id: 'profil', label: 'Profil Saya', icon: User }
@@ -452,6 +506,158 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+
+        {viewMode === 'pinjam_laptop' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex items-center gap-3 mb-2 px-1">
+              <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
+                <Laptop className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 font-display italic tracking-tight">Permohonan Laptop</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Monitoring Peminjaman Inventaris</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {laptopRequests.map(req => (
+                <motion.div
+                  key={req.id}
+                  layout
+                  whileHover={{ y: -4 }}
+                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                        <Laptop className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-900 font-display italic">Pinjam Laptop - {req.kelas}</h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                      </div>
+                    </div>
+                    <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                      req.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      req.status === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                      'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>
+                      {req.status}
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daftar Siswa</p>
+                    <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                      {req.daftar_siswa.join(', ')}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {req.tgl_request && format(req.tgl_request.toDate(), 'dd MMM yyyy')}
+                    </div>
+                    <button
+                      onClick={() => handleLaptopPDF(req)}
+                      disabled={laptopPdfLoading === req.id}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50 shadow-lg shadow-slate-200"
+                    >
+                      {laptopPdfLoading === req.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Printer className="w-3.5 h-3.5 text-cyan-300" />
+                      )}
+                      Cetak PDF
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+              {laptopRequests.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                  <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada permohonan</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'pinjam_hp' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex items-center gap-3 mb-2 px-1">
+              <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 font-display italic tracking-tight">Permohonan HP</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Monitoring Peminjaman HP</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {hpRequests.map(req => (
+                <motion.div
+                  key={req.id}
+                  layout
+                  whileHover={{ y: -4 }}
+                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-900 font-display italic">Pinjam HP - {req.kelas}</h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                      </div>
+                    </div>
+                    <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                      req.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      req.status === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                      'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>
+                      {req.status}
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daftar Siswa</p>
+                    <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
+                      {req.daftar_siswa.join(', ')}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {req.tgl_request && format(req.tgl_request.toDate(), 'dd MMM yyyy')}
+                    </div>
+                    <button
+                      onClick={() => handleHPPDF(req)}
+                      disabled={hpPdfLoading === req.id}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50 shadow-lg shadow-slate-200"
+                    >
+                      {hpPdfLoading === req.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Printer className="w-3.5 h-3.5 text-cyan-300" />
+                      )}
+                      Cetak PDF
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+              {hpRequests.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                  <Smartphone className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada permohonan</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {viewMode === 'memos' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1170,7 +1376,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                   <Check className="w-4 h-4" /> Setujui Izin
                 </button>
               )}
-              {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && (
+              {selectedPermit && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(selectedPermit);

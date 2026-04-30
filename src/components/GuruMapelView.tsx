@@ -1505,7 +1505,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   <Check className="w-4 h-4" /> Setujui Izin
                 </button>
               )}
-              {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && (
+              {selectedPermit && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(selectedPermit);

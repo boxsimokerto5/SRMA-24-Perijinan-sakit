@@ -718,7 +718,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                   >
                     Tutup
                   </button>
-                  {selectedPermit.tipe === 'sakit' && (
+                  {(selectedPermit.tipe === 'sakit' || selectedPermit.tipe === 'umum' || selectedPermit.tipe === 'catatan') && (
                     <button
                       onClick={() => generatePermitPDF(selectedPermit)}
                       className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"

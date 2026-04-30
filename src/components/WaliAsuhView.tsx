@@ -1737,38 +1737,39 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between gap-2">
-                  {req.status === 'pending' ? (
-                    <>
-                      <button
-                        onClick={() => handleUpdateLaptopStatus(req.id!, 'rejected')}
-                        disabled={loading}
-                        className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
-                      >
-                        Tolak
-                      </button>
-                      <button
-                        onClick={() => handleUpdateLaptopStatus(req.id!, 'approved')}
-                        disabled={loading}
-                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-                      >
-                        Setujui
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => handleLaptopPDF(req)}
-                      disabled={laptopPdfLoading === req.id}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                    >
-                      {laptopPdfLoading === req.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Printer className="w-4 h-4" />
-                      )}
-                      Cetak PDF
-                    </button>
-                  )}
+                <div className="pt-4 border-t border-slate-50 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    {req.status === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => handleUpdateLaptopStatus(req.id!, 'rejected')}
+                          disabled={loading}
+                          className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+                        >
+                          Tolak
+                        </button>
+                        <button
+                          onClick={() => handleUpdateLaptopStatus(req.id!, 'approved')}
+                          disabled={loading}
+                          className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                        >
+                          Setujui
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleLaptopPDF(req)}
+                    disabled={laptopPdfLoading === req.id}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                  >
+                    {laptopPdfLoading === req.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Printer className="w-4 h-4" />
+                    )}
+                    Cetak PDF
+                  </button>
                 </div>
               </motion.div>
             ))}
@@ -1880,38 +1881,39 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between gap-2">
-                  {req.status === 'pending' ? (
-                    <>
-                      <button
-                        onClick={() => handleUpdateHPRequestStatus(req.id!, 'rejected')}
-                        disabled={loading}
-                        className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
-                      >
-                        Tolak
-                      </button>
-                      <button
-                        onClick={() => handleUpdateHPRequestStatus(req.id!, 'approved')}
-                        disabled={loading}
-                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-                      >
-                        Setujui
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => handleHPRequestPDF(req)}
-                      disabled={hpRequestPdfLoading === req.id}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                    >
-                      {hpRequestPdfLoading === req.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Printer className="w-4 h-4" />
-                      )}
-                      Cetak Surat Izin HP
-                    </button>
-                  )}
+                <div className="pt-4 border-t border-slate-50 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    {req.status === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => handleUpdateHPRequestStatus(req.id!, 'rejected')}
+                          disabled={loading}
+                          className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+                        >
+                          Tolak
+                        </button>
+                        <button
+                          onClick={() => handleUpdateHPRequestStatus(req.id!, 'approved')}
+                          disabled={loading}
+                          className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                        >
+                          Setujui
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleHPRequestPDF(req)}
+                    disabled={hpRequestPdfLoading === req.id}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                  >
+                    {hpRequestPdfLoading === req.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Printer className="w-4 h-4" />
+                    )}
+                    Cetak Surat Izin HP
+                  </button>
                 </div>
               </motion.div>
             ))}
@@ -2446,7 +2448,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               >
                 Tutup
               </button>
-              {(currentSelectedPermit.status === 'approved' || currentSelectedPermit.status === 'acknowledged') && (
+              {currentSelectedPermit && (
                 <button
                   onClick={() => {
                     handleGeneratePDF(currentSelectedPermit);

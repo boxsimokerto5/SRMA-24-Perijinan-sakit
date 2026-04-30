@@ -1338,7 +1338,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                     <div className="pt-4 border-t border-slate-50">
                       <button
                         onClick={() => handleLaptopPDF(req)}
-                        disabled={laptopPdfLoading === req.id || req.status !== 'approved'}
+                        disabled={laptopPdfLoading === req.id}
                         className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
                       >
                         {laptopPdfLoading === req.id ? (
@@ -1453,7 +1453,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                     <div className="pt-4 border-t border-slate-50">
                       <button
                         onClick={() => handleHPPDF(req)}
-                        disabled={hpRequestPdfLoading === req.id || req.status !== 'approved'}
+                        disabled={hpRequestPdfLoading === req.id}
                         className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
                       >
                         {hpRequestPdfLoading === req.id ? (
@@ -2087,7 +2087,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               >
                 Tutup
               </button>
-              {(selectedPermit.status === 'approved' || selectedPermit.status === 'acknowledged') && (
+              {selectedPermit && (
                 <button
                   onClick={() => {
                     generatePermitPDF(selectedPermit);
