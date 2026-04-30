@@ -42,6 +42,7 @@ import {
   Bell,
   ChevronRight,
   Laptop,
+  Calendar,
   Tablet, Smartphone, Check, Menu, GraduationCap, IdCard, LayoutDashboard, LogOut, BookOpen
 } from 'lucide-react';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
@@ -113,11 +114,12 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   };
 
   useEffect(() => {
+    if (announcements.length <= 1) return;
     const timer = setInterval(() => {
-      setBannerIndex((prev) => (prev + 1) % 1); // For now just one banner
+      setBannerIndex((prev) => (prev + 1) % announcements.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [announcements.length]);
 
   useEffect(() => {
     const q = query(
@@ -304,7 +306,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         bulan_ini: 'Bulan Ini'
       }[reportRange];
 
-      await generateSummaryReportPDF(filteredForReport, rangeLabel);
+      await generateSummaryReportPDF(filteredForReport, rangeLabel!, user.name);
       setShowReportModal(false);
     } catch (err) {
       console.error(err);
@@ -504,6 +506,16 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length
   };
 
+  const sakitStats = React.useMemo(() => {
+    const sakitPermits = permits.filter(p => p.tipe === 'sakit');
+    return {
+      hariIni: sakitPermits.filter(p => p.tgl_surat && isToday(p.tgl_surat.toDate())).length,
+      kemarin: sakitPermits.filter(p => p.tgl_surat && isYesterday(p.tgl_surat.toDate())).length,
+      mingguIni: sakitPermits.filter(p => p.tgl_surat && isThisWeek(p.tgl_surat.toDate(), { weekStartsOn: 1 })).length,
+      bulanIni: sakitPermits.filter(p => p.tgl_surat && isThisMonth(p.tgl_surat.toDate())).length,
+    };
+  }, [permits]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -566,6 +578,43 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
     return (
       <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+        {/* Announcement Banner */}
+        {announcements.length > 0 && showBanner && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="relative overflow-hidden bg-amber-50 border border-amber-200 rounded-[2rem] p-4 group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+                <Bell className="w-5 h-5 animate-bounce" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-0.5 italic">Pengumuman Terbaru</p>
+                <div className="overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={bannerIndex}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -20, opacity: 0 }}
+                      className="text-sm font-bold text-amber-900 leading-relaxed"
+                    >
+                      {announcements[bannerIndex % announcements.length]?.title}: {announcements[bannerIndex % announcements.length]?.content}
+                    </motion.p>
+                  </AnimatePresence>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowBanner(false)}
+                className="p-2 hover:bg-amber-200/50 rounded-xl transition-colors text-amber-400 hover:text-amber-600"
+              >
+                <Plus className="w-4 h-4 rotate-45" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         <div className="bg-[#5d4037] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-[#3e2723]">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
           <div className="relative z-10">
@@ -891,69 +940,69 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => { setFilterType('sakit'); setFilterStatus('all'); }}
-                className="relative overflow-hidden bg-slate-900 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
+                onClick={() => { setFilterType('sakit'); setTimeFilter('hari_ini'); }}
+                className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.sakit}</h3>
+                    <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.hariIni}</h3>
                     <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                      <Activity className="w-6 h-6" />
+                      <Activity className="w-6 h-6 text-amber-200" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Siswa Sakit<br />Hari Ini</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Hari Ini</p>
                 </div>
               </motion.div>
 
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => { setFilterType('all'); setFilterStatus('selesai'); }}
-                className="relative overflow-hidden bg-indigo-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
+                onClick={() => { setFilterType('sakit'); setTimeFilter('kemarin'); }}
+                className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
+                    <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.kemarin}</h3>
                     <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                      <CheckCircle2 className="w-6 h-6" />
+                      <Clock className="w-6 h-6 text-amber-200" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Disetujui</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Kemarin</p>
                 </div>
               </motion.div>
 
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => { setFilterType('all'); setFilterStatus('pending_asuh'); }}
-                className="relative overflow-hidden bg-emerald-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
+                onClick={() => { setFilterType('sakit'); setTimeFilter('minggu_ini'); }}
+                className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
+                    <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.mingguIni}</h3>
                     <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                      <ShieldCheck className="w-6 h-6" />
+                      <Calendar className="w-6 h-6 text-amber-200" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Dokter UKS<br />- Periksa</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Minggu Ini</p>
                 </div>
               </motion.div>
 
               <motion.div 
                 whileHover={{ scale: 1.02 }}
-                onClick={() => setViewMode('memorandum')}
-                className="relative overflow-hidden bg-orange-600 p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer"
+                onClick={() => { setFilterType('sakit'); setTimeFilter('bulan_ini'); }}
+                className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-4xl font-black font-display tracking-tight">{memos.length}</h3>
+                    <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.bulanIni}</h3>
                     <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                      <Mail className="w-6 h-6" />
+                      <BarChart3 className="w-6 h-6 text-amber-200" />
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Kepala Sekolah<br />- Memo</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Bulan Ini</p>
                 </div>
               </motion.div>
             </div>
@@ -969,7 +1018,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   setSearchTerm('');
                   setTimeFilter('hari_ini');
                 }}
-                className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-widest bg-indigo-50 px-3 py-1.5 rounded-full"
+                className="text-[10px] font-black text-[#5d4037] hover:text-black transition-colors uppercase tracking-widest bg-[#f8f3ed] px-3 py-1.5 rounded-full border border-[#d7ccc8]/40"
               >
                 Reset
               </button>
@@ -990,8 +1039,8 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   onClick={() => setTimeFilter(cat.id as any)}
                   className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                     timeFilter === cat.id
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                      : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
+                      ? 'bg-[#5d4037] text-white shadow-xl shadow-black/10'
+                      : 'bg-white text-[#8b5e3c] border border-[#d7ccc8]/40 hover:border-[#8b5e3c]/40'
                   }`}
                 >
                   {cat.label}
@@ -999,15 +1048,15 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               ))}
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-4">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#d7ccc8]/40 mb-4">
               <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#d7ccc8] group-focus-within:text-[#5d4037] transition-colors" />
                 <input
                   type="text"
                   placeholder="Cari nama siswa atau detail riwayat..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                  className="w-full pl-12 pr-4 py-3 bg-[#fdfcf0] border border-[#f8f3ed] rounded-2xl focus:ring-2 focus:ring-[#5d4037] outline-none transition-all text-sm font-black italic text-[#3e2723]"
                 />
               </div>
             </div>
@@ -1025,51 +1074,51 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   else setShowHistoryDetail(item);
                 }}
                 className={`group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border-l-8 hover:shadow-md transition-all cursor-pointer ${
-                  item.category === 'sakit' ? 'border-emerald-500' :
-                  item.category === 'umum' ? 'border-blue-500' :
-                  'border-amber-500'
+                  item.category === 'sakit' ? 'border-[#5d4037]' :
+                  item.category === 'umum' ? 'border-[#8b5e3c]' :
+                  'border-[#c0b298]'
                 }`}
               >
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                  item.category === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
-                  item.category === 'umum' ? 'bg-blue-50 text-blue-600' :
+                  item.category === 'sakit' ? 'bg-[#f8f3ed] text-[#5d4037]' :
+                  item.category === 'umum' ? 'bg-[#fdfcf0] text-[#8b5e3c]' :
                   'bg-amber-50 text-amber-600'
                 }`}>
                   <User className="w-6 h-6" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-black text-slate-900 truncate tracking-tight">{item.title} ({item.subtitle})</h3>
+                    <h3 className="font-black text-[#3e2723] font-display truncate tracking-tight italic">{item.title} ({item.subtitle})</h3>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className={`px-2 py-0.5 text-[8px] font-black rounded uppercase tracking-widest border ${
-                      item.category === 'sakit' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                      item.category === 'umum' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                      item.category === 'sakit' ? 'bg-[#f8f3ed] text-[#5d4037] border-[#d7ccc8]/40' :
+                      item.category === 'umum' ? 'bg-[#fdfcf0] text-[#8b5e3c] border-[#d7ccc8]/20' :
                       'bg-amber-50 text-amber-600 border-amber-100'
                     }`}>
                       {item.category === 'sakit' ? 'Dr' : 
                        item.category === 'umum' ? 'Asuh' : 'Kelas'} : {item.type}
                     </span>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate flex-1">
+                    <p className="text-[10px] font-bold text-[#8b5e3c]/60 italic uppercase tracking-tight truncate flex-1 leading-none">
                       {item.details}
                     </p>
                   </div>
-                  <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest flex items-center gap-1">
+                  <p className="text-[9px] font-black text-[#8b5e3c]/40 mt-1 uppercase tracking-widest flex items-center gap-1 italic">
                     <Clock className="w-3 h-3" />
                     {item.date ? format(item.date, 'dd MMM, HH:mm') : '-'}
                   </p>
                 </div>
-                <div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
+                <div className="text-[#d7ccc8] group-hover:text-[#5d4037] transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </div>
               </motion.div>
             ))}
 
             {filteredHistory.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
-                <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <h3 className="text-slate-900 font-bold uppercase tracking-widest text-xs">Riwayat Kosong</h3>
-                <p className="text-slate-400 text-[10px] mt-1 bg-slate-50 inline-block px-3 py-1 rounded-full uppercase font-black">Tidak ditemukan aktivitas</p>
+              <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-[#d7ccc8]/40">
+                <ClipboardList className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
+                <h3 className="text-[#5d4037] font-black uppercase tracking-widest text-xs italic">Riwayat Kosong</h3>
+                <p className="text-[#8b5e3c]/40 text-[9px] mt-1 bg-[#f8f3ed] inline-block px-3 py-1 rounded-full uppercase font-black italic">Tidak ditemukan aktivitas</p>
               </div>
             )}
           </div>

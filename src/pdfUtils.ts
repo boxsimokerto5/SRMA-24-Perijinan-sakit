@@ -256,7 +256,7 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   }
 };
 
-export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel: string) => {
+export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel: string, userName: string = 'SRMA 24 KEDIRI') => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -295,32 +295,40 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
   doc.setFillColor(240, 240, 240);
   doc.rect(20, tableTop, 170, 10, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('NO', 25, tableTop + 6.5);
-  doc.text('NAMA SISWA', 35, tableTop + 6.5);
-  doc.text('KELAS', 85, tableTop + 6.5);
-  doc.text('TIPE', 105, tableTop + 6.5);
-  doc.text('STATUS', 130, tableTop + 6.5);
-  doc.text('TANGGAL', 160, tableTop + 6.5);
+  doc.setFontSize(8); // Smaller font for table
+  doc.text('NO', 23, tableTop + 6.5);
+  doc.text('NAMA SISWA', 32, tableTop + 6.5);
+  doc.text('KELAS', 75, tableTop + 6.5);
+  doc.text('TIPE', 90, tableTop + 6.5);
+  doc.text('DIAGNOSA / KETERANGAN', 110, tableTop + 6.5);
+  doc.text('TANGGAL', 165, tableTop + 6.5);
 
   // --- TABLE ROWS ---
   let currentY = tableTop + 10;
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
   
   permits.forEach((p, index) => {
     if (currentY > 260) {
       doc.addPage();
       currentY = 20;
-      // Re-draw header on new page if needed, but for simplicity just continue
+      // Border & Header on New Page
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.1);
+      doc.rect(5, 5, 200, 287);
     }
     
-    doc.text((index + 1).toString(), 25, currentY + 6.5);
-    doc.text((p.nama_siswa || '').substring(0, 20), 35, currentY + 6.5);
-    doc.text(p.kelas || '', 85, currentY + 6.5);
-    doc.text((p.tipe || '').toUpperCase(), 105, currentY + 6.5);
-    doc.text((p.status || '').replace('_', ' ').toUpperCase(), 130, currentY + 6.5);
+    doc.text((index + 1).toString(), 23, currentY + 6.5);
+    doc.text((p.nama_siswa || '').substring(0, 25), 32, currentY + 6.5);
+    doc.text(p.kelas || '', 75, currentY + 6.5);
+    doc.text((p.tipe || '').toUpperCase(), 90, currentY + 6.5);
+    
+    const diagnosaText = (p.diagnosa || p.alasan || p.isi_catatan || '-');
+    const truncatedDiagnoasa = diagnosaText.length > 30 ? diagnosaText.substring(0, 27) + '...' : diagnosaText;
+    doc.text(truncatedDiagnoasa, 110, currentY + 6.5);
+    
     const tgl = p.tgl_surat && typeof p.tgl_surat.toDate === 'function' ? format(p.tgl_surat.toDate(), 'dd/MM/yy') : '-';
-    doc.text(tgl, 160, currentY + 6.5);
+    doc.text(tgl, 165, currentY + 6.5);
     
     doc.setDrawColor(230, 230, 230);
     doc.line(20, currentY + 10, 190, currentY + 10);
@@ -328,13 +336,20 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
   });
 
   // --- SIGNATURE ---
-  const footerY = Math.min(currentY + 20, 250);
+  const footerY = Math.min(currentY + 20, 230);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Kediri, ' + format(new Date(), 'dd MMMM yyyy'), 150, footerY, { align: 'center' });
   doc.text('Kepala Sekolah,', 150, footerY + 5, { align: 'center' });
+  
+  // QR Signature
+  const qrData = `LAPORAN_VERIFIED_BY_${userName}_${format(new Date(), 'yyyyMMddHHmm')}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+  doc.addImage(qrUrl, 'PNG', 137, footerY + 10, 25, 25);
+
   doc.setFont('helvetica', 'bold');
-  doc.text('SRMA 24 KEDIRI', 150, footerY + 35, { align: 'center' });
-  doc.line(125, footerY + 36, 175, footerY + 36);
+  doc.text(userName, 150, footerY + 45, { align: 'center' });
+  doc.line(125, footerY + 46, 175, footerY + 46);
 
   // --- OUTPUT ---
   const fileName = `Laporan_Rekap_${rangeLabel.replace(/\s+/g, '_')}_${Date.now()}.pdf`;

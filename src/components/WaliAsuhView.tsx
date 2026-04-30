@@ -48,6 +48,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportRange, setReportRange] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini'>('hari_ini');
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Banner & Time states
   const [showBanner, setShowBanner] = useState(true);
@@ -736,12 +739,55 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     }
   };
 
+  const handleGenerateSummaryReport = async () => {
+    setReportLoading(true);
+    try {
+      const filteredForReport = permits.filter(p => {
+        const date = p.tgl_surat?.toDate();
+        if (!date) return false;
+        
+        if (reportRange === 'hari_ini') return isToday(date);
+        if (reportRange === 'kemarin') return isYesterday(date);
+        if (reportRange === 'minggu_ini') return isThisWeek(date, { weekStartsOn: 1 });
+        if (reportRange === 'bulan_ini') return isThisMonth(date);
+        return false;
+      });
+
+      const rangeLabel = {
+        hari_ini: 'Hari Ini',
+        kemarin: 'Kemarin',
+        minggu_ini: 'Minggu Ini',
+        bulan_ini: 'Bulan Ini'
+      }[reportRange];
+
+      // Assuming generateSummaryReportPDF is imported from pdfUtils or available globaly
+      const { generateSummaryReportPDF } = await import('../pdfUtils');
+      await generateSummaryReportPDF(filteredForReport, rangeLabel, user.name);
+      setShowReportModal(false);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat laporan: ' + (err instanceof Error ? err.message : 'Error unknown'));
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status === 'pending_asuh').length,
     selesai: permits.filter(p => p.status === 'approved' || p.status === 'acknowledged').length,
     memos: memos.length
   };
+
+  const sakitStats = React.useMemo(() => {
+    const sakitPermits = permits.filter(p => p.tipe === 'sakit');
+    return {
+      hariIni: sakitPermits.filter(p => p.tgl_surat && isToday(p.tgl_surat.toDate())).length,
+      kemarin: sakitPermits.filter(p => p.tgl_surat && isYesterday(p.tgl_surat.toDate())).length,
+      mingguIni: sakitPermits.filter(p => p.tgl_surat && isThisWeek(p.tgl_surat.toDate(), { weekStartsOn: 1 })).length,
+      bulanIni: sakitPermits.filter(p => p.tgl_surat && isThisMonth(p.tgl_surat.toDate())).length,
+    };
+  }, [permits]);
 
   if (activeTab === 'profil') {
     return <ProfileView user={user} />;
@@ -1388,64 +1434,90 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
         {viewMode === 'perizinan' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black text-[#3e2723] font-display italic">Rekapitulasi Data</h2>
+                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Monitor & Cetak Laporan Kesehatan Siswa</p>
+              </div>
+              <button 
+                onClick={() => setShowReportModal(true)}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-[#5d4037] text-white font-black rounded-3xl shadow-xl shadow-black/10 hover:bg-[#3e2723] transition-all active:scale-95 group border-b-4 border-black/20"
+              >
+                <Printer className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                <span className="uppercase tracking-widest text-xs">Pilihan Rekap</span>
+              </button>
+            </div>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Total Perizinan */}
+            {/* Card 1: Sakit Hari Ini */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
+              onClick={() => setTimeFilter('hari_ini')}
+              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#f8f3ed] rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-[#5d4037] p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-black/10 mb-4">
-                  <ClipboardList className="w-5 h-5" />
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.hariIni}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <Activity className="w-6 h-6 text-amber-200" />
+                  </div>
                 </div>
-                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.total}</h3>
-                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Total Izin</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Hari Ini</p>
               </div>
             </motion.div>
 
-            {/* Card 2: Izin Selesai */}
+            {/* Card 2: Sakit Kemarin */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
+              onClick={() => setTimeFilter('kemarin')}
+              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-emerald-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-emerald-100 mb-4">
-                  <CheckCircle2 className="w-5 h-5" />
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.kemarin}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <Clock className="w-6 h-6 text-amber-200" />
+                  </div>
                 </div>
-                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.selesai}</h3>
-                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Selesai</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Kemarin</p>
               </div>
             </motion.div>
 
-            {/* Card 3: Perlu Persetujuan */}
+            {/* Card 3: Sakit Minggu Ini */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
+              onClick={() => setTimeFilter('minggu_ini')}
+              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#fdfcf0] rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-[#8b5e3c] p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-black/10 mb-4">
-                  <Clock className="w-5 h-5" />
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.mingguIni}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <Calendar className="w-6 h-6 text-amber-200" />
+                  </div>
                 </div>
-                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.pending}</h3>
-                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Pending</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Minggu Ini</p>
               </div>
             </motion.div>
 
-            {/* Card 4: Memorandum */}
+            {/* Card 4: Sakit Bulan Ini */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
+              onClick={() => setTimeFilter('bulan_ini')}
+              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#f8f3ed] rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-[#3e2723] p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-black/10 mb-4">
-                  <Mail className="w-5 h-5" />
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.bulanIni}</h3>
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
+                    <BarChart3 className="w-6 h-6 text-amber-200" />
+                  </div>
                 </div>
-                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.memos}</h3>
-                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Memo</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Bulan Ini</p>
               </div>
             </motion.div>
           </div>
@@ -3178,6 +3250,95 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           </div>
         </div>
       )}
+
+      {/* Summary Report Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowReportModal(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden border-b-8 border-[#5d4037]"
+            >
+              <div className="p-8 bg-[#5d4037] text-white">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Printer className="w-6 h-6 text-amber-200" />
+                  </div>
+                  <button 
+                    onClick={() => setShowReportModal(false)}
+                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <h3 className="text-2xl font-black font-display italic leading-tight">Pilih Rentang Laporan</h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-100/60 mt-1 italic">Pilih periode data yang ingin dicetak</p>
+              </div>
+
+              <div className="p-8 space-y-4">
+                {[
+                  { id: 'hari_ini', label: 'Hari Ini', icon: Clock },
+                  { id: 'kemarin', label: 'Kemarin', icon: History },
+                  { id: 'minggu_ini', label: 'Minggu Ini', icon: Calendar },
+                  { id: 'bulan_ini', label: 'Bulan Ini', icon: BarChart3 }
+                ].map((range) => (
+                  <button
+                    key={range.id}
+                    onClick={() => setReportRange(range.id as any)}
+                    className={`w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all group ${
+                      reportRange === range.id 
+                        ? 'bg-[#fdfcf0] border-[#5d4037] shadow-xl shadow-[#5d4037]/5' 
+                        : 'bg-white border-[#f8f3ed] hover:border-[#d7ccc8]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-xl transition-colors ${
+                        reportRange === range.id ? 'bg-[#5d4037] text-white' : 'bg-[#f8f3ed] text-[#8b5e3c]'
+                      }`}>
+                        <range.icon className="w-5 h-5" />
+                      </div>
+                      <span className={`font-black uppercase tracking-widest text-[10px] ${
+                        reportRange === range.id ? 'text-[#3e2723]' : 'text-[#8b5e3c]/60'
+                      }`}>
+                        {range.label}
+                      </span>
+                    </div>
+                    {reportRange === range.id && (
+                      <div className="w-2 h-2 bg-[#5d4037] rounded-full animate-pulse" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-8 bg-[#f8f3ed] border-t border-[#d7ccc8]/40 flex gap-3">
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="flex-1 py-4 bg-white border border-[#d7ccc8]/40 text-[#5d4037] font-black rounded-2xl hover:bg-white/80 transition-all uppercase tracking-widest text-[10px]"
+                >
+                  Batal
+                </button>
+                <button
+                  disabled={reportLoading}
+                  onClick={handleGenerateSummaryReport}
+                  className="flex-1 py-4 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl shadow-black/10 hover:bg-[#3e2723] transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
+                >
+                  {reportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  Cetak PDF
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
