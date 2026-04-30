@@ -439,16 +439,48 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       .map(([name, value]) => ({ name, value }))
       .slice(-6);
 
-    const COLORS = ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6'];
+    const COLORS = ['#8b5e3c', '#5d4037', '#c0b298', '#d7ccc8', '#a1887f'];
 
     return (
       <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+        <div className="bg-[#5d4037] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-[#3e2723]">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Hallo, {user.name || user.email}</h1>
+            <p className="text-sm font-bold text-amber-100 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
+              <ShieldCheck className="w-5 h-5 text-amber-400" />
+              {getRoleLabel(user.role || 'dokter')}
+            </p>
+            
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-100/60 mb-4 flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4" />
+                Daftar Fitur Akun:
+              </h3>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-amber-50">
+                {features.map((f, i) => (
+                  <motion.li 
+                    key={i} 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3 text-xs font-bold"
+                  >
+                    <div className="w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
+                    {f}
+                  </motion.li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black text-slate-900 font-display">Statistik Klinik</h2>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Data pemeriksaan kesehatan siswa.</p>
+            <h2 className="text-2xl font-black text-[#5d4037] font-display">Statistik Klinik</h2>
+            <p className="text-[10px] font-bold text-[#8b5e3c]/60 uppercase tracking-widest mt-1">Data pemeriksaan kesehatan siswa.</p>
           </div>
-          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+          <div className="p-3 bg-[#fdfcf0] text-[#5d4037] rounded-2xl border border-[#d7ccc8]">
             <Activity className="w-6 h-6" />
           </div>
         </div>
@@ -497,6 +529,27 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       </div>
     );
   };
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      dokter: 'Dokter',
+      wali_asuh: 'Wali Asuh',
+      wali_kelas: 'Wali Kelas',
+      kepala_sekolah: 'Kepala Sekolah',
+      guru_mapel: 'Guru Mapel',
+      wali_asrama: 'Wali Asrama'
+    };
+    return labels[role] || role;
+  };
+
+  const features = [
+    'Update Diagnosa & Keterangan Dokter Siswa',
+    'Verifikasi Akhir Perizinan Sakit',
+    'Review Usulan Kesehatan dari Wali Asrama',
+    'Statistik Kesehatan Siswa Terpadu',
+    'Review Riwayat Perizinan Siswa',
+    'Berbagi Catatan di Mading Sekolah'
+  ];
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} font-sans transition-colors duration-500`}>

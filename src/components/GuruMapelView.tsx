@@ -433,8 +433,29 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     memos: memos.length
   };
 
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      dokter: 'Dokter',
+      wali_asuh: 'Wali Asuh',
+      wali_kelas: 'Wali Kelas',
+      kepala_sekolah: 'Kepala Sekolah',
+      guru_mapel: 'Guru Mapel',
+      wali_asrama: 'Wali Asrama'
+    };
+    return labels[role] || role;
+  };
+
+  const features = [
+    'Input Perizinan Siswa (Sakit/Umum)',
+    'Input Surat Memorandum Siswa',
+    'Review Riwayat Perizinan Siswa',
+    'Print Surat Izin & Memorandum',
+    'Permohonan Pinjam Laptop & HP',
+    'Berbagi Catatan di Mading Sekolah'
+  ];
+
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#3e2723]' : 'bg-[#f8f3ed]'}`}>
       {/* Sidebar Navigation */}
       <AnimatePresence>
         {showSidebar && (
@@ -451,24 +472,24 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#5d4037] text-white z-[70] shadow-2xl flex flex-col"
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-6">
-                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                  <div className="bg-[#3e2723] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
                     <div className="flex items-center gap-4 relative z-10">
                       <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
-                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
-                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                        <span className="font-black text-white text-base leading-tight tracking-tight uppercase italic">SRMA 24 KEDIRI</span>
+                        <span className="text-[10px] font-bold text-amber-200/60 uppercase tracking-widest mt-0.5 opacity-70 italic">SEKOLAH RAKYAT</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div>
-                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
+                      <p className="text-[10px] font-black text-amber-200/40 uppercase tracking-[0.2em] mb-4 px-2">NAVIGASI UTAMA</p>
                       <div className="space-y-1.5">
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
@@ -488,11 +509,11 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                             }}
                             className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
                               viewMode === item.id 
-                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
-                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                                ? 'bg-white text-[#5d4037] shadow-xl shadow-black/10 translate-x-2' 
+                                : 'bg-transparent text-white/70 hover:bg-[#3e2723] hover:text-white'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#5d4037]' : 'text-white/40'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -504,12 +525,12 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
               {/* Bottom Logout Section */}
               <div className="p-6 border-t border-white/10">
-                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <p className="text-[10px] font-black text-amber-200/40 uppercase tracking-[0.2em] mb-4 px-2 italic">Pengaturan</p>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#3e2723] text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-lg border border-white/5 active:scale-95"
                 >
-                  <LogOut className="w-5 h-5 text-cyan-300" />
+                  <LogOut className="w-5 h-5 text-amber-200" />
                   Keluar Akun
                 </button>
               </div>
@@ -519,16 +540,16 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       </AnimatePresence>
 
       {/* Top Header */}
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-sm`}>
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-[#3e2723]/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-[#d7ccc8]/10' : 'border-[#d7ccc8]/40'} shadow-sm`}>
         <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
-              className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl"
+              className="p-3 bg-[#f8f3ed] text-[#5d4037] rounded-2xl border border-[#d7ccc8]/40 shadow-sm"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e]">
+            <h1 className="text-sm font-black uppercase tracking-widest text-[#5d4037] italic">
               {viewTitles[viewMode] || 'SRMA 24'}
             </h1>
           </div>
@@ -543,18 +564,18 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex flex-col gap-6">
             <div className="px-1">
-              <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Data Siswa</h2>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Daftar Lengkap Siswa</p>
+              <h2 className="text-2xl font-black text-[#3e2723] font-display tracking-tight italic">Data Siswa</h2>
+              <p className="text-xs font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Daftar Lengkap Siswa</p>
             </div>
 
             <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40 group-focus-within:text-[#5d4037] transition-colors" />
               <input
                 type="text"
                 placeholder="Cari nama atau NIK siswa..."
                 value={studentSearchTerm}
                 onChange={(e) => setStudentSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                className="w-full pl-12 pr-4 py-4 bg-white border border-[#d7ccc8]/40 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-[#5d4037]/10 focus:border-[#5d4037] transition-all outline-none text-sm font-medium text-[#3e2723] placeholder:text-[#8b5e3c]/30"
               />
             </div>
 
@@ -564,17 +585,17 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   key={student.id}
                   whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
                   onClick={() => setSelectedStudent(student)}
-                  className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
+                  className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-[#8b5e3c] transition-all duration-300 relative overflow-hidden"
                 >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-600 transition-colors duration-500" />
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#f8f3ed] rounded-full -mr-12 -mt-12 group-hover:bg-[#5d4037] transition-colors duration-500" />
                   
                   <div className="flex items-center gap-4 relative">
-                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500">
+                    <div className="w-16 h-16 bg-[#f8f3ed] rounded-2xl flex items-center justify-center text-[#5d4037] font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500 border border-[#d7ccc8]/20">
                       {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-black text-slate-900 truncate font-display group-hover:text-indigo-600 transition-colors">{student.nama_lengkap || 'Tanpa Nama'}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NIK: {student.nik}</p>
+                      <h3 className="text-base font-black text-[#3e2723] truncate font-display group-hover:text-[#8b5e3c] transition-colors italic">{student.nama_lengkap || 'Tanpa Nama'}</h3>
+                      <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">NIK: {student.nik}</p>
                     </div>
                   </div>
 
@@ -583,7 +604,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kelas</p>
                       <p className="text-xs font-bold text-slate-600">{student.kelas || '-'}</p>
                     </div>
-                    <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-white group-hover:bg-indigo-600 transition-all shadow-sm">
+                    <div className="p-2 bg-[#fdfcf0] rounded-xl text-[#d7ccc8] group-hover:text-white group-hover:bg-[#5d4037] transition-all shadow-sm border border-[#d7ccc8]/40">
                       <ChevronRight className="w-4 h-4" />
                     </div>
                   </div>
@@ -591,9 +612,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               ))}
               
               {filteredStudents.length === 0 && (
-                <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                  <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Siswa tidak ditemukan</p>
+                <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-[#d7ccc8]">
+                  <Search className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
+                  <p className="text-[#8b5e3c]/40 font-black uppercase tracking-widest text-[10px] italic">Siswa tidak ditemukan</p>
                 </div>
               )}
             </div>
@@ -604,13 +625,13 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       {viewMode === 'pinjam_laptop' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="px-1">
-            <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Permohonan Laptop</h2>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Pinjaman Laptop untuk Siswa</p>
+            <h2 className="text-2xl font-black text-[#3e2723] font-display tracking-tight italic">Permohonan Laptop</h2>
+            <p className="text-xs font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Pinjaman Laptop untuk Siswa</p>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-6">
             <div className="space-y-4">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Kelas</label>
+              <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest ml-1">Pilih Kelas</label>
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                 {CLASSES.map((c) => (
                   <button
@@ -621,8 +642,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                     }}
                     className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                       laptopKelas === c
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                        : 'bg-slate-50 text-slate-500 border border-slate-100 hover:border-slate-300'
+                        ? 'bg-[#5d4037] text-white shadow-lg shadow-black/10'
+                        : 'bg-[#fdfcf0] text-[#8b5e3c] border border-[#d7ccc8]/20 hover:border-[#8b5e3c]/40'
                     }`}
                   >
                     Kelas {c}
@@ -633,10 +654,10 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Daftar Siswa Kelas {laptopKelas}</label>
+                <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest">Daftar Siswa Kelas {laptopKelas}</label>
                 <button 
                   onClick={handleSelectAllInClass}
-                  className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                  className="text-[10px] font-black text-[#5d4037] uppercase tracking-widest hover:underline"
                 >
                   Pilih Semua
                 </button>
@@ -649,41 +670,41 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                     onClick={() => handleToggleStudentSelection(student.nama_lengkap)}
                     className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${
                       selectedStudentsForLaptop.includes(student.nama_lengkap)
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
-                        : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-300'
+                        ? 'bg-[#f8f3ed] border-[#5d4037] text-[#3e2723]'
+                        : 'bg-[#fdfcf0] border-[#d7ccc8]/20 text-[#8b5e3c] hover:border-[#8b5e3c]/40'
                     }`}
                   >
                     {selectedStudentsForLaptop.includes(student.nama_lengkap) ? (
-                      <CheckSquareIcon className="w-5 h-5 text-indigo-600" />
+                      <CheckSquareIcon className="w-5 h-5 text-[#5d4037]" />
                     ) : (
-                      <Square className="w-5 h-5 text-slate-300" />
+                      <Square className="w-5 h-5 text-[#d7ccc8]" />
                     )}
-                    <span className="text-sm font-bold">{student.nama_lengkap}</span>
+                    <span className="text-sm font-black italic">{student.nama_lengkap}</span>
                   </button>
                 ))}
                 {students.filter(s => s.kelas === laptopKelas).length === 0 && (
-                  <div className="col-span-full py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Tidak ada siswa di kelas ini</p>
+                  <div className="col-span-full py-10 text-center bg-[#fdfcf0] rounded-2xl border border-dashed border-[#d7ccc8]">
+                    <p className="text-[#8b5e3c]/40 font-black text-[10px] uppercase tracking-widest italic">Tidak ada siswa di kelas ini</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100">
+            <div className="pt-6 border-t border-[#d7ccc8]/20">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa Terpilih</p>
-                  <p className="text-xl font-black text-indigo-600">{selectedStudentsForLaptop.length} <span className="text-xs text-slate-400">Siswa</span></p>
+                  <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest italic">Siswa Terpilih</p>
+                  <p className="text-xl font-black text-[#5d4037] italic">{selectedStudentsForLaptop.length} <span className="text-xs text-[#8b5e3c]/40 uppercase italic tracking-tighter">Siswa</span></p>
                 </div>
                 <button
                   onClick={handleSubmitLaptopRequest}
                   disabled={isSubmittingLaptop || selectedStudentsForLaptop.length === 0}
-                  className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
+                  className="px-8 py-4 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl shadow-black/10 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
                 >
                   {isSubmittingLaptop ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <Send className="w-5 h-5" />
+                    <Send className="w-5 h-5 text-amber-200" />
                   )}
                   Kirim Permohonan
                 </button>
@@ -696,13 +717,13 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       {viewMode === 'pinjam_hp' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="px-1">
-            <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Permohonan HP</h2>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Pinjaman HP untuk Siswa</p>
+            <h2 className="text-2xl font-black text-[#3e2723] font-display tracking-tight italic">Permohonan HP</h2>
+            <p className="text-xs font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Pinjaman HP untuk Siswa</p>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-6">
             <div className="space-y-4">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Kelas</label>
+              <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest ml-1">Pilih Kelas</label>
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                 {CLASSES.map((c) => (
                   <button
@@ -713,8 +734,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                     }}
                     className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                       hpKelas === c
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                        : 'bg-slate-50 text-slate-500 border border-slate-100 hover:border-slate-300'
+                        ? 'bg-[#5d4037] text-white shadow-lg shadow-black/10'
+                        : 'bg-[#fdfcf0] text-[#8b5e3c] border border-[#d7ccc8]/20 hover:border-[#8b5e3c]/40'
                     }`}
                   >
                     Kelas {c}
@@ -725,10 +746,10 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Daftar Siswa Kelas {hpKelas}</label>
+                <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest">Daftar Siswa Kelas {hpKelas}</label>
                 <button 
                   onClick={handleSelectAllInClassHP}
-                  className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                  className="text-[10px] font-black text-[#5d4037] uppercase tracking-widest hover:underline"
                 >
                   Pilih Semua
                 </button>
@@ -741,41 +762,41 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                     onClick={() => handleToggleStudentSelectionHP(student.nama_lengkap)}
                     className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${
                       selectedStudentsForHP.includes(student.nama_lengkap)
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
-                        : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-300'
+                        ? 'bg-[#f8f3ed] border-[#5d4037] text-[#3e2723]'
+                        : 'bg-[#fdfcf0] border-[#d7ccc8]/20 text-[#8b5e3c] hover:border-[#8b5e3c]/40'
                     }`}
                   >
                     {selectedStudentsForHP.includes(student.nama_lengkap) ? (
-                      <CheckSquareIcon className="w-5 h-5 text-indigo-600" />
+                      <CheckSquareIcon className="w-5 h-5 text-[#5d4037]" />
                     ) : (
-                      <Square className="w-5 h-5 text-slate-300" />
+                      <Square className="w-5 h-5 text-[#d7ccc8]" />
                     )}
-                    <span className="text-sm font-bold">{student.nama_lengkap}</span>
+                    <span className="text-sm font-black italic">{student.nama_lengkap}</span>
                   </button>
                 ))}
                 {students.filter(s => s.kelas === hpKelas).length === 0 && (
-                  <div className="col-span-full py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Tidak ada siswa di kelas ini</p>
+                  <div className="col-span-full py-10 text-center bg-[#fdfcf0] rounded-2xl border border-dashed border-[#d7ccc8]">
+                    <p className="text-[#8b5e3c]/40 font-black text-[10px] uppercase tracking-widest italic">Tidak ada siswa di kelas ini</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100">
+            <div className="pt-6 border-t border-[#d7ccc8]/20">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa Terpilih</p>
-                  <p className="text-xl font-black text-indigo-600">{selectedStudentsForHP.length} <span className="text-xs text-slate-400">Siswa</span></p>
+                  <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest italic">Siswa Terpilih</p>
+                  <p className="text-xl font-black text-[#5d4037] italic">{selectedStudentsForHP.length} <span className="text-xs text-[#8b5e3c]/40 uppercase italic tracking-tighter">Siswa</span></p>
                 </div>
                 <button
                   onClick={handleSubmitHPRequest}
                   disabled={isSubmittingHP || selectedStudentsForHP.length === 0}
-                  className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
+                  className="px-8 py-4 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl shadow-black/10 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
                 >
                   {isSubmittingHP ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <Send className="w-5 h-5" />
+                    <Send className="w-5 h-5 text-amber-200" />
                   )}
                   Kirim Permohonan
                 </button>
@@ -788,125 +809,139 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       {/* Dashboard Section */}
       {viewMode === 'perizinan' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          {/* Greeting Section */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+          <div className="bg-gradient-to-br from-[#5d4037] to-[#3e2723] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-black/20">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
             <div className="relative z-10">
-              <h2 className="text-2xl font-black text-slate-900 font-display">
-                Selamat {new Date().getHours() < 12 ? 'Pagi' : new Date().getHours() < 15 ? 'Siang' : new Date().getHours() < 18 ? 'Sore' : 'Malam'}, 
-                <span className="text-sky-600"> {user.name}</span>
-              </h2>
-              <p className="text-sm font-bold text-slate-500 mt-1">
-                sebagai Guru Mapel {user.mapel || '(Mata Pelajaran Belum Diatur)'}
+                      <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Halo, {user.name || user.email}</h1>
+              <p className="text-lg font-black text-amber-100 flex items-center gap-2 mb-6 italic">
+                <ShieldCheck className="w-5 h-5 text-amber-200" />
+                {getRoleLabel(user.role || 'guru_mapel')} • {user.mapel || 'Guru Mapel'}
               </p>
+              
+              <div className="bg-black/10 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                <h3 className="text-sm font-black uppercase tracking-widest text-[#d7ccc8] mb-4 flex items-center gap-2 italic">
+                  <LayoutDashboard className="w-4 h-4 text-amber-200" />
+                  Daftar Fitur Akun:
+                </h3>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {features.map((f, i) => (
+                    <motion.li 
+                      key={i} 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                      className="flex items-center gap-3 text-sm font-black text-white/90 italic"
+                    >
+                      <div className="w-2 h-2 bg-amber-200 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
+                      {f}
+                    </motion.li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              whileHover={{ scale: 1.02, y: -2 }}
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.total}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <ClipboardList className="w-6 h-6" />
+                  <h3 className="text-4xl font-black font-display tracking-tight text-[#3e2723] italic">{stats.total}</h3>
+                  <div className="bg-[#f8f3ed] p-2.5 rounded-2xl border border-[#d7ccc8]/20">
+                    <ClipboardList className="w-6 h-6 text-[#5d4037]" />
                   </div>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Total<br />Perizinan</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight text-[#8b5e3c]/40 italic">Total<br />Perizinan</p>
               </div>
             </motion.div>
 
             <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              whileHover={{ scale: 1.02, y: -2 }}
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.selesai}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <CheckCircle2 className="w-6 h-6" />
+                  <h3 className="text-4xl font-black font-display tracking-tight text-[#3e2723] italic">{stats.selesai}</h3>
+                  <div className="bg-[#f8f3ed] p-2.5 rounded-2xl border border-[#d7ccc8]/20">
+                    <CheckCircle2 className="w-6 h-6 text-[#5d4037]" />
                   </div>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Izin<br />Selesai</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight text-[#8b5e3c]/40 italic">Izin<br />Selesai</p>
               </div>
             </motion.div>
 
             <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              whileHover={{ scale: 1.02, y: -2 }}
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.pending}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <Clock className="w-6 h-6" />
+                  <h3 className="text-4xl font-black font-display tracking-tight text-[#3e2723] italic">{stats.pending}</h3>
+                  <div className="bg-[#f8f3ed] p-2.5 rounded-2xl border border-[#d7ccc8]/20">
+                    <Clock className="w-6 h-6 text-[#5d4037]" />
                   </div>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Perlu<br />Persetujuan</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight text-[#8b5e3c]/40 italic">Perlu<br />Persetujuan</p>
               </div>
             </motion.div>
 
             <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-[2.5rem] shadow-xl text-white group"
+              whileHover={{ scale: 1.02, y: -2 }}
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{stats.memos}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <Mail className="w-6 h-6" />
+                  <h3 className="text-4xl font-black font-display tracking-tight text-[#3e2723] italic">{stats.memos}</h3>
+                  <div className="bg-[#f8f3ed] p-2.5 rounded-2xl border border-[#d7ccc8]/20">
+                    <Mail className="w-6 h-6 text-[#5d4037]" />
                   </div>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80">Memo<br />Kepala Sekolah</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-tight text-[#8b5e3c]/40 italic">Memo<br />Kepala Sekolah</p>
               </div>
             </motion.div>
           </div>
 
           {/* Petunjuk Penggunaan */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+              <div className="p-3 bg-[#fdfcf0] text-[#5d4037] rounded-2xl border border-[#d7ccc8]/20 shadow-inner">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900 font-display">Petunjuk Penggunaan Aplikasi</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Panduan Singkat Guru Mapel</p>
+                <h3 className="text-lg font-black text-[#3e2723] font-display italic tracking-tight">Petunjuk Penggunaan Aplikasi</h3>
+                <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest italic">Panduan Singkat Guru Mapel</p>
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">1</div>
+              <div className="p-5 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/20 flex gap-4 items-start shadow-sm hover:border-[#8b5e3c]/30 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-[#5d4037] shadow-sm shrink-0 border border-[#d7ccc8]/20 italic">1</div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Pantau Perizinan Sakit</p>
-                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Gunakan menu "Perizinan Sakit" untuk melihat siswa yang sedang izin sakit resmi dari dokter.</p>
+                  <p className="text-xs font-black text-[#3e2723] italic">Pantau Perizinan Sakit</p>
+                  <p className="text-[10px] text-[#8b5e3c] leading-relaxed mt-1 font-medium">Gunakan menu "Perizinan Sakit" untuk melihat siswa yang sedang izin sakit resmi dari dokter.</p>
                 </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">2</div>
+              <div className="p-5 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/20 flex gap-4 items-start shadow-sm hover:border-[#8b5e3c]/30 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-[#5d4037] shadow-sm shrink-0 border border-[#d7ccc8]/20 italic">2</div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Pinjam Fasilitas</p>
-                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Gunakan menu Pinjam Laptop/HP untuk mengajukan penggunaan fasilitas sekolah saat KBM.</p>
+                  <p className="text-xs font-black text-[#3e2723] italic">Pinjam Fasilitas</p>
+                  <p className="text-[10px] text-[#8b5e3c] leading-relaxed mt-1 font-medium">Gunakan menu Pinjam Laptop/HP untuk mengajukan penggunaan fasilitas sekolah saat KBM.</p>
                 </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">3</div>
+              <div className="p-5 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/20 flex gap-4 items-start shadow-sm hover:border-[#8b5e3c]/30 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-[#5d4037] shadow-sm shrink-0 border border-[#d7ccc8]/20 italic">3</div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Cek Data Siswa</p>
-                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Cari data lengkap siswa seperti NIK atau Alamat pada menu Kartu Siswa jika diperlukan.</p>
+                  <p className="text-xs font-black text-[#3e2723] italic">Cek Data Siswa</p>
+                  <p className="text-[10px] text-[#8b5e3c] leading-relaxed mt-1 font-medium">Cari data lengkap siswa seperti NIK atau Alamat pada menu Kartu Siswa jika diperlukan.</p>
                 </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-slate-400 shadow-sm shrink-0">4</div>
+              <div className="p-5 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/20 flex gap-4 items-start shadow-sm hover:border-[#8b5e3c]/30 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-black text-[#5d4037] shadow-sm shrink-0 border border-[#d7ccc8]/20 italic">4</div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Menu Memorandum</p>
-                  <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Selalu cek menu Memorandum untuk pengumuman atau instruksi resmi dari pimpinan sekolah.</p>
+                  <p className="text-xs font-black text-[#3e2723] italic">Menu Memorandum</p>
+                  <p className="text-[10px] text-[#8b5e3c] leading-relaxed mt-1 font-medium">Selalu cek menu Memorandum untuk pengumuman atau instruksi resmi dari pimpinan sekolah.</p>
                 </div>
               </div>
             </div>
@@ -915,27 +950,27 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
           {memos.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 px-1">
-                <Mail className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Memorandum Intern</h3>
+                <Mail className="w-5 h-5 text-[#5d4037]" />
+                <h3 className="text-sm font-black text-[#3e2723] uppercase tracking-widest italic tracking-tight">Memorandum Intern</h3>
               </div>
               <div className="grid grid-cols-1 gap-4">
                 {memos.map(memo => (
                   <motion.div 
                     key={memo.id}
-                    whileHover={{ scale: 1.01 }}
+                    whileHover={{ scale: 1.01, x: 4 }}
                     onClick={() => setSelectedMemo(memo)}
-                    className="bg-cyan-50/50 p-5 rounded-[2rem] border border-cyan-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                    className="bg-white p-5 rounded-[2rem] border border-[#d7ccc8]/40 shadow-sm hover:shadow-md hover:border-[#8b5e3c] transition-all cursor-pointer flex items-center justify-between group"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-cyan-100 text-cyan-600 rounded-2xl group-hover:scale-110 transition-transform">
+                      <div className="p-3 bg-[#fdfcf0] text-[#5d4037] rounded-2xl group-hover:scale-110 transition-transform border border-[#d7ccc8]/20">
                         <Mail className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-black text-slate-900 font-display group-hover:text-cyan-700 transition-colors">{memo.perihal}</h4>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
+                        <h4 className="text-sm font-black text-[#3e2723] font-display group-hover:text-[#5d4037] transition-colors italic">{memo.perihal}</h4>
+                        <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest mt-0.5 italic">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
                       </div>
                     </div>
-                    <div className="p-2 bg-white rounded-xl text-cyan-400 group-hover:text-cyan-600 transition-all">
+                    <div className="p-2 bg-[#fdfcf0] rounded-xl text-[#d7ccc8] group-hover:text-[#5d4037] transition-all border border-[#d7ccc8]/10">
                       <Plus className="w-4 h-4" />
                     </div>
                   </motion.div>
@@ -974,48 +1009,49 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               <motion.div
                 key={req.id}
                 layout
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+                whileHover={{ y: -4 }}
+                className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-4 relative overflow-hidden group"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                    <div className="p-3 bg-[#f8f3ed] text-[#5d4037] rounded-2xl border border-[#d7ccc8]/30">
                       <Laptop className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900">Pinjam Laptop - {req.kelas}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                      <h4 className="font-black text-[#3e2723] font-display italic">Pinjam Laptop - {req.kelas}</h4>
+                      <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">{req.nomor_surat}</p>
                     </div>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                    'bg-amber-50 text-amber-600'
+                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                    'bg-[#fdfcf0] text-[#8b5e3c] border-[#d7ccc8]/40'
                   }`}>
                     {req.status}
                   </div>
                 </div>
 
                 <div className="py-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daftar Siswa</p>
-                  <p className="text-sm font-bold text-slate-600 leading-relaxed">
+                  <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest mb-2">Daftar Siswa</p>
+                  <p className="text-sm font-bold text-[#5d4037] leading-relaxed">
                     {req.daftar_siswa.join(', ')}
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
+                <div className="pt-4 border-t border-[#f8f3ed] flex items-center justify-between">
+                  <div className="text-[10px] text-[#8b5e3c]/60 font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
                     {req.tgl_request && format(req.tgl_request.toDate(), 'dd MMM yyyy')}
                   </div>
                   <button
                     onClick={() => handleLaptopRequestPDF(req)}
                     disabled={laptopPdfLoading === req.id}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-[#3e2723] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50 shadow-lg shadow-black/10"
                   >
                     {laptopPdfLoading === req.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Printer className="w-3.5 h-3.5" />
+                      <Printer className="w-3.5 h-3.5 text-amber-200" />
                     )}
                     Cetak PDF
                   </button>
@@ -1023,9 +1059,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               </motion.div>
             ))}
             {laptopRequests.length === 0 && (
-              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada riwayat permohonan</p>
+              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-[#d7ccc8]">
+                <Laptop className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
+                <p className="text-[#8b5e3c]/40 font-black uppercase tracking-widest text-[10px] italic">Belum ada riwayat permohonan</p>
               </div>
             )}
           </div>
@@ -1037,48 +1073,49 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               <motion.div
                 key={req.id}
                 layout
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
+                whileHover={{ y: -4 }}
+                className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-4 relative overflow-hidden group"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                    <div className="p-3 bg-[#f8f3ed] text-[#5d4037] rounded-2xl border border-[#d7ccc8]/30">
                       <Tablet className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900">Pinjam HP - {req.kelas}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
+                      <h4 className="font-black text-[#3e2723] font-display italic">Pinjam HP - {req.kelas}</h4>
+                      <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">{req.nomor_surat}</p>
                     </div>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                    'bg-amber-50 text-amber-600'
+                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                    'bg-[#fdfcf0] text-[#8b5e3c] border-[#d7ccc8]/40'
                   }`}>
                     {req.status}
                   </div>
                 </div>
 
                 <div className="py-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daftar Siswa</p>
-                  <p className="text-sm font-bold text-slate-600 leading-relaxed">
+                  <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest mb-2">Daftar Siswa</p>
+                  <p className="text-sm font-bold text-[#5d4037] leading-relaxed">
                     {req.daftar_siswa.join(', ')}
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
+                <div className="pt-4 border-t border-[#f8f3ed] flex items-center justify-between">
+                  <div className="text-[10px] text-[#8b5e3c]/60 font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
                     {req.tgl_request && format(req.tgl_request.toDate(), 'dd MMM yyyy')}
                   </div>
                   <button
                     onClick={() => handleHPRequestPDF(req)}
                     disabled={hpPdfLoading === req.id}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-[#3e2723] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50 shadow-lg shadow-black/10"
                   >
                     {hpPdfLoading === req.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Printer className="w-3.5 h-3.5" />
+                      <Printer className="w-3.5 h-3.5 text-amber-200" />
                     )}
                     Cetak PDF
                   </button>
@@ -1086,9 +1123,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               </motion.div>
             ))}
             {hpRequests.length === 0 && (
-              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Tablet className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada riwayat permohonan</p>
+              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-[#d7ccc8]">
+                <Tablet className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
+                <p className="text-[#8b5e3c]/40 font-black uppercase tracking-widest text-[10px] italic">Belum ada riwayat permohonan</p>
               </div>
             )}
           </div>
@@ -1098,8 +1135,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex flex-col gap-6">
               <div className="px-1">
-                <h2 className="text-3xl font-black text-slate-900 font-display tracking-tight">Perizinan Sakit</h2>
-                <div className="mt-6 flex flex-wrap items-center gap-2 bg-white/50 backdrop-blur-sm p-1.5 rounded-[2rem] border border-slate-200/60 shadow-sm w-fit">
+                <h2 className="text-3xl font-black text-[#3e2723] font-display tracking-tight italic">Perizinan Sakit</h2>
+                <div className="mt-6 flex flex-wrap items-center gap-2 bg-white/50 backdrop-blur-sm p-1.5 rounded-[2rem] border border-[#d7ccc8]/40 shadow-sm w-fit">
                   {[
                     { id: 'hari_ini', label: 'Hari Ini' },
                     { id: 'kemarin', label: 'Kemarin' },
@@ -1112,8 +1149,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       onClick={() => setTimeFilter(cat.id as any)}
                       className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
                         timeFilter === cat.id
-                          ? 'bg-[#0ea5e9] text-white shadow-lg shadow-sky-100'
-                          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                          ? 'bg-[#5d4037] text-white shadow-lg shadow-black/10'
+                          : 'text-[#8b5e3c] hover:text-[#5d4037] hover:bg-[#f8f3ed]'
                       }`}
                     >
                       {cat.label}
@@ -1123,13 +1160,13 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               </div>
 
               <div className="relative group px-1">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-sky-600 transition-colors" />
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40 group-focus-within:text-[#5d4037] transition-colors" />
                 <input
                   type="text"
                   placeholder="Cari nama siswa atau nomor surat..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-14 pr-6 py-5 bg-white border border-slate-200/60 rounded-[2.5rem] shadow-sm focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all outline-none text-sm font-medium"
+                  className="w-full pl-14 pr-6 py-5 bg-white border border-[#d7ccc8]/40 rounded-[2.5rem] shadow-sm focus:ring-4 focus:ring-[#5d4037]/10 focus:border-[#5d4037] transition-all outline-none text-sm font-medium text-[#3e2723] placeholder:text-[#8b5e3c]/30"
                 />
               </div>
 
@@ -1138,24 +1175,24 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   <motion.div
                     key={permit.id}
                     layout
-                    whileHover={{ scale: 1.01 }}
-                    className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-sky-300 transition-all duration-300"
+                    whileHover={{ scale: 1.01, x: 4 }}
+                    className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-[#8b5e3c] transition-all duration-300"
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white shadow-lg ${
                         permit.status === 'approved' ? 'bg-emerald-500 shadow-emerald-100' : 
-                        permit.status === 'pending_kelas' ? 'bg-amber-500 shadow-amber-100' : 'bg-sky-500 shadow-sky-100'
+                        permit.status === 'pending_kelas' ? 'bg-amber-500 shadow-amber-100' : 'bg-[#5d4037] shadow-black/10'
                       }`}>
                         {permit.nama_siswa.charAt(0)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="font-black text-slate-900 font-display">{permit.nama_siswa}</h4>
-                          <span className="px-2 py-0.5 bg-sky-50 text-sky-600 rounded text-[8px] font-black uppercase tracking-tighter border border-sky-100">
+                          <h4 className="font-black text-[#3e2723] font-display italic">{permit.nama_siswa}</h4>
+                          <span className="px-2 py-0.5 bg-[#f8f3ed] text-[#5d4037] rounded text-[8px] font-black uppercase tracking-tighter border border-[#d7ccc8]/20">
                             {permit.kelas}
                           </span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-0.5 italic">
                           {permit.nomor_surat} • {permit.tgl_surat?.toDate ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy') : '-'}
                         </p>
                       </div>
@@ -1165,16 +1202,16 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       <div className="text-right hidden sm:block">
                         <p className={`text-[9px] font-black uppercase tracking-widest ${
                           permit.status === 'approved' ? 'text-emerald-600' :
-                          permit.status === 'pending_kelas' ? 'text-amber-600' : 'text-sky-600'
+                          permit.status === 'pending_kelas' ? 'text-amber-600' : 'text-[#5d4037]'
                         }`}>
                           {permit.status === 'approved' ? 'Disetujui' : 
                            permit.status === 'pending_kelas' ? 'Perlu Persetujuan' : 'Diterima'}
                         </p>
-                        <p className="text-[10px] font-bold text-slate-400">Status Izin</p>
+                        <p className="text-[10px] font-bold text-[#8b5e3c]/40 uppercase">Status Izin</p>
                       </div>
                       <button
                         onClick={() => setSelectedPermit(permit)}
-                        className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-sky-50 hover:text-sky-600 transition-all group-hover:scale-110"
+                        className="p-3 bg-[#fdfcf0] text-[#8b5e3c] rounded-2xl hover:bg-[#f8f3ed] hover:text-[#5d4037] transition-all group-hover:scale-110"
                       >
                         <ChevronRight className="w-5 h-5" />
                       </button>
@@ -1196,16 +1233,16 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {/* Removed pangkalan_data view */}
       
       {showCatatanForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#3e2723]/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="p-6 border-b border-[#d7ccc8]/40 bg-[#fdfcf0] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-xl">
-                  <MessageSquare className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-[#f8f3ed] rounded-xl border border-[#d7ccc8]/30">
+                  <MessageSquare className="w-5 h-5 text-[#5d4037]" />
                 </div>
-                <h3 className="font-black text-slate-900">Input Catatan Guru Mapel</h3>
+                <h3 className="font-black text-[#3e2723] uppercase tracking-tight italic">Input Catatan Guru Mapel</h3>
               </div>
-              <button onClick={() => setShowCatatanForm(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+              <button onClick={() => setShowCatatanForm(false)} className="p-2 hover:bg-[#f8f3ed] rounded-full transition-colors text-[#8b5e3c]">
                 <Plus className="w-6 h-6 rotate-45" />
               </button>
             </div>
@@ -1213,15 +1250,15 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
             <form onSubmit={handleSubmitCatatan} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
+                  <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mb-2">Nama Siswa</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b5e3c]/40" />
                     <input
                       type="text"
                       required
                       value={namaSiswa}
                       onChange={(e) => handleNamaSiswaChange(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      className="w-full pl-12 pr-4 py-4 bg-[#fdfcf0] border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#5d4037]/5 outline-none transition-all text-sm font-medium text-[#3e2723]"
                       placeholder="Nama lengkap siswa"
                     />
                     <AnimatePresence>
@@ -1230,20 +1267,20 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
+                          className="absolute z-50 left-0 right-0 mt-2 bg-white border border-[#d7ccc8]/20 rounded-2xl shadow-xl overflow-hidden"
                         >
                           {filteredStudentsList.map((student) => (
                             <button
                               key={student.id}
                               type="button"
                               onClick={() => selectStudent(student)}
-                              className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                              className="w-full px-4 py-3 text-left hover:bg-[#fdfcf0] flex items-center justify-between group transition-colors"
                             >
                               <div>
-                                <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
+                                <p className="text-sm font-bold text-[#3e2723]">{student.nama_lengkap}</p>
+                                <p className="text-[10px] text-[#8b5e3c]/60 uppercase tracking-wider">{student.kelas}</p>
                               </div>
-                              <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <Check className="w-4 h-4 text-[#5d4037] opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                           ))}
                         </motion.div>
@@ -1252,11 +1289,11 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
+                  <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mb-2">Kelas</label>
                   <select
                     value={kelas}
                     onChange={(e) => setKelas(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all text-sm"
+                    className="w-full px-4 py-4 bg-[#fdfcf0] border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#5d4037]/5 outline-none appearance-none transition-all text-sm font-black text-[#3e2723]"
                   >
                     {WALI_KELAS_LIST.map(wk => (
                       <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
@@ -1264,14 +1301,14 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Isi Catatan / Perkembangan</label>
+                  <label className="block text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mb-2">Isi Catatan / Perkembangan</label>
                   <div className="relative">
-                    <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                    <Activity className="absolute left-4 top-4 w-4 h-4 text-[#8b5e3c]/40" />
                     <textarea
                       required
                       value={isiCatatan}
                       onChange={(e) => setIsiCatatan(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm min-h-[120px]"
+                      className="w-full pl-12 pr-4 py-4 bg-[#fdfcf0] border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#5d4037]/5 outline-none transition-all text-sm min-h-[120px] font-medium text-[#3e2723]"
                       placeholder="Tuliskan perkembangan atau catatan penting siswa..."
                     />
                   </div>
@@ -1281,9 +1318,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-[#5d4037] hover:bg-[#3e2723] text-white font-black rounded-2xl shadow-xl shadow-black/10 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Kirim ke Wali Asuh</>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 text-amber-200" /> Kirim ke Wali Asuh</>}
               </button>
             </form>
           </div>
@@ -1294,12 +1331,12 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
       {viewMode === 'perizinan' && (
         <motion.button 
-          whileHover={{ scale: 1.05 }}
+          whileHover={{ scale: 1.05, y: -2 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowCatatanForm(true)}
-          className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
+          className="fixed bottom-24 right-6 bg-[#3e2723] text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all border-b-4 border-black/20"
         >
-          <Plus className="w-6 h-6" />
+          <Plus className="w-6 h-6 text-amber-200" />
           <span className="text-xs font-black uppercase tracking-widest">Buat Catatan Baru</span>
         </motion.button>
       )}
@@ -1316,32 +1353,32 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
             {memos.map(memo => (
               <motion.div 
                 key={memo.id}
-                whileHover={{ scale: 1.01 }}
+                whileHover={{ scale: 1.01, x: 4 }}
                 onClick={() => setSelectedMemo(memo)}
-                className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 hover:border-indigo-200 transition-all cursor-pointer"
+                className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 hover:border-[#8b5e3c] transition-all cursor-pointer"
               >
-                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                <div className="w-16 h-16 bg-[#fdfcf0] text-[#8b5e3c]/40 rounded-3xl flex items-center justify-center shrink-0 group-hover:bg-[#f8f3ed] group-hover:text-[#5d4037] transition-colors border border-[#d7ccc8]/20">
                   <Mail className="w-8 h-8" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-slate-900 truncate font-display">{memo.perihal}</h3>
+                  <h3 className="text-base font-black text-[#3e2723] truncate font-display italic">{memo.perihal}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dari: {memo.pengirim_name}</span>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Dari: {memo.pengirim_name}</span>
+                    <span className="text-[#d7ccc8]/40">•</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest italic">
                       {memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
                     </span>
                   </div>
                 </div>
-                <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-indigo-600 transition-all">
+                <div className="p-2 bg-[#fdfcf0] rounded-xl text-[#d7ccc8] group-hover:text-[#5d4037] transition-all">
                   <ChevronRight className="w-5 h-5" />
                 </div>
               </motion.div>
             ))}
             {memos.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Mail className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada memorandum</p>
+              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-[#d7ccc8]">
+                <Mail className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
+                <p className="text-[#8b5e3c]/40 font-black uppercase tracking-widest text-[10px] italic">Belum ada memorandum</p>
               </div>
             )}
           </div>
@@ -1456,7 +1493,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-[#fdfcf0] border-t border-[#d7ccc8]/40 flex gap-3">
               {selectedPermit.status === 'pending_kelas' && (
                 <button
                   onClick={() => {
@@ -1473,14 +1510,14 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   onClick={() => {
                     handleGeneratePDF(selectedPermit);
                   }}
-                  className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2"
                 >
-                  {pdfLoading === selectedPermit.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Printer className="w-4 h-4" /> Cetak PDF</>}
+                  {pdfLoading === selectedPermit.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Printer className="w-4 h-4 text-amber-200" /> Cetak PDF</>}
                 </button>
               )}
               <button
                 onClick={() => setSelectedPermit(null)}
-                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#f8f3ed] transition-all"
               >
                 Tutup
               </button>
@@ -1490,21 +1527,21 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       )}
 
       {confirmApproveId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#3e2723]/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-8 text-center">
+            <div className="p-8 text-center text-[#3e2723]">
               <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 className="w-10 h-10 text-emerald-600" />
               </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2 font-display">Konfirmasi Setujui</h3>
-              <p className="text-slate-500 text-sm font-medium">
+              <h3 className="text-xl font-black mb-2 font-display italic">Konfirmasi Setujui</h3>
+              <p className="text-[#8b5e3c] text-sm font-medium">
                 Apakah Anda yakin ingin menyetujui perizinan sakit siswa ini? Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-[#fdfcf0] border-t border-[#d7ccc8]/40 flex gap-3">
               <button
                 onClick={() => setConfirmApproveId(null)}
-                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#f8f3ed] transition-all"
               >
                 Batal
               </button>
@@ -1524,19 +1561,19 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       )}
 
       {selectedMemo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#3e2723]/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="p-6 border-b border-[#d7ccc8]/40 bg-[#fdfcf0] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-xl">
-                  <Mail className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-[#f8f3ed] rounded-xl border border-[#d7ccc8]/30">
+                  <Mail className="w-5 h-5 text-[#5d4037]" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900">Memorandum Intern</h3>
-                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedMemo.nomor_memo}</p>
+                  <h3 className="font-black text-[#3e2723] uppercase tracking-tight italic">Memorandum Intern</h3>
+                  <p className="text-[10px] text-[#8b5e3c]/60 font-mono uppercase tracking-wider">{selectedMemo.nomor_memo}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedMemo(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+              <button onClick={() => setSelectedMemo(null)} className="p-2 hover:bg-[#f8f3ed] rounded-full transition-colors text-[#8b5e3c]">
                 <Plus className="w-6 h-6 rotate-45" />
               </button>
             </div>
@@ -1544,36 +1581,36 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dari</label>
-                  <p className="font-black text-slate-900 flex items-center gap-1.5 font-display">
-                    <ShieldCheck className="w-4 h-4 text-indigo-600" /> {selectedMemo.pengirim_name}
+                  <label className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Dari</label>
+                  <p className="font-black text-[#3e2723] flex items-center gap-1.5 font-display italic">
+                    <ShieldCheck className="w-4 h-4 text-[#5d4037]" /> {selectedMemo.pengirim_name}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</label>
-                  <p className="font-black text-slate-900 font-display">
+                  <label className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Tanggal</label>
+                  <p className="font-black text-[#3e2723] font-display italic">
                     {selectedMemo.tgl_memo && typeof selectedMemo.tgl_memo.toDate === 'function' ? format(selectedMemo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perihal</label>
-                <p className="text-xl font-black text-slate-900 leading-tight font-display">{selectedMemo.perihal}</p>
+                <label className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Perihal</label>
+                <p className="text-xl font-black text-[#3e2723] leading-tight font-display italic">{selectedMemo.perihal}</p>
               </div>
 
-              <div className="space-y-1 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Isi Pesan</label>
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedMemo.isi}</p>
+              <div className="space-y-1 pt-4 border-t border-[#d7ccc8]/20 text-[#3e2723]">
+                <label className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Isi Pesan</label>
+                <div className="p-6 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/30">
+                  <p className="text-sm text-[#5d4037] leading-relaxed whitespace-pre-wrap font-medium">{selectedMemo.isi}</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/40 flex gap-3">
               <button
                 onClick={() => setSelectedMemo(null)}
-                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all"
+                className="flex-1 py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#f8f3ed] transition-all"
               >
                 Tutup
               </button>
@@ -1582,9 +1619,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   generateMemorandumPDF(selectedMemo);
                   setSelectedMemo(null);
                 }}
-                className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2"
               >
-                <Printer className="w-4 h-4" /> Cetak PDF
+                <Printer className="w-4 h-4 text-amber-200" /> Cetak PDF
               </button>
             </div>
           </div>

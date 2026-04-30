@@ -151,7 +151,8 @@
         "authorName": { "type": "string" },
         "authorUid": { "type": "string" },
         "authorRole": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["content", "authorName", "authorUid", "authorRole", "createdAt"]
     }

@@ -25,8 +25,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Emergency access for the master admin or kepala_sekolah with verified email
-      return isMasterAdmin() || (isEmailVerified() && getUserData().role == 'kepala_sekolah');
+      // Primary admin is the master admin account.
+      // Secondary admin check: Any user with kepala_sekolah role.
+      return isMasterAdmin() || (isSignedIn() && getUserData().role == 'kepala_sekolah');
     }
     
     function isMasterAdmin() {
@@ -101,12 +102,12 @@ service cloud.firestore {
     }
 
     function isValidMadingPost(data) {
-      return data.keys().hasAll(['content', 'authorName', 'authorUid', 'authorRole', 'createdAt']) &&
-             data.content is string && data.content.size() <= 2000 &&
-             data.authorName is string && data.authorName.size() <= 128 &&
-             data.authorUid == request.auth.uid &&
-             data.authorRole in ['dokter', 'wali_asuh', 'wali_kelas', 'kepala_sekolah', 'guru_mapel', 'wali_asrama'] &&
-             data.createdAt == request.time;
+      return data.content is string && data.content.size() <= 3000 &&
+             (!('authorName' in data) || (data.authorName is string)) &&
+             (!('authorUid' in data) || (data.authorUid == request.auth.uid)) &&
+             (!('authorRole' in data) || (data.authorRole is string)) &&
+             (!('createdAt' in data) || (data.createdAt == request.time)) &&
+             (!('updatedAt' in data) || (data.updatedAt == request.time));
     }
 
     function isValidId(id) { 
@@ -240,7 +241,12 @@ service cloud.firestore {
     match /mading/{postId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidMadingPost(incoming());
-      allow delete: if isAdmin() || (isSignedIn() && existing().authorUid == request.auth.uid);
+      allow update: if isSignedIn() && 
+                    (isAdmin() || (existing().authorUid == request.auth.uid)) &&
+                    isValidMadingPost(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']);
+      allow delete: if isSignedIn() && 
+                    (isAdmin() || (existing().authorUid == request.auth.uid));
     }
   }
 }

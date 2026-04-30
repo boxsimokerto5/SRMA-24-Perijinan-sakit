@@ -48,21 +48,23 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-red-100 text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Oops! Terjadi Kesalahan</h2>
-            <p className="text-slate-500 text-sm mb-6">
+        <div className="min-h-screen bg-[#f8f3ed] flex items-center justify-center p-4 font-sans text-[#3e2723]">
+          <div className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border-b-8 border-[#5d4037] text-center">
+            <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-rose-500" />
+            </div>
+            <h2 className="text-2xl font-black mb-2 font-display italic">Oops! Terjadi Kesalahan</h2>
+            <p className="text-[#8b5e3c]/60 text-sm mb-8 font-medium">
               Aplikasi mengalami kendala teknis. Silakan muat ulang halaman.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all"
+              className="w-full py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] transition-all shadow-lg shadow-[#5d4037]/20 uppercase tracking-widest text-xs"
             >
-              Muat Ulang
+              Muat Ulang Sistem
             </button>
             {process.env.NODE_ENV === 'development' && (
-              <pre className="mt-6 p-4 bg-slate-900 text-slate-100 text-[10px] text-left overflow-auto rounded-lg max-h-40">
+              <pre className="mt-8 p-6 bg-[#3e2723] text-amber-100/70 text-[10px] text-left overflow-auto rounded-3xl max-h-40 font-mono border border-white/5">
                 {JSON.stringify(this.state.error, null, 2)}
               </pre>
             )}
@@ -132,10 +134,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f8f3ed] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 font-medium animate-pulse">Memuat aplikasi...</p>
+          <Loader2 className="w-10 h-10 text-[#5d4037] animate-spin mx-auto mb-4" />
+          <p className="text-[#8b5e3c] font-black uppercase tracking-widest text-[10px] animate-pulse italic">Memuat aplikasi...</p>
         </div>
       </div>
     );
@@ -143,21 +145,23 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-red-100 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Kesalahan Koneksi</h2>
-          <p className="text-slate-500 text-sm mb-6">{error}</p>
+      <div className="min-h-screen bg-[#f8f3ed] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border-b-8 border-rose-500 text-center">
+          <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-rose-500" />
+          </div>
+          <h2 className="text-2xl font-black text-[#3e2723] mb-2 font-display italic">Kesalahan Koneksi</h2>
+          <p className="text-[#8b5e3c]/60 text-sm mb-8 font-medium italic">{error}</p>
           <div className="space-y-3">
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all"
+              className="w-full py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] transition-all shadow-xl shadow-[#5d4037]/20 uppercase tracking-widest text-xs"
             >
               Coba Lagi
             </button>
             <button
               onClick={() => auth.signOut()}
-              className="w-full py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all"
+              className="w-full py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#f8f3ed] transition-all shadow-sm uppercase tracking-widest text-xs"
             >
               Keluar / Ganti Akun
             </button>
@@ -180,14 +184,19 @@ export default function App() {
         hideChrome={['wali_asuh', 'dokter', 'wali_kelas', 'guru_mapel', 'kepala_sekolah', 'wali_asrama'].includes(appUser.role)}
       >
         {!user.emailVerified && (
-          <div className="fixed top-20 left-4 right-4 z-[100] bg-amber-50 border border-amber-200 p-3 rounded-2xl shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+          <div className="fixed top-20 left-4 right-4 z-[100] bg-[#fdfcf0] border border-[#d7ccc8]/40 p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-xl">
-                <Mail className="w-4 h-4 text-amber-600" />
+              <div className="p-2.5 bg-[#f8f3ed] rounded-2xl border border-[#d7ccc8]/20 text-[#5d4037]">
+                <Mail className="w-5 h-5" />
               </div>
-              <p className="text-[10px] font-bold text-amber-800 leading-tight">
-                Email belum diverifikasi. Cek inbox Anda untuk keamanan akun.
-              </p>
+              <div>
+                <p className="text-[10px] font-black text-[#3e2723] leading-none uppercase tracking-widest">
+                  Verifikasi Email
+                </p>
+                <p className="text-[9px] font-bold text-[#8b5e3c]/60 mt-1 italic">
+                  Cek inbox Anda untuk keamanan akun maksimal.
+                </p>
+              </div>
             </div>
             <button 
               onClick={async () => {
@@ -198,7 +207,7 @@ export default function App() {
                   alert('Error sending email');
                 }
               }}
-              className="px-3 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-amber-200 shrink-0"
+              className="px-6 py-2.5 bg-[#5d4037] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-xl shadow-black/10 shrink-0 hover:bg-[#3e2723] transition-all"
             >
               Kirim Lagi
             </button>

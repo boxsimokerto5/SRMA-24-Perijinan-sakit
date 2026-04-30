@@ -22,7 +22,7 @@ export interface AppUser {
   fcmToken?: string;
 }
 
-export type PermitStatus = 'pending_asuh' | 'pending_kelas' | 'approved' | 'pending_ack' | 'acknowledged';
+export type PermitStatus = 'pending_asuh' | 'pending_kelas' | 'approved' | 'rejected' | 'pending_ack' | 'acknowledged';
 export type PermitType = 'sakit' | 'umum' | 'catatan';
 
 export interface LogTindakan {
@@ -164,6 +164,7 @@ export interface MadingPost {
   authorUid: string;
   authorRole: UserRole;
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export const normalizeKelas = (kelas: string): string => {

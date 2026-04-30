@@ -43,7 +43,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -90,22 +90,22 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     {
       id: 'def-1',
       title: "Informasi Kesehatan",
-      content: "Jaga kebersihan diri dan lingkungan asrama untuk mencegah penyebaran penyakit.",
-      color: "from-indigo-600 to-violet-600",
+      content: "Jaga kebersihan diri dan lingkungan asrama agar tetap sehat dan produktif.",
+      color: "from-[#5d4037] to-[#8b5e3c]",
       icon: Info
     },
     {
       id: 'def-2',
-      title: "Update Sistem",
-      content: "Fitur Kartu Siswa kini lebih lengkap dengan data orang tua dan alamat.",
-      color: "from-emerald-600 to-teal-600",
+      title: "Sistem Terpadu",
+      content: "Data siswa kini terhubung dengan pangkalan data asrama secara real-time.",
+      color: "from-[#8b5e3c] to-[#c0b298]",
       icon: BarChart3
     },
     {
       id: 'def-3',
-      title: "Pemberitahuan",
-      content: "Pastikan semua perizinan sakit telah diverifikasi oleh dokter UKS.",
-      color: "from-amber-500 to-orange-600",
+      title: "Update Keamanan",
+      content: "Selalu verifikasi izin keluar masuk siswa melalui panel konfirmasi resmi.",
+      color: "from-[#5d4037] to-[#3e2723]",
       icon: Bell
     }
   ];
@@ -848,6 +848,27 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     mading: 'Mading Sekolah'
   };
 
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      dokter: 'Dokter',
+      wali_asuh: 'Wali Asuh',
+      wali_kelas: 'Wali Kelas',
+      kepala_sekolah: 'Kepala Sekolah',
+      guru_mapel: 'Guru Mapel',
+      wali_asrama: 'Wali Asrama'
+    };
+    return labels[role] || role;
+  };
+
+  const features = [
+    'Input Perizinan Siswa (Sakit/Umum)',
+    'Input Surat Memorandum Siswa',
+    'Review Riwayat Perizinan Siswa',
+    'Review & Print Surat Perizinan',
+    'Pangkalan Data Wali Asuh Terpadu',
+    'Berbagi Catatan di Mading Sekolah'
+  ];
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
       {/* Sidebar Navigation */}
@@ -1028,18 +1049,18 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                             <button
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`w-full p-4 flex items-start gap-4 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 relative group ${
+                              className={`w-full p-4 flex items-start gap-4 hover:bg-[#fdfcf0] transition-colors text-left border-b border-[#f8f3ed] relative group ${
                                 notif.readBy.includes(user.uid) ? 'opacity-60' : ''
                               }`}
                             >
                               {!notif.readBy.includes(user.uid) && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600" />
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#5d4037]" />
                               )}
                               <div className={`p-2 rounded-xl shrink-0 ${
                                 notif.type === 'success' ? 'bg-emerald-50 text-emerald-600' :
                                 notif.type === 'error' ? 'bg-rose-50 text-rose-600' :
                                 notif.type === 'warning' ? 'bg-amber-50 text-amber-600' :
-                                'bg-indigo-50 text-indigo-600'
+                                'bg-[#f8f3ed] text-[#5d4037]'
                               }`}>
                                 {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> :
                                  notif.type === 'error' ? <X className="w-4 h-4" /> :
@@ -1047,9 +1068,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                                  <Bell className="w-4 h-4" />}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h5 className={`text-xs font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{notif.title}</h5>
-                                <p className={`text-[10px] line-clamp-2 mt-0.5 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{notif.description}</p>
-                                <span className="text-[8px] font-bold text-slate-400 mt-2 block uppercase tracking-tighter">
+                                <h5 className="text-xs font-black truncate text-[#3e2723] italic font-display">{notif.title}</h5>
+                                <p className="text-[10px] line-clamp-2 mt-0.5 leading-relaxed text-[#8b5e3c]/80 font-medium">{notif.description}</p>
+                                <span className="text-[8px] font-black text-[#8b5e3c]/40 mt-2 block uppercase tracking-widest italic">
                                   {notif.createdAt && typeof notif.createdAt.toDate === 'function' ? format(notif.createdAt.toDate(), 'HH:mm, dd MMM') : '-'}
                                 </span>
                               </div>
@@ -1065,7 +1086,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       
                       <button 
                         onClick={() => setShowNotifications(false)}
-                        className="w-full py-4 bg-slate-50 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:bg-slate-100 transition-colors"
+                        className="w-full py-4 bg-[#f8f3ed] text-[10px] font-black text-[#5d4037] uppercase tracking-widest hover:bg-[#ede8dd] transition-colors"
                       >
                         Tutup Panel
                       </button>
@@ -1075,17 +1096,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </AnimatePresence>
             </div>
 
-            <button className={`p-3 rounded-2xl transition-all duration-300 ${
-              isDarkMode 
-                ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20' 
-                : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700'
-            } active:scale-95 ml-1`}>
-              <User className="w-5 h-5" />
+            <button className="p-3 rounded-2xl transition-all duration-300 bg-[#3e2723] text-white shadow-xl shadow-black/20 hover:bg-black active:scale-95 ml-1">
+              <User className="w-5 h-5 text-amber-200" />
             </button>
           </div>
         </div>
         {/* Subtle accent line */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-30" />
+        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#8b5e3c] to-transparent opacity-30" />
       </header>
 
       {/* Top Banner / Announcement (Mobile Native Style) */}
@@ -1098,15 +1115,15 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             className="overflow-hidden"
           >
             <div className="max-w-7xl mx-auto px-4 pt-4">
-              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color} p-4 text-white shadow-lg ${isDarkMode ? 'shadow-black/20' : 'shadow-indigo-100'}`}>
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#8b5e3c] to-[#c0b298]'} p-4 text-white shadow-lg shadow-black/10`}>
                 <div className="relative z-10 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5" })}
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5 text-amber-200" })}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80">{banners[bannerIndex].title}</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
                         <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
                           {banners[bannerIndex].author || 'Sistem'}
                         </span>
@@ -1132,13 +1149,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       {/* Shrunken Real-time Clock Bar */}
       <div className="max-w-7xl mx-auto w-full px-4 mt-3">
-        <div className={`p-[1px] rounded-xl ${isDarkMode ? 'bg-slate-800' : 'bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20'}`}>
-          <div className={`flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] ${isDarkMode ? 'bg-slate-900' : 'bg-white/80'} backdrop-blur-sm`}>
-            <span className="w-1 h-1 bg-indigo-500 rounded-full animate-ping" />
-            <p className={`text-[8px] font-bold uppercase tracking-[0.2em] flex items-center gap-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
+          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
               {formatRealTime(currentTime)}
             </p>
-            <span className="w-1 h-1 bg-indigo-500 rounded-full animate-ping" />
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
           </div>
         </div>
       </div>
@@ -1160,18 +1177,50 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
         {viewMode === 'home' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="bg-gradient-to-br from-[#5d4037] to-[#3e2723] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-black/20">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+              <div className="relative z-10">
+                <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Halo, {user.name || user.email}</h1>
+                <p className="text-lg font-black text-amber-100 flex items-center gap-2 mb-6 italic">
+                  <ShieldCheck className="w-5 h-5 text-amber-200" />
+                  {getRoleLabel(user.role || 'wali_asuh')}
+                </p>
+                
+                <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/10 shadow-inner">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[#fdfcf0] mb-4 flex items-center gap-2 italic">
+                    <LayoutDashboard className="w-4 h-4 text-amber-200" />
+                    Daftar Fitur Akun:
+                  </h3>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {features.map((f, i) => (
+                      <motion.li 
+                        key={i} 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-center gap-3 text-xs font-black text-[#fdfcf0] italic"
+                      >
+                        <div className="w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                        {f}
+                      </motion.li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Selamat Datang {user.email}</h2>
+              <h2 className="text-xl font-black text-[#3e2723] font-display italic">Klik Menu Cepat:</h2>
               <div className="flex gap-4 mt-6">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="flex-1 py-3 px-6 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95"
+                  className="flex-1 py-4 px-6 bg-[#3e2723] text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-[10px]"
                 >
                   Lihat Perizinan
                 </button>
                 <button
                   onClick={() => setViewMode('kartu_siswa')}
-                  className="flex-1 py-3 px-6 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95"
+                  className="flex-1 py-4 px-6 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl hover:bg-[#3e2723] transition-all active:scale-95 uppercase tracking-widest text-[10px]"
                 >
                   Lihat Siswa
                 </button>
@@ -1179,10 +1228,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
 
             {/* Information Card */}
-            <div className={`bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}>
-              <div className="p-6 flex items-center justify-between border-b border-slate-100">
-                <h3 className={`font-black text-lg ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Informasi Wali Asuh</h3>
-                <button className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50 transition-all">
+            <div className="bg-white rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm overflow-hidden">
+              <div className="p-6 flex items-center justify-between border-b border-[#f8f3ed]">
+                <h3 className="font-black text-lg text-[#3e2723] font-display italic tracking-tight">Informasi Wali Asuh</h3>
+                <button className="px-6 py-2 bg-white border border-[#d7ccc8]/40 rounded-xl text-[10px] font-black text-[#8b5e3c] shadow-sm hover:bg-[#f8f3ed] transition-all uppercase tracking-widest">
                   Detail Profil
                 </button>
               </div>
@@ -1190,52 +1239,52 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <div className="p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
                   <div className="flex justify-between items-center group">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Nama Jabatan</span>
-                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Wali Asuh SRMA 24</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Nama Jabatan</span>
+                    <span className="text-sm font-black text-[#3e2723] italic">Wali Asuh SRMA 24</span>
                   </div>
                   <div className="flex flex-col space-y-2">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Link Dashboard</span>
-                    <div className="flex items-center gap-2 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100 group">
-                      <p className="text-xs font-medium text-indigo-600 truncate flex-1 leading-none">
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Link Dashboard</span>
+                    <div className="flex items-center gap-2 p-3 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/30 group">
+                      <p className="text-[10px] font-black text-[#5d4037] truncate flex-1 leading-none italic">
                         https://srma24kediri.app/dashboard/{user.uid}
                       </p>
-                      <button className="p-1.5 bg-white rounded-lg shadow-sm text-indigo-400">
+                      <button className="p-1.5 bg-white rounded-lg shadow-sm text-[#8b5e3c] border border-[#d7ccc8]/20">
                         <ClipboardList className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Status Akun</span>
-                    <span className="px-4 py-1 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">AKTIF</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Status Akun</span>
+                    <span className="px-4 py-1.5 bg-[#3e2723] text-white text-[9px] font-black rounded-full uppercase tracking-widest">AKTIF</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Kategori Peran</span>
-                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Verifikator</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Kategori Peran</span>
+                    <span className="text-sm font-black text-[#3e2723] italic">Verifikator</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Tipe Akses</span>
-                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Full Access</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Tipe Akses</span>
+                    <span className="text-sm font-black text-[#3e2723] italic">Full Access</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Verifikasi Email</span>
-                    <span className={`text-sm font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>{auth.currentUser?.emailVerified ? 'Sudah' : 'Belum'}</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Verifikasi Email</span>
+                    <span className="text-sm font-black text-[#3e2723] italic">{auth.currentUser?.emailVerified ? 'Sudah' : 'Belum'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Ulasan Sistem</span>
+                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Ulasan Sistem</span>
                     <div className="flex gap-1">
                       {[1, 2, 3, 4, 5].map((s) => (
-                        <Star key={s} className="w-4 h-4 fill-orange-500 text-orange-500" />
+                        <Star key={s} className="w-4 h-4 fill-amber-500 text-amber-500" />
                       ))}
-                      <span className="ml-2 text-sm font-black text-slate-900">5.0</span>
+                      <span className="ml-2 text-sm font-black text-[#3e2723] italic">5.0</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 bg-slate-50/50 border-t border-slate-100">
+              <div className="p-6 bg-[#fdfcf0]/50 border-t border-[#f8f3ed]">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="px-6 py-3 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-300 transition-all text-sm"
+                  className="px-6 py-3 bg-[#f8f3ed] text-[#5d4037] font-black rounded-xl shadow-sm hover:bg-[#d7ccc8]/20 transition-all text-[10px] uppercase tracking-widest"
                 >
                   Lihat Data Dasbor
                 </button>
@@ -1263,60 +1312,61 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             {/* Feature Cards / Bento Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { title: 'Izin Pulang', desc: 'Keperluan keluarga atau mendesak', icon: Home, color: 'text-amber-600', bg: 'bg-amber-100' },
-                { title: 'Izin Kegiatan', desc: 'Lomba atau acara luar sekolah', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-                { title: 'Izin Mendadak', desc: 'Keadaan darurat / force majeure', icon: Info, color: 'text-rose-600', bg: 'bg-rose-100' }
+                { title: 'Izin Pulang', desc: 'Keperluan keluarga atau mendesak', icon: Home, color: 'text-amber-800', bg: 'bg-amber-100' },
+                { title: 'Izin Kegiatan', desc: 'Lomba atau acara luar sekolah', icon: Users, color: 'text-[#5d4037]', bg: 'bg-[#f8f3ed]' },
+                { title: 'Izin Mendadak', desc: 'Keadaan darurat / force majeure', icon: Info, color: 'text-rose-800', bg: 'bg-rose-100' }
               ].map((f, i) => (
-                <div key={i} className={`p-6 rounded-[2.5rem] ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} border shadow-sm`}>
-                  <div className={`p-4 ${f.bg} ${f.color} rounded-2xl w-fit mb-4`}>
+                <div key={i} className="p-6 rounded-[2.5rem] bg-white border border-[#d7ccc8]/40 shadow-sm">
+                  <div className={`p-4 ${f.bg} ${f.color} rounded-2xl w-fit mb-4 border border-black/5`}>
                     <f.icon className="w-6 h-6" />
                   </div>
-                  <h3 className={`font-black uppercase tracking-widest text-xs mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{f.title}</h3>
-                  <p className={`text-xs font-bold leading-relaxed opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{f.desc}</p>
+                  <h3 className="font-black uppercase tracking-widest text-[10px] mb-2 text-[#3e2723] italic">{f.title}</h3>
+                  <p className="text-[10px] font-bold leading-relaxed opacity-60 text-[#8b5e3c] italic uppercase tracking-tighter">{f.desc}</p>
                 </div>
               ))}
             </div>
 
-            <div className={`bg-white rounded-[3rem] border border-slate-100 overflow-hidden shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}>
-              <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+            <div className="bg-white rounded-[3rem] border border-[#d7ccc8]/40 overflow-hidden shadow-sm">
+              <div className="p-8 border-b border-[#f8f3ed] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <div className="p-2 bg-[#f8f3ed] text-[#5d4037] rounded-xl border border-[#d7ccc8]/20">
                     <History className="w-5 h-5" />
                   </div>
-                  <h3 className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Riwayat Izin Umum Anda</h3>
+                  <h3 className="font-black uppercase tracking-widest text-[10px] text-[#3e2723] italic">Riwayat Izin Umum Anda</h3>
                 </div>
               </div>
               
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-[#f8f3ed]">
                 {permits.filter(p => p.tipe === 'umum').length > 0 ? (
                   permits.filter(p => p.tipe === 'umum').map((permit) => (
-                    <div key={permit.id} className="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                    <div key={permit.id} className="p-6 hover:bg-[#fdfcf0] transition-colors flex items-center justify-between group">
                       <div className="flex items-center gap-5">
-                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                        <div className="w-12 h-12 bg-[#f8f3ed] rounded-2xl flex items-center justify-center font-black text-[#d7ccc8] group-hover:bg-[#5d4037] group-hover:text-[#fdfcf0] transition-colors shadow-inner">
                           {permit.nama_siswa.charAt(0)}
                         </div>
                         <div>
-                          <h4 className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900 font-display'}`}>{permit.nama_siswa}</h4>
+                          <h4 className="font-black text-sm text-[#3e2723] font-display italic tracking-tight">{permit.nama_siswa}</h4>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{permit.kelas}</span>
-                            <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{permit.alasan}</span>
+                            <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">{permit.kelas}</span>
+                            <span className="w-1 h-1 bg-[#d7ccc8] rounded-full" />
+                            <span className="text-[10px] font-black text-[#5d4037] uppercase tracking-widest italic">{permit.alasan}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right hidden sm:block">
-                          <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Status</p>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mt-1 ${
-                            permit.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                            'bg-amber-100 text-amber-700'
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#8b5e3c]/40">Status</p>
+                          <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-1 border shadow-sm ${
+                            permit.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            permit.status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                            'bg-amber-50 text-amber-700 border-amber-100'
                           }`}>
                             {permit.status.replace('_', ' ')}
                           </span>
                         </div>
                         <button 
                           onClick={() => setSelectedPermit(permit)}
-                          className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 shadow-sm transition-all"
+                          className="p-3 bg-white border border-[#d7ccc8]/40 rounded-2xl text-[#d7ccc8] hover:text-[#5d4037] shadow-sm transition-all hover:bg-[#f8f3ed]"
                         >
                           <ChevronRight className="w-5 h-5" />
                         </button>
@@ -1325,10 +1375,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   ))
                 ) : (
                   <div className="p-20 text-center space-y-4">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-                      <ClipboardList className="w-8 h-8 text-slate-300" />
+                    <div className="w-20 h-20 bg-[#f8f3ed] rounded-full flex items-center justify-center mx-auto border-2 border-dashed border-[#d7ccc8]/40">
+                      <ClipboardList className="w-8 h-8 text-[#d7ccc8]" />
                     </div>
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Belum ada riwayat izin umum<br/>yang Anda ajukan.</p>
+                    <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest leading-relaxed">Belum ada riwayat izin umum<br/>yang Anda ajukan.</p>
                   </div>
                 )}
               </div>
@@ -1342,60 +1392,60 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             {/* Card 1: Total Perizinan */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 group transition-all"
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#f8f3ed] rounded-full transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-indigo-600 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-indigo-100 mb-4">
+                <div className="bg-[#5d4037] p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-black/10 mb-4">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 font-display">{stats.total}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Izin</p>
+                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.total}</h3>
+                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Total Izin</p>
               </div>
             </motion.div>
 
             {/* Card 2: Izin Selesai */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 group transition-all"
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
             >
               <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full transition-transform group-hover:scale-110" />
               <div className="relative z-10">
                 <div className="bg-emerald-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-emerald-100 mb-4">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 font-display">{stats.selesai}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Selesai</p>
+                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.selesai}</h3>
+                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Selesai</p>
               </div>
             </motion.div>
 
             {/* Card 3: Perlu Persetujuan */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 group transition-all"
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#fdfcf0] rounded-full transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-blue-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-blue-100 mb-4">
+                <div className="bg-[#8b5e3c] p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-black/10 mb-4">
                   <Clock className="w-5 h-5" />
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 font-display">{stats.pending}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Pending</p>
+                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.pending}</h3>
+                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Pending</p>
               </div>
             </motion.div>
 
             {/* Card 4: Memorandum */}
             <motion.div 
               whileHover={{ y: -4 }}
-              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 group transition-all"
+              className="relative overflow-hidden bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40 group transition-all"
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-50 rounded-full transition-transform group-hover:scale-110" />
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#f8f3ed] rounded-full transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <div className="bg-orange-500 p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-orange-100 mb-4">
+                <div className="bg-[#3e2723] p-2.5 w-fit rounded-2xl text-white shadow-lg shadow-black/10 mb-4">
                   <Mail className="w-5 h-5" />
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 font-display">{stats.memos}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Memo</p>
+                <h3 className="text-3xl font-black text-[#3e2723] font-display italic leading-none">{stats.memos}</h3>
+                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Memo</p>
               </div>
             </motion.div>
           </div>
@@ -1444,42 +1494,42 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           <div className="space-y-6">
             {/* Filters & Search - Restored */}
             <div className="space-y-6">
-              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                {[ 
-                  { id: 'hari_ini', label: 'Hari Ini' },
-                  { id: 'kemarin', label: 'Kemarin' },
-                  { id: 'minggu_ini', label: 'Minggu Ini' },
-                  { id: 'bulan_ini', label: 'Bulan Ini' },
-                  { id: 'semua', label: 'Semua' }
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setTimeFilter(cat.id as any)}
-                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                      timeFilter === cat.id
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                        : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
+          <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+            {[ 
+              { id: 'hari_ini', label: 'Hari Ini' },
+              { id: 'kemarin', label: 'Kemarin' },
+              { id: 'minggu_ini', label: 'Minggu Ini' },
+              { id: 'bulan_ini', label: 'Bulan Ini' },
+              { id: 'semua', label: 'Semua' }
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setTimeFilter(cat.id as any)}
+                className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                  timeFilter === cat.id
+                    ? 'bg-[#5d4037] text-white shadow-xl shadow-black/10 border-black/20 translate-y-[-2px]'
+                    : 'bg-white text-[#8b5e3c] border-[#d7ccc8]/40 hover:border-[#d7ccc8] border-b-white'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari nama siswa atau nomor surat..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-                </div>
+          <div className="bg-[#fdfcf0] p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-4 animate-in slide-in-from-top-4 duration-300">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa atau nomor surat..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-white border border-[#d7ccc8]/30 rounded-2xl focus:ring-2 focus:ring-[#5d4037] outline-none transition-all"
+                />
               </div>
+            </div>
+          </div>
             </div>
 
           {/* Memorandum Section */}
@@ -1945,20 +1995,20 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex flex-col gap-6">
             <div className="px-1">
-              <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Kartu Siswa</h2>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Data Lengkap Siswa Asuhan</p>
+              <h2 className="text-2xl font-black text-[#3e2723] font-display tracking-tight italic">Kartu Siswa</h2>
+              <p className="text-xs font-bold text-[#8b5e3c]/60 uppercase tracking-widest mt-2 italic">Data Lengkap Siswa Asuhan</p>
             </div>
 
             {/* Search and Filter */}
             <div className="flex flex-col gap-4">
               <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40 group-focus-within:text-[#5d4037] transition-colors" />
                 <input
                   type="text"
                   placeholder="Cari nama atau NIK siswa..."
                   value={studentSearchTerm}
                   onChange={(e) => handleStudentCardSearchChange(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-medium"
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-[#d7ccc8]/40 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-[#5d4037]/10 focus:border-[#5d4037] transition-all outline-none text-sm font-medium text-[#3e2723] placeholder:text-[#8b5e3c]/30"
                 />
                 <AnimatePresence>
                   {showStudentSuggestions && studentSuggestions.length > 0 && (
@@ -2027,27 +2077,27 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 >
                   {/* Premium Background Elements */}
                   <div className="absolute inset-0 opacity-[0.05] pointer-events-none">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(79,70,229,1)_1px,transparent_0)] bg-[size:24px_24px]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(93,64,55,1)_1px,transparent_0)] bg-[size:24px_24px]" />
                   </div>
-                  <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px]" />
-                  <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-purple-500/5 rounded-full blur-[80px]" />
+                  <div className="absolute -right-20 -top-20 w-64 h-64 bg-[#8b5e3c]/5 rounded-full blur-[80px]" />
+                  <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-[#5d4037]/5 rounded-full blur-[80px]" />
                   
                   {/* Decorative Side Label */}
-                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center justify-center border-l dark:border-slate-800">
-                    <span className="rotate-90 text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.3em] whitespace-nowrap">
+                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-[#fdfcf0] dark:bg-[#3e2723]/50 flex flex-col items-center justify-center border-l border-[#d7ccc8]/40">
+                    <span className="rotate-90 text-[8px] font-black text-[#8b5e3c]/40 dark:text-[#8b5e3c]/20 uppercase tracking-[0.3em] whitespace-nowrap">
                       STUDENT • SRMA 24
                     </span>
                   </div>
 
                   {/* ID Card Header */}
-                  <div className="h-16 bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 flex items-center justify-between relative overflow-hidden">
+                  <div className="h-16 bg-gradient-to-r from-[#5d4037] to-[#8b5e3c] px-8 flex items-center justify-between relative overflow-hidden">
                     <div className="flex items-center gap-3 relative z-10">
                       <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 shadow-lg group-hover:scale-110 transition-transform duration-500">
-                        <GraduationCap className="w-5 h-5 text-white" />
+                        <GraduationCap className="w-5 h-5 text-amber-200" />
                       </div>
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-white leading-none uppercase tracking-tight">SRMA 24 KEDIRI</span>
-                        <span className="text-[8px] font-bold text-indigo-200 uppercase tracking-[0.2em] mt-1">SEKOLAH RAKYAT</span>
+                        <span className="text-[8px] font-bold text-amber-200/60 uppercase tracking-[0.2em] mt-1">SEKOLAH RAKYAT</span>
                       </div>
                     </div>
                     
@@ -2060,29 +2110,29 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   <div className="p-8 flex gap-8 items-start h-full pb-16">
                     {/* Professional Photo Frame */}
                     <div className="relative group/photo shrink-0">
-                      <div className="w-28 h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden shadow-inner border-4 border-white dark:border-slate-700 flex flex-col items-center justify-center group-hover:border-indigo-100 dark:group-hover:border-indigo-900 transition-colors duration-500">
-                        <div className="text-3xl font-black text-slate-300 dark:text-slate-600">
+                      <div className="w-28 h-32 bg-[#f8f3ed] dark:bg-[#3e2723] rounded-2xl overflow-hidden shadow-inner border-4 border-white dark:border-[#5d4037] flex flex-col items-center justify-center group-hover:border-[#d7ccc8] transition-colors duration-500">
+                        <div className="text-3xl font-black text-[#d7ccc8]/80 dark:text-[#8b5e3c]/40">
                           {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
                         </div>
                       </div>
-                      <div className="absolute -bottom-2 -right-2 p-1.5 bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-100 dark:border-slate-800">
+                      <div className="absolute -bottom-2 -right-2 p-1.5 bg-white dark:bg-[#3e2723] rounded-lg shadow-lg border border-[#d7ccc8]/40">
                         <Check className="w-3 h-3 text-emerald-500" />
                       </div>
                     </div>
 
                     {/* Student Identity Core */}
                     <div className="flex-1 min-w-0 pt-2">
-                      <h3 className={`text-lg font-black truncate font-display group-hover:text-indigo-600 transition-colors duration-300 ${
-                        isDarkMode ? 'text-white' : 'text-slate-900'
+                      <h3 className={`text-lg font-black truncate font-display group-hover:text-[#8b5e3c] transition-colors duration-300 italic ${
+                        isDarkMode ? 'text-white' : 'text-[#3e2723]'
                       }`}>
                         {student.nama_lengkap || 'Tanpa Nama'}
                       </h3>
                       
                       <div className="mt-5 space-y-4">
                         <div className="flex flex-col">
-                          <label className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Nomor Registrasi (NIK)</label>
+                          <label className="text-[7px] font-black text-[#8b5e3c]/60 dark:text-[#8b5e3c]/40 uppercase tracking-widest mb-1.5">Nomor Registrasi (NIK)</label>
                           <div className="flex items-center gap-2">
-                            <span className={`text-[12px] font-bold font-mono tracking-[0.1em] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <span className={`text-[12px] font-bold font-mono tracking-[0.1em] ${isDarkMode ? 'text-slate-300' : 'text-[#5d4037]'}`}>
                               {student.nik || 'XXXXXXXXXX'}
                             </span>
                           </div>
@@ -2090,14 +2140,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         
                         <div className="grid grid-cols-2 gap-6">
                           <div className="flex flex-col">
-                            <label className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Kelas</label>
-                            <span className={`text-[12px] font-black ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                            <label className="text-[7px] font-black text-[#8b5e3c]/60 dark:text-[#8b5e3c]/40 uppercase tracking-widest mb-1">Kelas</label>
+                            <span className={`text-[12px] font-black ${isDarkMode ? 'text-[#c0b298]' : 'text-[#5d4037]'}`}>
                               {student.kelas}
                             </span>
                           </div>
                           <div className="flex flex-col">
-                            <label className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Status</label>
-                            <span className={`text-[10px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <label className="text-[7px] font-black text-[#8b5e3c]/40 uppercase tracking-widest mb-1">Status</label>
+                            <span className={`text-[10px] font-black ${isDarkMode ? 'text-slate-300' : 'text-[#3e2723]'}`}>
                               Residen
                             </span>
                           </div>
@@ -2107,25 +2157,25 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   </div>
 
                   {/* ID Card Security Stripes & QR Placeholder */}
-                  <div className="absolute bottom-6 left-8 right-16 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-5">
+                  <div className="absolute bottom-6 left-8 right-16 flex items-center justify-between border-t border-[#d7ccc8]/20 pt-5">
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2 opacity-30">
-                        <div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full" />
-                        <Shield className="w-3 h-3 text-slate-400" />
+                        <div className="w-12 h-2 bg-[#d7ccc8] dark:bg-[#5d4037] rounded-full" />
+                        <Shield className="w-3 h-3 text-[#8b5e3c]" />
                       </div>
-                      <p className="text-[6px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">Digital Student Passport • kediri</p>
+                      <p className="text-[6px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest">Digital Student Passport • kediri</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 border-2 border-slate-100 dark:border-slate-800 rounded-lg p-1.5 flex flex-wrap gap-1 opacity-40">
+                      <div className="w-10 h-10 border-2 border-[#d7ccc8]/20 rounded-lg p-1.5 flex flex-wrap gap-1 opacity-40">
                          {[...Array(9)].map((_, i) => (
-                           <div key={i} className={`w-1.5 h-1.5 rounded-sm ${i % 3 === 0 ? 'bg-indigo-400' : 'bg-slate-300'}`} />
+                           <div key={i} className={`w-1.5 h-1.5 rounded-sm ${i % 3 === 0 ? 'bg-[#8b5e3c]' : 'bg-[#d7ccc8]'}`} />
                          ))}
                       </div>
                     </div>
                   </div>
                   
                   {/* Hover Decoration */}
-                  <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-indigo-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-top" />
+                  <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-[#5d4037] scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-top" />
                 </motion.div>
               ))}
               
@@ -3001,19 +3051,19 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               ) : (
                 <>
                   {/* Header Info */}
-                  <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
-                    <div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-600 font-black text-4xl shadow-inner mb-4 relative group">
+                  <div className="flex flex-col items-center text-center pb-6 border-b border-[#f8f3ed]">
+                    <div className="w-24 h-24 bg-[#f8f3ed] rounded-[2.5rem] flex items-center justify-center text-[#5d4037] font-black text-4xl shadow-inner mb-4 relative group border border-[#d7ccc8]/20">
                       <User className="w-10 h-10" />
-                      <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors rounded-[2.5rem] flex items-center justify-center">
-                        <Camera className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-[#5d4037]/0 group-hover:bg-[#5d4037]/10 transition-colors rounded-[2.5rem] flex items-center justify-center">
+                        <Camera className="w-6 h-6 text-[#5d4037] opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 font-display leading-tight">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
+                    <h2 className="text-2xl font-black text-[#3e2723] font-display leading-tight italic tracking-tight">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
                     <div className="flex items-center gap-2 mt-3">
-                      <span className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg shadow-indigo-100">
+                      <span className="px-4 py-1.5 bg-[#3e2723] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg shadow-black/10 italic">
                         Kelas {selectedStudent.kelas}
                       </span>
-                      <span className="px-4 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-black rounded-full uppercase tracking-widest">
+                      <span className="px-4 py-1.5 bg-[#f8f3ed] text-[#8b5e3c] text-[10px] font-black rounded-full uppercase tracking-widest border border-[#d7ccc8]/20 italic">
                         {selectedStudent.jenis_kelamin}
                       </span>
                     </div>
@@ -3023,24 +3073,24 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Identitas Section */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Identitas Dasar</h4>
+                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 italic">Identitas Dasar</h4>
                       <div className="space-y-3">
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">NIK Siswa</label>
-                          <p className="text-sm font-black text-slate-900 font-mono tracking-wider">{selectedStudent.nik || '-'}</p>
+                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">NIK Siswa</label>
+                          <p className="text-sm font-black text-[#3e2723] font-mono tracking-wider">{selectedStudent.nik || '-'}</p>
                         </div>
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Tempat, Tgl Lahir</label>
-                          <p className="text-sm font-black text-slate-900">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
+                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Tempat, Tgl Lahir</label>
+                          <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Agama</label>
-                            <p className="text-sm font-black text-slate-900">{selectedStudent.agama}</p>
+                          <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                            <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Agama</label>
+                            <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.agama}</p>
                           </div>
-                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Umur</label>
-                            <p className="text-sm font-black text-slate-900">{selectedStudent.umur} Tahun</p>
+                          <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                            <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Umur</label>
+                            <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.umur} Tahun</p>
                           </div>
                         </div>
                       </div>
@@ -3048,46 +3098,46 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
                     {/* Keluarga Section */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Data Keluarga</h4>
+                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 italic">Data Keluarga</h4>
                       <div className="space-y-3">
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ayah</label>
-                          <p className="text-sm font-black text-slate-900">{selectedStudent.ayah || '-'}</p>
+                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Nama Ayah</label>
+                          <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.ayah || '-'}</p>
                         </div>
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nama Ibu</label>
-                          <p className="text-sm font-black text-slate-900">{selectedStudent.ibu || '-'}</p>
+                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Nama Ibu</label>
+                          <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.ibu || '-'}</p>
                         </div>
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Anak Ke / Saudara</label>
-                          <p className="text-sm font-black text-slate-900">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
+                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
+                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Anak Ke / Saudara</label>
+                          <p className="text-sm font-black text-[#3e2723] italic tracking-tight">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Alamat Section */}
-                  <div className="space-y-4 pt-4 border-t border-slate-100">
-                    <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Alamat Domisili</h4>
-                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
+                  <div className="space-y-4 pt-4 border-t border-[#f8f3ed]">
+                    <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 italic">Alamat Domisili</h4>
+                    <div className="bg-[#fdfcf0] p-6 rounded-[2rem] border border-[#d7ccc8]/40 shadow-inner space-y-4">
                       <div className="flex items-start gap-4">
-                        <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
-                          <MapPin className="w-5 h-5 text-indigo-500" />
+                        <div className="p-3 bg-white rounded-2xl shadow-sm border border-[#d7ccc8]/20">
+                          <MapPin className="w-5 h-5 text-[#8b5e3c]" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-black text-slate-900 leading-relaxed">{selectedStudent.alamat || '-'}</p>
+                          <p className="text-sm font-black text-[#3e2723] leading-relaxed italic">{selectedStudent.alamat || '-'}</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mt-6">
                             <div>
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">RT / RW</label>
-                              <p className="text-xs font-black text-slate-700">{selectedStudent.rt || '00'} / {selectedStudent.rw || '00'}</p>
+                              <label className="text-[9px] font-black text-[#8b5e3c]/50 uppercase tracking-widest block mb-1 italic">RT / RW</label>
+                              <p className="text-xs font-black text-[#5d4037] italic">{selectedStudent.rt || '00'} / {selectedStudent.rw || '00'}</p>
                             </div>
                             <div>
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kelurahan</label>
-                              <p className="text-xs font-black text-slate-700">{selectedStudent.kelurahan || '-'}</p>
+                              <label className="text-[9px] font-black text-[#8b5e3c]/50 uppercase tracking-widest block mb-1 italic">Kelurahan</label>
+                              <p className="text-xs font-black text-[#5d4037] italic">{selectedStudent.kelurahan || '-'}</p>
                             </div>
                             <div>
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kecamatan</label>
-                              <p className="text-xs font-black text-slate-700">{selectedStudent.kecamatan || '-'}</p>
+                              <label className="text-[9px] font-black text-[#8b5e3c]/50 uppercase tracking-widest block mb-1 italic">Kecamatan</label>
+                              <p className="text-xs font-black text-[#5d4037] italic">{selectedStudent.kecamatan || '-'}</p>
                             </div>
                           </div>
                         </div>
@@ -3098,19 +3148,19 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               )}
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/40 flex gap-3">
               {isEditingStudent ? (
                 <>
                   <button
                     onClick={() => setIsEditingStudent(false)}
-                    className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                    className="flex-1 py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#fdfcf0] transition-all shadow-sm uppercase tracking-widest text-[10px]"
                   >
                     Batal
                   </button>
                   <button
                     onClick={handleUpdateStudent}
                     disabled={loading}
-                    className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] shadow-xl shadow-[#d7ccc8]/40 transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
                   >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                     Simpan Perubahan
@@ -3119,7 +3169,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               ) : (
                 <button
                   onClick={() => setSelectedStudent(null)}
-                  className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                  className="w-full py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#fdfcf0] transition-all shadow-sm uppercase tracking-widest text-[10px]"
                 >
                   Tutup Profil
                 </button>

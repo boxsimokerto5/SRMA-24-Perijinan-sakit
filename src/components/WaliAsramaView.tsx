@@ -21,6 +21,7 @@ import {
   Users,
   AlertCircle,
   Send,
+  ShieldCheck,
   GraduationCap,
   LogOut,
   LayoutDashboard,
@@ -221,6 +222,27 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     { id: 'profil', label: 'Profil Saya', icon: User }
   ];
 
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      dokter: 'Dokter',
+      wali_asuh: 'Wali Asuh',
+      wali_kelas: 'Wali Kelas',
+      kepala_sekolah: 'Kepala Sekolah',
+      guru_mapel: 'Guru Mapel',
+      wali_asrama: 'Wali Asrama'
+    };
+    return labels[role] || role;
+  };
+
+  const features = [
+    'Monitoring Kehadiran & Kepulangan Siswa',
+    'Review Riwayat Perizinan Siswa',
+    'Review & Verifikasi Memorandum',
+    'Pengajuan Usulan Cek Kesehatan (Cek-UP)',
+    'Pangkalan Data Siswa Terpadu',
+    'Berbagi Catatan di Mading Sekolah'
+  ];
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
       <AnimatePresence>
@@ -321,7 +343,38 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
 
         {viewMode === 'perizinan' && (
-        <div className="space-y-6">
+          <div className="space-y-6">
+            <div className="bg-gradient-to-br from-[#075e6e] to-[#0a8ea4] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+              <div className="relative z-10">
+                <h1 className="text-3xl font-black font-display tracking-tight mb-2">Hallo, {user.name || user.email}</h1>
+                <p className="text-lg font-bold text-cyan-100 flex items-center gap-2 mb-6">
+                  <ShieldCheck className="w-5 h-5" />
+                  {getRoleLabel(user.role || 'wali_asrama')}
+                </p>
+                
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-cyan-50 mb-4 flex items-center gap-2">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Daftar Fitur Akun:
+                  </h3>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {features.map((f, i) => (
+                      <motion.li 
+                        key={i} 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-center gap-3 text-sm font-semibold text-white/95"
+                      >
+                        <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                        {f}
+                      </motion.li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/60 space-y-4">
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                <Search className="w-5 h-5 text-slate-400 ml-2" />

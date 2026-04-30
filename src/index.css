@@ -1,15 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Shadows+Into+Light&family=Caveat:wght@400;500;600;700&family=Homemade+Apple&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-handwriting: "Caveat", cursive;
+  --font-vintage: "Homemade Apple", cursive;
+  --font-journal: "Shadows Into Light", cursive;
 }
 
 @layer base {
   body {
-    @apply font-sans text-slate-900 bg-slate-50;
+    @apply font-sans text-[#3e2723] bg-[#f8f3ed];
   }
 }
 
@@ -21,19 +24,19 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
+    background: #d4c5ae;
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
+    background: #b6a78d;
   }
   
   .glass-card {
-    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+    @apply bg-white/70 backdrop-blur-md border border-[#d4c5ae]/30 shadow-xl;
   }
   
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#5d4037] to-[#8b5e3c];
   }
 
   .animate-flowing-text {
@@ -61,7 +64,7 @@
     z-index: -1;
     margin: -2px;
     border-radius: inherit;
-    background: linear-gradient(to right, #6366f1, #a855f7, #ec4899, #f43f5e, #6366f1);
+    background: linear-gradient(to right, #8b5e3c, #5d4037, #d7ccc8, #8b5e3c);
     background-size: 200% auto;
     animation: flowing-text 4s linear infinite;
   }
@@ -77,8 +80,8 @@
     100% { background-position: 0% 50%; }
   }
 
-  .cool-gradient-bg {
-    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+  .vintage-gradient-bg {
+    background: linear-gradient(-45deg, #f8f1e5, #e0d5c1, #d4c5ae, #f8f1e5);
     background-size: 400% 400%;
     animation: flowing-bg 15s ease infinite;
   }

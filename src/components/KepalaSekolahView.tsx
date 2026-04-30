@@ -512,7 +512,29 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     );
   }
 
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      dokter: 'Dokter',
+      wali_asuh: 'Wali Asuh',
+      wali_kelas: 'Wali Kelas',
+      kepala_sekolah: 'Kepala Sekolah',
+      guru_mapel: 'Guru Mapel',
+      wali_asrama: 'Wali Asrama'
+    };
+    return labels[role] || role;
+  };
+
   const renderStatistik = () => {
+    const features = [
+      'Statistik & Dashboard Perizinan Real-time',
+      'Review & Print Surat Izin Siswa (Sakit/Umum)',
+      'Review & Print Surat Memorandum',
+      'Membuat Pengumuman Resmi Sekolah',
+      'Review & Print Peminjaman Laptop & HP',
+      'Cetak Kartu Siswa (E-KTM)',
+      'Berbagi Catatan di Mading Sekolah'
+    ];
+    
     // Prepare data for charts
     const diagnosisData = Object.entries(
       permits
@@ -540,24 +562,56 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       .map(([name, value]) => ({ name, value }))
       .slice(-6);
 
-    const COLORS = ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6'];
+    const COLORS = ['#8b5e3c', '#5d4037', '#c0b298', '#d7ccc8', '#a1887f'];
 
     return (
       <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+        <div className="bg-[#5d4037] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-[#3e2723]">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Hallo, {user.name || user.email}</h1>
+            <p className="text-lg font-bold text-amber-100/70 flex items-center gap-2 mb-6 uppercase tracking-widest text-xs">
+              <ShieldCheck className="w-4 h-4" />
+              {getRoleLabel(user.role || 'kepala_sekolah')}
+            </p>
+            
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+              <h3 className="text-sm font-black uppercase tracking-widest text-amber-50/70 mb-4 flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4" />
+                Daftar Fitur Akun:
+              </h3>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {features.map((f, i) => (
+                  <motion.li 
+                    key={i} 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3 text-sm font-semibold text-white/90"
+                  >
+                    <div className="w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                    {f}
+                  </motion.li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black text-slate-900 font-display">Statistik Perizinan</h2>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Analisis data kesehatan siswa secara real-time.</p>
+            <h2 className="text-2xl font-black text-[#5d4037] font-display">Statistik Perizinan</h2>
+            <p className="text-sm font-bold text-[#8b5e3c]/60 uppercase tracking-widest mt-1">Analisis data kesehatan siswa secara real-time.</p>
           </div>
-          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+          <div className="p-3 bg-[#fdfcf0] text-[#5d4037] rounded-full shadow-lg border border-[#d7ccc8]">
             <BarChart3 className="w-6 h-6" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40">
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
                 <Activity className="w-6 h-6" />
               </div>
               <div>
@@ -565,14 +619,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 <h3 className="text-2xl font-black text-slate-900">{stats.sakit}</h3>
               </div>
             </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-rose-500 h-full" style={{ width: `${(stats.sakit / stats.total) * 100}%` }} />
+            <div className="w-full bg-[#f8f3ed] h-2 rounded-full overflow-hidden">
+              <div className="bg-rose-400 h-full" style={{ width: `${(stats.sakit / stats.total) * 100}%` }} />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40">
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
+              <div className="p-3 bg-[#e0d6c0]/20 text-[#5d4037] rounded-2xl">
                 <ClipboardList className="w-6 h-6" />
               </div>
               <div>
@@ -580,14 +634,14 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 <h3 className="text-2xl font-black text-slate-900">{stats.umum}</h3>
               </div>
             </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-blue-500 h-full" style={{ width: `${(stats.umum / stats.total) * 100}%` }} />
+            <div className="w-full bg-[#f8f3ed] h-2 rounded-full overflow-hidden">
+              <div className="bg-[#5d4037]/40 h-full" style={{ width: `${(stats.umum / stats.total) * 100}%` }} />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-[#d7ccc8]/40">
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div>
@@ -595,44 +649,44 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 <h3 className="text-2xl font-black text-slate-900">{Math.round((stats.selesai / stats.total) * 100) || 0}%</h3>
               </div>
             </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full" style={{ width: `${(stats.selesai / stats.total) * 100}%` }} />
+            <div className="w-full bg-[#f8f3ed] h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-400 h-full" style={{ width: `${(stats.selesai / stats.total) * 100}%` }} />
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-[#d7ccc8]/40">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Tren Perizinan Bulanan</h3>
-              <TrendingUp className="w-5 h-5 text-indigo-500" />
+              <h3 className="font-black text-[#5d4037] uppercase tracking-widest text-xs italic">Tren Bulanan</h3>
+              <TrendingUp className="w-5 h-5 text-[#8b5e3c]" />
             </div>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={monthlyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8f3ed" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#8b5e3c' }} 
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#8b5e3c' }} 
                   />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    labelStyle={{ fontWeight: 900, color: '#1e293b' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', background: '#fff' }}
+                    labelStyle={{ fontWeight: 900, color: '#5d4037' }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="value" 
-                    stroke="#6366f1" 
+                    stroke="#8b5e3c" 
                     strokeWidth={4} 
-                    dot={{ r: 6, fill: '#6366f1', strokeWidth: 3, stroke: '#fff' }}
+                    dot={{ r: 6, fill: '#8b5e3c', strokeWidth: 3, stroke: '#fff' }}
                     activeDot={{ r: 8 }}
                   />
                 </LineChart>
@@ -640,30 +694,30 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-[#d7ccc8]/40">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Top 5 Diagnosa Penyakit</h3>
-              <Activity className="w-5 h-5 text-rose-500" />
+              <h3 className="font-black text-[#5d4037] uppercase tracking-widest text-xs italic">Diagnosa Utama</h3>
+              <Activity className="w-5 h-5 text-rose-400" />
             </div>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={diagnosisData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f8f3ed" />
                   <XAxis type="number" hide />
                   <YAxis 
                     dataKey="name" 
                     type="category" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#475569' }}
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#5d4037' }}
                     width={100}
                   />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', background: '#fff' }}
                   />
                   <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={20}>
-                    {diagnosisData.map((entry, index) => (
+                    {diagnosisData.map((_entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Bar>
@@ -673,23 +727,23 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
           </div>
         </div>
 
-        <div className="bg-slate-900 p-8 rounded-[3rem] text-white overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="bg-[#5d4037] p-8 rounded-[3rem] text-white overflow-hidden relative shadow-2xl border-b-4 border-[#3e2723]">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-200/5 rounded-full -mr-32 -mt-32 blur-3xl" />
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="p-4 bg-white/10 rounded-[2rem] backdrop-blur-md">
-                <Users className="w-8 h-8 text-indigo-400" />
+              <div className="p-4 bg-white/5 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-inner">
+                <Users className="w-8 h-8 text-amber-200" />
               </div>
               <div>
-                <h4 className="text-xl font-black font-display">Ringkasan Kehadiran</h4>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Total {stats.total} perizinan tercatat di sistem</p>
+                <h4 className="text-xl font-black font-display italic">Ringkasan Kehadiran</h4>
+                <p className="text-amber-100/40 text-xs font-bold uppercase tracking-[0.2em]">Total {stats.total} perizinan tersinkronisasi</p>
               </div>
             </div>
             <button 
               onClick={() => setShowReportModal(true)}
-              className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl hover:bg-indigo-50 transition-all shadow-xl shadow-indigo-500/10"
+              className="px-10 py-5 bg-[#fdfcf0] text-[#3e2723] font-black rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-black/20 uppercase tracking-widest text-xs border-b-2 border-amber-200/50"
             >
-              Lihat Laporan Lengkap
+              Unduh Laporan PDF
             </button>
           </div>
         </div>
@@ -698,7 +752,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#2d1e1a]' : 'bg-[#f8f3ed]'}`}>
       {/* Sidebar Navigation */}
       <AnimatePresence>
         {showSidebar && (
@@ -708,31 +762,31 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSidebar(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]"
             />
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#5d4037] text-white z-[70] shadow-2xl flex flex-col border-r-4 border-[#3e2723]"
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-6">
-                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                  <div className="bg-[#3e2723]/40 rounded-3xl p-5 mb-8 border border-white/5 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
                     <div className="flex items-center gap-4 relative z-10">
                       <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
-                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
-                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                        <span className="font-black text-white text-base leading-tight tracking-tight uppercase">SRMA 24</span>
+                        <span className="text-[9px] font-bold text-amber-200/50 uppercase tracking-widest mt-0.5">SEKOLAH RAKYAT</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div>
-                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">UTAMA</p>
+                      <p className="text-[10px] font-black text-amber-100/30 uppercase tracking-[0.2em] mb-4 px-2">UTAMA</p>
                       <div className="space-y-1.5">
                         {[
                           { id: 'statistik', label: 'Dashboard', icon: LayoutDashboard },
@@ -751,13 +805,13 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                               setViewMode(item.id);
                               setShowSidebar(false);
                             }}
-                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-xs font-black transition-all duration-300 ${
                               viewMode === item.id 
-                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
-                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                                ? 'bg-[#fdfcf0] text-[#5d4037] shadow-xl shadow-black/20 translate-x-1' 
+                                : 'bg-transparent text-amber-100/60 hover:bg-white/5 hover:text-white'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#5d4037]' : 'text-amber-100/30'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -768,13 +822,13 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
 
               {/* Bottom Logout Section */}
-              <div className="p-6 border-t border-white/10">
-                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+              <div className="p-6 bg-[#3e2723]/30 border-t border-white/5">
+                <p className="text-[10px] font-black text-amber-100/20 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#5d4037] text-white rounded-2xl font-black text-sm hover:bg-[#3e2723] transition-all shadow-lg border border-white/5 active:scale-95"
                 >
-                  <LogOut className="w-5 h-5 text-cyan-300" />
+                  <LogOut className="w-5 h-5 text-rose-400" />
                   Keluar Akun
                 </button>
               </div>
@@ -783,21 +837,41 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         )}
       </AnimatePresence>
 
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
-        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-[#2d1e1a]/90' : 'bg-[#f8f3ed]/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-white/5' : 'border-[#d7ccc8]/40'} shadow-sm`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
-              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"
+              className="p-4 bg-[#5d4037] text-white rounded-2xl shadow-xl shadow-black/10 hover:scale-105 active:scale-95 transition-all"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-6 h-6" />
             </button>
             <div className="flex flex-col">
-              <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e] leading-none mb-0.5">
+              <h1 className="text-xl font-black uppercase tracking-tighter text-[#5d4037] font-display">
                 {viewTitles[viewMode] || 'SRMA 24'}
               </h1>
+              <div className="flex items-center gap-2">
+                <div className="h-0.5 w-4 bg-amber-400/50 rounded-full" />
+                <p className="text-[9px] font-black text-amber-800/40 uppercase tracking-widest leading-none">Kepala Sekolah</p>
+              </div>
             </div>
           </div>
+
+           <div className="flex items-center gap-2">
+             <button
+                onClick={() => setViewMode('profil')}
+                className="p-2 border-2 border-[#d7ccc8] rounded-2xl hover:bg-white transition-all shadow-sm group"
+              >
+                <User className="w-6 h-6 text-[#5d4037] group-hover:scale-110 transition-transform" />
+             </button>
+             <button
+               onClick={() => auth.signOut()}
+               className="p-2 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all"
+               title="Keluar"
+             >
+               <LogOut className="w-6 h-6" />
+             </button>
+           </div>
         </div>
       </header>
 
