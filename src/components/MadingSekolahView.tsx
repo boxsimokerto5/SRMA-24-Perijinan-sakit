@@ -15,7 +15,6 @@ interface MadingSekolahViewProps {
 export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
   const [posts, setPosts] = useState<MadingPost[]>([]);
   const [showInput, setShowInput] = useState(false);
-  const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -39,34 +38,20 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
 
     setLoading(true);
     try {
-      if (editingPostId) {
-        await updateDoc(doc(db, 'mading', editingPostId), {
-          content: content.trim(),
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        await addDoc(collection(db, 'mading'), {
-          content: content.trim(),
-          authorName: user.name,
-          authorUid: user.uid,
-          authorRole: user.role,
-          createdAt: serverTimestamp()
-        });
-      }
+      await addDoc(collection(db, 'mading'), {
+        content: content.trim(),
+        authorName: user.name,
+        authorUid: user.uid,
+        authorRole: user.role,
+        createdAt: serverTimestamp()
+      });
       setContent('');
       setShowInput(false);
-      setEditingPostId(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'mading');
     } finally {
       setLoading(false);
     }
-  };
-
-  const startEdit = (post: MadingPost) => {
-    setContent(post.content);
-    setEditingPostId(post.id);
-    setShowInput(true);
   };
 
   const handleDelete = async (postId: string) => {
@@ -153,7 +138,6 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                 <button 
                   onClick={() => {
                     setShowInput(false);
-                    setEditingPostId(null);
                     setContent('');
                   }}
                   className="absolute top-6 right-6 p-2 hover:bg-[#ede8dd] rounded-full text-[#8b5e3c] transition-colors z-30"
@@ -164,7 +148,7 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                 <div className="relative z-10 space-y-6">
                   <div className="space-y-1">
                     <h3 className="text-3xl font-black text-[#3e2723] font-display italic tracking-tighter">
-                      {editingPostId ? 'Mengubah Catatan...' : 'Tinta untuk Hari Ini'}
+                      Tinta untuk Hari Ini
                     </h3>
                     <div className="flex items-center gap-2 text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest bg-[#fdfcf0] w-fit px-3 py-1 rounded-full border border-[#d7ccc8]/40">
                       <Clock className="w-3 h-3" />
@@ -179,10 +163,10 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="Sayang diary, aku ingin bercerita..."
-                        className="w-full min-h-[300px] pl-8 pr-4 py-2 bg-transparent outline-none transition-all font-handwriting text-3xl text-[#2d241e] resize-none leading-relaxed placeholder:text-[#d7ccc8]/30"
+                        className="w-full min-h-[300px] pl-8 pr-4 py-2 bg-transparent outline-none transition-all font-handwriting text-lg text-[#2d241e] resize-none leading-relaxed placeholder:text-[#d7ccc8]/30"
                         style={{ 
-                          backgroundImage: 'linear-gradient(transparent, transparent 2.45rem, #ede8dd 2.45rem)',
-                          backgroundSize: '100% 2.5rem'
+                          backgroundImage: 'linear-gradient(transparent, transparent 1.45rem, #ede8dd 1.45rem)',
+                          backgroundSize: '100% 1.5rem'
                         }}
                         disabled={loading}
                         autoFocus
@@ -265,7 +249,7 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                   <div className="relative z-10">
                     <div className="flex justify-between items-start gap-4 mb-2">
                        <div className="flex-1">
-                        <div className={`font-handwriting ${isMe ? 'text-3xl' : 'text-2xl'} leading-snug whitespace-pre-wrap select-text`}>
+                        <div className={`font-handwriting ${isMe ? 'text-lg' : 'text-base'} leading-snug whitespace-pre-wrap select-text`}>
                           {post.content}
                         </div>
                        </div>
@@ -281,13 +265,6 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                     {(isMe || isAdminUser) && (
                       <div className="flex items-center gap-3 pt-3 mt-3 border-t border-[#8b5e3c]/5">
                         <div className="flex-1" />
-                        <button
-                          onClick={() => startEdit(post)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8b5e3c]/5 text-[#8b5e3c] rounded-lg hover:bg-[#8b5e3c] hover:text-white transition-all text-[9px] font-black uppercase tracking-widest"
-                          title="Ubah Catatan"
-                        >
-                          <Edit2 className="w-3 h-3" /> Edit
-                        </button>
                         <button
                           onClick={() => handleDelete(post.id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest"

@@ -102,12 +102,16 @@ service cloud.firestore {
     }
 
     function isValidMadingPost(data) {
-      return data.content is string && data.content.size() <= 3000 &&
+      return data.content is string && data.content.size() <= 5000 &&
              (!('authorName' in data) || (data.authorName is string)) &&
-             (!('authorUid' in data) || (data.authorUid == request.auth.uid)) &&
+             (!('authorUid' in data) || (data.authorUid is string)) &&
              (!('authorRole' in data) || (data.authorRole is string)) &&
-             (!('createdAt' in data) || (data.createdAt == request.time)) &&
-             (!('updatedAt' in data) || (data.updatedAt == request.time));
+             (!('createdAt' in data) || (data.createdAt is timestamp)) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp));
+    }
+
+    function isMadingAuthor(authId) {
+      return isSignedIn() && authId == request.auth.uid;
     }
 
     function isValidId(id) { 
@@ -122,7 +126,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && (uid == request.auth.uid) && isValidUser(incoming());
       allow update: if isSignedIn() && (uid == request.auth.uid) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'fcmToken', 'role', 'pfp']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'fcmToken', 'role', 'pfp', 'mapel']) &&
         (incoming().role == existing().role || isAdmin())
       );
     }
@@ -130,7 +134,7 @@ service cloud.firestore {
     match /izin_sakit/{permitId} {
       allow read: if isSignedIn();
       
-      allow create: if isSignedIn() && isValidIzinSakit(incoming()) && (
+      allow create: if isSignedIn() && isValidId(permitId) && isValidIzinSakit(incoming()) && (
         isMasterAdmin() ||
         (hasRole('dokter') && incoming().tipe == 'sakit') ||
         (hasRole('wali_asuh') && incoming().tipe == 'umum') ||
@@ -240,9 +244,15 @@ service cloud.firestore {
 
     match /mading/{postId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidMadingPost(incoming());
+      allow create: if isSignedIn() && 
+                    incoming().authorUid == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    isValidMadingPost(incoming());
       allow update: if isSignedIn() && 
                     (isAdmin() || (existing().authorUid == request.auth.uid)) &&
+                    incoming().updatedAt == request.time &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().authorUid == existing().authorUid &&
                     isValidMadingPost(incoming()) &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']);
       allow delete: if isSignedIn() && 

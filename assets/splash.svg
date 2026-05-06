@@ -1,11 +1,27 @@
 <svg width="2732" height="2732" viewBox="0 0 2732 2732" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="2732" height="2732" fill="#3B82F6"/>
-  <!-- Centered Logo -->
-  <g transform="translate(854, 854) scale(1)">
-    <!-- Main Rounded Background -->
-    <rect x="0" y="0" width="1024" height="1024" rx="286" fill="white" fill-opacity="0.1" />
-    <!-- Bell Icon -->
-    <path d="M512 180C390 180 290 280 290 400V600L220 720H804L734 600V400C734 280 634 180 512 180Z" fill="white" />
-    <path d="M430 760C430 804 466 840 512 840C558 840 594 804 594 760H430Z" fill="white" />
+  <defs>
+    <linearGradient id="splash_bg" x1="0" y1="0" x2="2732" y2="2732" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#312E81"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="2732" height="2732" fill="url(#splash_bg)"/>
+
+  <!-- Centered Logo Content -->
+  <g transform="translate(854, 854)">
+    <!-- Shield / Foundation -->
+    <path d="M512 220C512 220 780 300 780 500C780 720 512 840 512 840C512 840 244 720 244 500C244 300 512 220 512 220Z" fill="white" fill-opacity="0.1" stroke="white" stroke-width="40" />
+    
+    <!-- Bold Hospital Cross -->
+    <path d="M512 360V640M372 500H652" stroke="white" stroke-width="110" stroke-linecap="round" />
+    
+    <!-- Small Accent -->
+    <circle cx="700" cy="350" r="50" fill="#F43F5E" stroke="white" stroke-width="15" />
   </g>
+  
+  <!-- Subtle typography -->
+  <text x="1366" y="2100" fill="white" fill-opacity="0.5" font-family="sans-serif" font-weight="bold" font-size="60" text-anchor="middle" letter-spacing="15">SRMA 24 KEDIRI</text>
+  <text x="1366" y="2180" fill="white" fill-opacity="0.3" font-family="sans-serif" font-size="30" text-anchor="middle" letter-spacing="2">DIGITAL HEALTH PERMIT SYSTEM</text>
 </svg>

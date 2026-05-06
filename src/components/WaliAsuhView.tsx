@@ -762,7 +762,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       // Assuming generateSummaryReportPDF is imported from pdfUtils or available globaly
       const { generateSummaryReportPDF } = await import('../pdfUtils');
-      await generateSummaryReportPDF(filteredForReport, rangeLabel, user.name);
+      await generateSummaryReportPDF(filteredForReport, rangeLabel, user.name, 'Wali Asuh');
       setShowReportModal(false);
     } catch (err) {
       console.error(err);

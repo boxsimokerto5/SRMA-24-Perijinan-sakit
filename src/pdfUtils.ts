@@ -256,7 +256,7 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   }
 };
 
-export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel: string, userName: string = 'SRMA 24 KEDIRI') => {
+export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel: string, userName: string = 'SRMA 24 KEDIRI', roleTitle: string = 'Kepala Sekolah') => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -340,7 +340,7 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Kediri, ' + format(new Date(), 'dd MMMM yyyy'), 150, footerY, { align: 'center' });
-  doc.text('Kepala Sekolah,', 150, footerY + 5, { align: 'center' });
+  doc.text(`${roleTitle},`, 150, footerY + 5, { align: 'center' });
   
   // QR Signature
   const qrData = `LAPORAN_VERIFIED_BY_${userName}_${format(new Date(), 'yyyyMMddHHmm')}`;
