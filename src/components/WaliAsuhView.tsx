@@ -22,6 +22,7 @@ import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
+import ProgressRecordsView from './ProgressRecordsView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -43,7 +44,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -890,6 +891,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     pinjam_laptop: 'Pinjam Laptop',
     memos: 'Memorandum',
     siswa: 'Daftar Siswa',
+    catatan_perkembangan: 'Catatan Perkembangan',
     settings: 'Pengaturan',
     mading: 'Mading Sekolah'
   };
@@ -955,6 +957,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
                           { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
                           { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
@@ -1208,6 +1211,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'pangkalan_data_wali_asuh' && (
           <div className="h-[calc(100vh-140px)] w-full bg-white rounded-[3rem] shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 border border-slate-100">
             <iframe 
@@ -2874,8 +2878,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       {/* Modal Detail Siswa */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-indigo-600 flex items-center justify-between relative overflow-hidden">
+          <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 bg-indigo-600 flex items-center justify-between relative overflow-hidden shrink-0">
                <div className="absolute inset-0 opacity-10 pointer-events-none">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(255,255,255,1)_1px,transparent_0)] bg-[size:16px_16px]" />
               </div>
@@ -2916,7 +2920,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <div className="absolute -right-12 -top-12 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
             </div>
             
-            <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
+            <div className="p-8 space-y-8 flex-1 overflow-y-auto custom-scrollbar min-h-0">
               {isEditingStudent ? (
                 <div className="space-y-8">
                   {/* Edit Identity Section */}
@@ -3222,7 +3226,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               )}
             </div>
 
-            <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/40 flex gap-3">
+            <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/40 flex gap-3 shrink-0">
               {isEditingStudent ? (
                 <>
                   <button

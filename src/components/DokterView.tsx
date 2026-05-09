@@ -1487,7 +1487,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       {selectedStudent && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
-            <div className={`p-8 border-b border-slate-100 flex items-center justify-between ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-50' : 'bg-blue-50'}`}>
+            <div className={`p-8 border-b border-slate-100 flex items-center justify-between shrink-0 ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'bg-pink-50' : 'bg-blue-50'}`}>
               <div className="flex items-center gap-5">
                 <div className={`w-20 h-20 rounded-[2rem] bg-white flex items-center justify-center shadow-lg shadow-black/5`}>
                   <span className={`text-2xl font-black ${selectedStudent.jenis_kelamin?.toLowerCase().startsWith('p') ? 'text-pink-600' : 'text-blue-600'}`}>
@@ -1514,7 +1514,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar min-h-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Data Pribadi */}
                 <div className="space-y-6">
@@ -1587,7 +1587,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </div>
             </div>
 
-            <div className="p-8 bg-slate-50 border-t border-slate-100">
+            <div className="p-8 bg-slate-50 border-t border-slate-100 shrink-0">
               <button 
                 onClick={() => setSelectedStudent(null)}
                 className="w-full py-5 bg-white border border-slate-200 text-slate-600 font-black rounded-[2rem] hover:bg-slate-100 hover:shadow-lg transition-all uppercase tracking-widest text-xs"

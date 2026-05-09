@@ -155,6 +155,22 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["content", "authorName", "authorUid", "authorRole", "createdAt"]
+    },
+    "ProgressRecord": {
+      "title": "Progress Record",
+      "description": "Student progress and development records",
+      "type": "object",
+      "properties": {
+        "nama_siswa": { "type": "string" },
+        "kelas": { "type": "string" },
+        "isi_catatan": { "type": "string" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "author_role": { "type": "string" },
+        "tgl_catatan": { "type": "string", "format": "date-time" },
+        "is_acknowledged": { "type": "boolean" }
+      },
+      "required": ["nama_siswa", "kelas", "isi_catatan", "author_name", "author_uid", "author_role", "tgl_catatan"]
     }
   },
   "firestore": {
@@ -193,6 +209,10 @@
     "/mading/{postId}": {
       "schema": "MadingPost",
       "description": "School bulletin board posts"
+    },
+    "/progress_records/{recordId}": {
+      "schema": "ProgressRecord",
+      "description": "Student progress records"
     }
   }
 }

@@ -11,7 +11,7 @@ service cloud.firestore {
     // Pillar 3: Primitive Definitions & Reusable Helpers
     // ===============================================================
     function isSignedIn() { return request.auth != null; }
-    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isEmailVerified() { return isSignedIn() && (request.auth.token.email_verified == true || isMasterAdmin()); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
@@ -108,6 +108,17 @@ service cloud.firestore {
              (!('authorRole' in data) || (data.authorRole is string)) &&
              (!('createdAt' in data) || (data.createdAt is timestamp)) &&
              (!('updatedAt' in data) || (data.updatedAt is timestamp));
+    }
+
+    function isValidProgressRecord(data) {
+      return data.keys().hasAll(['nama_siswa', 'kelas', 'isi_catatan', 'author_name', 'author_uid', 'author_role', 'tgl_catatan']) &&
+             data.nama_siswa is string && data.nama_siswa.size() <= 128 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.isi_catatan is string && data.isi_catatan.size() <= 5000 &&
+             data.author_name is string && data.author_name.size() <= 128 &&
+             data.author_uid == request.auth.uid &&
+             data.tgl_catatan == request.time &&
+             (!('is_acknowledged' in data) || data.is_acknowledged is bool);
     }
 
     function isMadingAuthor(authId) {
@@ -257,6 +268,19 @@ service cloud.firestore {
                     incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']);
       allow delete: if isSignedIn() && 
                     (isAdmin() || (existing().authorUid == request.auth.uid));
+    }
+
+    match /progress_records/{recordId} {
+      allow read: if isSignedIn();
+      allow create: if (isMasterAdmin() || hasRole('guru_mapel') || hasRole('wali_kelas')) && isValidProgressRecord(incoming());
+      allow update: if (
+        isMasterAdmin() ||
+        (hasRole('wali_asuh') && incoming().diff(existing()).affectedKeys().hasOnly(['is_acknowledged'])) ||
+        ((hasRole('guru_mapel') || hasRole('wali_kelas')) && existing().author_uid == request.auth.uid && 
+         isValidProgressRecord(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['isi_catatan', 'tgl_catatan'])) ||
+        isAdmin()
+      );
+      allow delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && existing().author_uid == request.auth.uid);
     }
   }
 }

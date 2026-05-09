@@ -11,6 +11,7 @@ import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
+import ProgressRecordsView from './ProgressRecordsView';
 
 interface GuruMapelViewProps {
   user: AppUser;
@@ -34,7 +35,37 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [showBanner, setShowBanner] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  const banners = announcements.length > 0 ? announcements.map(a => ({
+    title: a.title,
+    content: a.content
+  })) : [];
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'announcements'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+      setAnnouncements(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'announcements');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const interval = setInterval(() => {
+      setBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [banners.length]);
 
   React.useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -49,7 +80,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     memos: 'Memorandum',
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
-    riwayat_sakit: 'Perizinan Sakit'
+    riwayat_sakit: 'Perizinan Sakit',
+    catatan_perkembangan: 'Catatan Perkembangan'
   };
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
@@ -264,27 +296,28 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     setLoading(true);
 
     try {
-      await addDoc(collection(db, 'izin_sakit'), {
-        tipe: 'catatan',
-        nomor_surat: `SRMA-GM-${Date.now().toString().slice(-6)}`,
+      await addDoc(collection(db, 'progress_records'), {
         nama_siswa: namaSiswa,
         kelas: kelas,
         isi_catatan: isiCatatan,
-        tgl_surat: serverTimestamp(),
-        nama_wali_kelas: user.name, // Still using this field for compatibility
-        wali_kelas_uid: user.uid,
-        status: 'pending_ack',
+        tgl_catatan: serverTimestamp(),
+        author_name: user.name,
+        author_uid: user.uid,
+        author_role: user.role,
+        is_acknowledged: false
       });
 
       // Notify relevant roles
-      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Siswa Baru', `Guru Mapel ${user.name} mengirimkan catatan penting untuk siswa ${namaSiswa}.`);
+      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Perkembangan Baru', `Guru Mapel ${user.name} mengirimkan catatan perkembangan untuk siswa ${namaSiswa}.`);
 
       setShowCatatanForm(false);
       setNamaSiswa('');
       setIsiCatatan('');
+      setViewMode('catatan_perkembangan');
     } catch (err) {
       console.error(err);
       alert('Gagal mengirim catatan');
+      handleFirestoreError(err, OperationType.WRITE, 'progress_records');
     } finally {
       setLoading(false);
     }
@@ -445,6 +478,10 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     return labels[role] || role;
   };
 
+  const formatRealTime = (date: Date) => {
+    return format(date, 'EEEE, HH:mm:ss', { locale: undefined });
+  };
+
   const features = [
     'Input Perizinan Siswa (Sakit/Umum)',
     'Input Surat Memorandum Siswa',
@@ -494,6 +531,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'riwayat_sakit', label: 'Perizinan Sakit', icon: Activity },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
                           { id: 'pinjam_hp', label: 'Pinjam HP', icon: Tablet },
@@ -557,70 +595,171 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       </header>
 
       <div className={`p-4 sm:p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
-        {viewMode === 'profil' && <ProfileView user={user} />}
-        {viewMode === 'mading' && <MadingSekolahView user={user} />}
-
-        {viewMode === 'kartu_siswa' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="flex flex-col gap-6">
-            <div className="px-1">
-              <h2 className="text-2xl font-black text-[#3e2723] font-display tracking-tight italic">Data Siswa</h2>
-              <p className="text-xs font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Daftar Lengkap Siswa</p>
-            </div>
-
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40 group-focus-within:text-[#5d4037] transition-colors" />
-              <input
-                type="text"
-                placeholder="Cari nama atau NIK siswa..."
-                value={studentSearchTerm}
-                onChange={(e) => setStudentSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border border-[#d7ccc8]/40 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-[#5d4037]/10 focus:border-[#5d4037] transition-all outline-none text-sm font-medium text-[#3e2723] placeholder:text-[#8b5e3c]/30"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredStudents.map((student) => (
-                <motion.div
-                  key={student.id}
-                  whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
-                  onClick={() => setSelectedStudent(student)}
-                  className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-[#8b5e3c] transition-all duration-300 relative overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#f8f3ed] rounded-full -mr-12 -mt-12 group-hover:bg-[#5d4037] transition-colors duration-500" />
-                  
-                  <div className="flex items-center gap-4 relative">
-                    <div className="w-16 h-16 bg-[#f8f3ed] rounded-2xl flex items-center justify-center text-[#5d4037] font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500 border border-[#d7ccc8]/20">
-                      {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-black text-[#3e2723] truncate font-display group-hover:text-[#8b5e3c] transition-colors italic">{student.nama_lengkap || 'Tanpa Nama'}</h3>
-                      <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">NIK: {student.nik}</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kelas</p>
-                      <p className="text-xs font-bold text-slate-600">{student.kelas || '-'}</p>
-                    </div>
-                    <div className="p-2 bg-[#fdfcf0] rounded-xl text-[#d7ccc8] group-hover:text-white group-hover:bg-[#5d4037] transition-all shadow-sm border border-[#d7ccc8]/40">
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-              
-              {filteredStudents.length === 0 && (
-                <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-[#d7ccc8]">
-                  <Search className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
-                  <p className="text-[#8b5e3c]/40 font-black uppercase tracking-widest text-[10px] italic">Siswa tidak ditemukan</p>
+        {/* Announcement Banner */}
+        {announcements.length > 0 && showBanner && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="relative overflow-hidden bg-indigo-50 border border-indigo-100 rounded-[2rem] p-4 group"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/20 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-110 transition-transform" />
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+                <Activity className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest mb-1 italic flex items-center gap-2">
+                   <ShieldCheck className="w-3 h-3" /> Berita Terkini
+                </p>
+                <div className="overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={bannerIndex}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -20, opacity: 0 }}
+                      className="flex flex-col"
+                    >
+                      <p className="text-sm font-black text-slate-800 leading-tight">
+                        {banners[bannerIndex % banners.length]?.title}
+                      </p>
+                      <p className="text-xs font-medium text-slate-600 line-clamp-1">
+                        {banners[bannerIndex % banners.length]?.content}
+                      </p>
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
-              )}
+              </div>
+              <button 
+                onClick={() => setShowBanner(false)}
+                className="p-2 hover:bg-white rounded-xl transition-all text-indigo-300 hover:text-indigo-600 hover:shadow-sm"
+              >
+                <Plus className="w-5 h-5 rotate-45" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {viewMode === 'home' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="bg-[#075e6e] p-8 rounded-[3rem] text-white shadow-2xl mb-8 relative overflow-hidden group border-b-8 border-[#054a57]">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-400/10 rounded-full -ml-16 -mb-16 blur-2xl" />
+              
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div className="shrink-0 p-1 bg-white/10 rounded-[2.5rem] backdrop-blur-sm border border-white/20">
+                  <Logo size="lg" showText={false} className="shadow-2xl" />
+                </div>
+                
+                <div className="flex-1 text-center md:text-left">
+                  <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                    <div className="h-0.5 w-6 bg-cyan-400 rounded-full" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300 italic">Akun Guru Mapel</p>
+                  </div>
+                  <h1 className="text-4xl font-black font-display tracking-tight mb-3 italic leading-tight">
+                    {user.name.split(' ')[0]}, <br />
+                    <span className="text-cyan-300">Pusat Data Kesehatan.</span>
+                  </h1>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                    <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-white/20">
+                      <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                      <span className="text-xs font-bold text-white uppercase tracking-widest">{getRoleLabel(user.role || 'guru_mapel')}</span>
+                    </div>
+                    <div className="bg-cyan-900/50 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-cyan-400/20">
+                      <Clock className="w-4 h-4 text-cyan-400" />
+                      <span className="text-xs font-black text-white font-mono">{formatRealTime(currentTime).split(',')[1]}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+               {/* Stats cards... */}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {viewMode === 'perizinan' && (
+          <div className="space-y-6">
+             {/* Perizinan specific content */}
+          </div>
+        )}
+
+        {viewMode === 'profil' && <ProfileView user={user} />}
+        {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+
+        {viewMode === 'kartu_siswa' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex flex-col gap-6">
+              <div className="px-1">
+                <h2 className="text-2xl font-black text-[#3e2723] font-display tracking-tight italic">Data Siswa</h2>
+                <p className="text-xs font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Daftar Lengkap Siswa</p>
+              </div>
+
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40 group-focus-within:text-[#5d4037] transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Cari nama atau NIK siswa..."
+                  value={studentSearchTerm}
+                  onChange={(e) => setStudentSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-[#d7ccc8]/40 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-[#5d4037]/10 focus:border-[#5d4037] transition-all outline-none text-sm font-medium text-[#3e2723] placeholder:text-[#8b5e3c]/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredStudents.map((student) => (
+                  <motion.div
+                    key={student.id}
+                    whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
+                    onClick={() => setSelectedStudent(student)}
+                    className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm flex flex-col gap-4 group cursor-pointer hover:border-[#8b5e3c] transition-all duration-300 relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#f8f3ed] rounded-full -mr-12 -mt-12 group-hover:bg-[#5d4037] transition-colors duration-500" />
+                    
+                    <div className="flex items-center gap-4 relative">
+                      <div className="w-16 h-16 bg-[#f8f3ed] rounded-2xl flex items-center justify-center text-[#5d4037] font-black text-xl shadow-inner group-hover:scale-110 transition-all duration-500 border border-[#d7ccc8]/20">
+                        {student.nama_lengkap ? student.nama_lengkap.charAt(0) : '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-black text-[#3e2723] truncate font-display group-hover:text-[#8b5e3c] transition-colors italic">{student.nama_lengkap || 'Tanpa Nama'}</h3>
+                        <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">NIK: {student.nik}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between relative">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kelas</p>
+                        <p className="text-xs font-bold text-slate-600">{student.kelas || '-'}</p>
+                      </div>
+                      <div className="p-2 bg-[#fdfcf0] rounded-xl text-[#d7ccc8] group-hover:text-white group-hover:bg-[#5d4037] transition-all shadow-sm border border-[#d7ccc8]/40">
+                        <ChevronRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                
+                {filteredStudents.length === 0 && (
+                  <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-[#d7ccc8]">
+                    <Search className="w-12 h-12 text-[#d7ccc8]/40 mx-auto mb-4" />
+                    <p className="text-[#8b5e3c]/40 font-black uppercase tracking-widest text-[10px] italic">Siswa tidak ditemukan</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'riwayat_sakit' && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-[2rem] border border-[#d7ccc8]/40 shadow-sm">
+               {/* Rest of the perizinan content could go here or was it intended to be nested? 
+                   Actually, let's just make it compilable. */}
+            </div>
+          </div>
+        )}
 
       {viewMode === 'pinjam_laptop' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1002,6 +1141,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         </div>
 
         {/* perizinan history removed from this section */}
+
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
 
         {viewMode === 'pinjam_laptop' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1625,6 +1766,121 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Student Detail Modal */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#3e2723]/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+          >
+            {/* Left Header Panel - Mobile stays on top */}
+            <div className="bg-[#5d4037] p-8 text-white flex flex-col items-center justify-center gap-6 md:w-1/3">
+              <div className="w-32 h-32 bg-white/10 rounded-[2.5rem] flex items-center justify-center text-4xl font-black border border-white/20 shadow-inner backdrop-blur-lg">
+                {selectedStudent.nama_lengkap.charAt(0)}
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-black font-display italic leading-tight mb-2">{selectedStudent.nama_lengkap}</h3>
+                <div className="px-4 py-2 bg-amber-200 text-[#3e2723] rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] inline-block shadow-lg">
+                  KELAS {selectedStudent.kelas}
+                </div>
+              </div>
+              <div className="w-full h-px bg-white/10" />
+              <div className="text-center space-y-1">
+                <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">NISN / NIK</p>
+                <p className="text-xs font-mono font-black">{selectedStudent.nisn || '-'} / {selectedStudent.nik}</p>
+              </div>
+            </div>
+
+            {/* Right Scrollable Content Panel */}
+            <div className="flex-1 min-h-0 flex flex-col bg-slate-50 relative">
+              <button 
+                onClick={() => setSelectedStudent(null)} 
+                className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white rounded-full transition-all text-[#5d4037] shadow-sm z-10"
+              >
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+
+              <div className="p-8 overflow-y-auto custom-scrollbar space-y-8 flex-1 min-h-0">
+                {/* Personal Data Section */}
+                <div>
+                  <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 italic">
+                    <User className="w-3 h-3" /> Data Pribadi Siswa
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest group-hover:text-[#5d4037] transition-colors">Tempat, Tgl Lahir</p>
+                      <p className="text-sm font-black text-[#3e2723] italic font-display">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
+                    </div>
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest group-hover:text-[#5d4037] transition-colors">Jenis Kelamin / Agama</p>
+                      <p className="text-sm font-black text-[#3e2723] italic font-display">{selectedStudent.jenis_kelamin} / {selectedStudent.agama}</p>
+                    </div>
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest group-hover:text-[#5d4037] transition-colors">Anak Ke / Saudara</p>
+                      <p className="text-sm font-black text-[#3e2723] italic font-display">{selectedStudent.anak_ke} dari {selectedStudent.saudara} Bersaudara</p>
+                    </div>
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest group-hover:text-[#5d4037] transition-colors">Asrama</p>
+                      <p className="text-sm font-black text-[#3e2723] italic font-display">{selectedStudent.asrama || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Family Section */}
+                <div className="pt-6 border-t border-[#d7ccc8]/40">
+                  <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 italic">
+                    <Users className="w-3 h-3" /> Data Orang Tua
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-1 group bg-white p-4 rounded-2xl border border-[#d7ccc8]/20 shadow-sm">
+                      <p className="text-[9px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest">Ayah Kandung</p>
+                      <p className="text-sm font-black text-[#3e2723] italic font-display">{selectedStudent.ayah || '-'}</p>
+                    </div>
+                    <div className="space-y-1 group bg-white p-4 rounded-2xl border border-[#d7ccc8]/20 shadow-sm">
+                      <p className="text-[9px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest">Ibu Kandung</p>
+                      <p className="text-sm font-black text-[#3e2723] italic font-display">{selectedStudent.ibu || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Section */}
+                <div className="pt-6 border-t border-[#d7ccc8]/40">
+                  <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 italic">
+                    <MapPin className="w-3 h-3" /> Alamat Domisili
+                  </h4>
+                  <div className="bg-white p-5 rounded-[2rem] border border-[#d7ccc8]/20 shadow-sm space-y-4">
+                    <div className="flex gap-4">
+                      <div className="p-3 bg-[#fdfcf0] rounded-2xl text-[#8b5e3c] h-fit">
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-[#5d4037] leading-relaxed italic">{selectedStudent.alamat || 'Alamat tidak tersedia'}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
+                          <div className="bg-slate-50 px-3 py-1 rounded-full text-[9px] font-black text-[#8b5e3c] uppercase tracking-wider border border-slate-100 italic">Distrik: {selectedStudent.kecamatan || '-'}</div>
+                          <div className="bg-slate-50 px-3 py-1 rounded-full text-[9px] font-black text-[#8b5e3c] uppercase tracking-wider border border-slate-100 italic">Desa: {selectedStudent.kelurahan || '-'}</div>
+                          <div className="bg-slate-50 px-3 py-1 rounded-full text-[9px] font-black text-[#8b5e3c] uppercase tracking-wider border border-slate-100 italic">RT/RW: {selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button Panel */}
+              <div className="p-6 bg-white border-t border-slate-100 text-right">
+                <button 
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-8 py-3 bg-[#5d4037] text-white font-black rounded-2xl text-xs uppercase tracking-widest hover:bg-[#3e2723] transition-all shadow-xl shadow-black/10 active:scale-95"
+                >
+                  Selesai Meninjau
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

@@ -4,9 +4,8 @@ import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timest
 import { AppUser, MadingPost } from '../types';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Send, Plus, X, User, Clock, BookOpen, PenTool, Trash2, Edit2, Check, Loader2 } from 'lucide-react';
+import { Send, Plus, X, User, Clock, BookOpen, Trash2, Check, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { updateDoc } from 'firebase/firestore';
 
 interface MadingSekolahViewProps {
   user: AppUser;
@@ -249,7 +248,7 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
                   <div className="relative z-10">
                     <div className="flex justify-between items-start gap-4 mb-2">
                        <div className="flex-1">
-                        <div className={`font-handwriting ${isMe ? 'text-lg' : 'text-base'} leading-snug whitespace-pre-wrap select-text`}>
+                        <div className={`font-handwriting ${isMe ? 'text-sm' : 'text-[13px]'} leading-snug whitespace-pre-wrap select-text`}>
                           {post.content}
                         </div>
                        </div>

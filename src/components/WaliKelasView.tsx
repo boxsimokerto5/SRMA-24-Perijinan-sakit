@@ -3,7 +3,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, AppNotification, Announcement, Siswa } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database, BookOpen, Laptop, Smartphone } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Bell, Tablet, LayoutDashboard, GraduationCap, LogOut, Database, BookOpen, Laptop, Smartphone, Users } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
@@ -12,6 +12,7 @@ import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
 import { LaptopRequest, HPRequest } from '../types';
+import ProgressRecordsView from './ProgressRecordsView';
 
 interface WaliKelasViewProps {
   user: AppUser;
@@ -30,7 +31,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading' | 'pinjam_laptop' | 'pinjam_hp'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading' | 'pinjam_laptop' | 'pinjam_hp' | 'catatan_perkembangan'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -342,27 +343,28 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     setLoading(true);
 
     try {
-      await addDoc(collection(db, 'izin_sakit'), {
-        tipe: 'catatan',
-        nomor_surat: `SRMA-C-${Date.now().toString().slice(-6)}`,
+      await addDoc(collection(db, 'progress_records'), {
         nama_siswa: namaSiswa,
         kelas: kelas,
         isi_catatan: isiCatatan,
-        tgl_surat: serverTimestamp(),
-        nama_wali_kelas: user.name,
-        wali_kelas_uid: user.uid,
-        status: 'pending_ack',
+        tgl_catatan: serverTimestamp(),
+        author_name: user.name,
+        author_uid: user.uid,
+        author_role: user.role,
+        is_acknowledged: false
       });
 
       // Notify relevant roles
-      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Siswa Baru', `Wali Kelas ${user.name} mengirimkan catatan penting untuk siswa ${namaSiswa}.`);
+      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Perkembangan Baru', `Wali Kelas ${user.name} mengirimkan catatan perkembangan untuk siswa ${namaSiswa}.`);
 
       setShowCatatanForm(false);
       setNamaSiswa('');
       setIsiCatatan('');
+      setViewMode('catatan_perkembangan');
     } catch (err) {
       console.error(err);
       alert('Gagal mengirim catatan');
+      handleFirestoreError(err, OperationType.WRITE, 'progress_records');
     } finally {
       setLoading(false);
     }
@@ -378,6 +380,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     mading: 'Mading Sekolah',
     pinjam_laptop: 'Peminjaman Laptop',
     pinjam_hp: 'Peminjaman HP',
+    catatan_perkembangan: 'Catatan Perkembangan',
     settings: 'Pengaturan'
   };
 
@@ -441,6 +444,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'perizinan', label: 'Riwayat Izin', icon: ClipboardList },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
@@ -506,6 +510,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
 
         {viewMode === 'pinjam_laptop' && (
           <div className="space-y-6 animate-in fade-in duration-500">
@@ -772,35 +777,80 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
 
         {(viewMode === 'home' || viewMode === 'perizinan') && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-             {viewMode === 'home' && (
-              <div className="bg-gradient-to-br from-[#075e6e] to-[#0a8ea4] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
-                <div className="relative z-10">
-                  <h1 className="text-3xl font-black font-display tracking-tight mb-2">Hallo, {user.name || user.email}</h1>
-                  <p className="text-lg font-bold text-cyan-100 flex items-center gap-2 mb-6">
-                    <ShieldCheck className="w-5 h-5" />
-                    {getRoleLabel(user.role || 'wali_kelas')}
-                  </p>
-                  
-                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-cyan-50 mb-4 flex items-center gap-2">
-                      <LayoutDashboard className="w-4 h-4" />
-                      Daftar Fitur Akun:
-                    </h3>
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {features.map((f, i) => (
-                        <motion.li 
-                          key={i} 
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.1 }}
-                          className="flex items-center gap-3 text-sm font-semibold text-white/95"
+            {/* Announcement Banner */}
+            {announcements.length > 0 && showBanner && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="relative overflow-hidden bg-indigo-50 border border-indigo-100 rounded-[2rem] p-4 group"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/20 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-110 transition-transform" />
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+                    <Bell className="w-6 h-6 animate-swing" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest mb-1 italic flex items-center gap-2">
+                       <ShieldCheck className="w-3 h-3" /> Pengumuman Resmi
+                    </p>
+                    <div className="overflow-hidden">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={bannerIndex}
+                          initial={{ y: 20, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -20, opacity: 0 }}
+                          className="flex flex-col"
                         >
-                          <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                          {f}
-                        </motion.li>
-                      ))}
-                    </ul>
+                          <p className="text-sm font-black text-slate-800 leading-tight">
+                            {banners[bannerIndex % banners.length]?.title}
+                          </p>
+                          <p className="text-xs font-medium text-slate-600 line-clamp-1">
+                            {banners[bannerIndex % banners.length]?.content}
+                          </p>
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBanner(false)}
+                    className="p-2 hover:bg-white rounded-xl transition-all text-indigo-300 hover:text-indigo-600 hover:shadow-sm"
+                  >
+                    <Plus className="w-5 h-5 rotate-45" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {viewMode === 'home' && (
+              <div className="bg-[#075e6e] p-8 rounded-[3rem] text-white shadow-2xl mb-8 relative overflow-hidden group border-b-8 border-[#054a57]">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-400/10 rounded-full -ml-16 -mb-16 blur-2xl" />
+                
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                  <div className="shrink-0 p-1 bg-white/10 rounded-[2.5rem] backdrop-blur-sm border border-white/20">
+                    <Logo size="lg" showText={false} className="shadow-2xl" />
+                  </div>
+                  
+                  <div className="flex-1 text-center md:text-left">
+                    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                      <div className="h-0.5 w-6 bg-cyan-400 rounded-full" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300 italic">Selamat Datang</p>
+                    </div>
+                    <h1 className="text-4xl font-black font-display tracking-tight mb-3 italic leading-tight">
+                      {user.name.split(' ')[0]}, <br />
+                      <span className="text-cyan-300">Pantau Kesehatan Siswa.</span>
+                    </h1>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                      <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-white/20">
+                        <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                        <span className="text-xs font-bold text-white uppercase tracking-widest">{getRoleLabel(user.role || 'wali_kelas')}</span>
+                      </div>
+                      <div className="bg-cyan-900/50 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-cyan-400/20">
+                        <Clock className="w-4 h-4 text-cyan-400" />
+                        <span className="text-xs font-black text-white font-mono">{formatRealTime(currentTime).split(',')[1]}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1498,6 +1548,121 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Student Detail Modal */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+          >
+            {/* Left Header Panel */}
+            <div className="bg-[#075e6e] p-8 text-white flex flex-col items-center justify-center gap-6 md:w-1/3">
+              <div className="w-32 h-32 bg-white/10 rounded-[2.5rem] flex items-center justify-center text-4xl font-black border border-white/20 shadow-inner backdrop-blur-lg">
+                {selectedStudent.nama_lengkap ? selectedStudent.nama_lengkap.charAt(0) : '?'}
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-black font-display italic leading-tight mb-2">{selectedStudent.nama_lengkap}</h3>
+                <div className="px-4 py-2 bg-cyan-400 text-[#075e6e] rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] inline-block shadow-lg">
+                  KELAS {selectedStudent.kelas}
+                </div>
+              </div>
+              <div className="w-full h-px bg-white/10" />
+              <div className="text-center space-y-1">
+                <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">NISN / NIK</p>
+                <p className="text-xs font-mono font-black">{selectedStudent.nisn || '-'} / {selectedStudent.nik}</p>
+              </div>
+            </div>
+
+            {/* Right Scrollable Content Panel */}
+            <div className="flex-1 min-h-0 flex flex-col bg-slate-50 relative">
+              <button 
+                onClick={() => setSelectedStudent(null)} 
+                className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white rounded-full transition-all text-[#075e6e] shadow-sm z-10"
+              >
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+
+              <div className="p-8 overflow-y-auto custom-scrollbar space-y-8 flex-1 min-h-0">
+                {/* Personal Data Section */}
+                <div>
+                  <h4 className="text-[10px] font-black text-[#075e6e] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 italic text-left">
+                    <User className="w-3 h-3" /> Data Pribadi Siswa
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left">
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-[#075e6e] transition-colors">Tempat, Tgl Lahir</p>
+                      <p className="text-sm font-black text-slate-900 italic font-display">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
+                    </div>
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-[#075e6e] transition-colors">Jenis Kelamin / Agama</p>
+                      <p className="text-sm font-black text-slate-900 italic font-display">{selectedStudent.jenis_kelamin} / {selectedStudent.agama}</p>
+                    </div>
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-[#075e6e] transition-colors">Anak Ke / Saudara</p>
+                      <p className="text-sm font-black text-slate-900 italic font-display">{selectedStudent.anak_ke} dari {selectedStudent.saudara} Bersaudara</p>
+                    </div>
+                    <div className="space-y-1 group">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-[#075e6e] transition-colors">Asrama</p>
+                      <p className="text-sm font-black text-slate-900 italic font-display">{selectedStudent.asrama || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Family Section */}
+                <div className="pt-6 border-t border-slate-200">
+                  <h4 className="text-[10px] font-black text-[#075e6e] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 italic text-left">
+                    <Users className="w-3 h-3" /> Data Orang Tua
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left">
+                    <div className="space-y-1 group bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Ayah Kandung</p>
+                      <p className="text-sm font-black text-slate-900 italic font-display">{selectedStudent.ayah || '-'}</p>
+                    </div>
+                    <div className="space-y-1 group bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Ibu Kandung</p>
+                      <p className="text-sm font-black text-slate-900 italic font-display">{selectedStudent.ibu || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Section */}
+                <div className="pt-6 border-t border-slate-200">
+                  <h4 className="text-[10px] font-black text-[#075e6e] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 italic text-left">
+                    <MapPin className="w-3 h-3" /> Alamat Domisili
+                  </h4>
+                  <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex gap-4">
+                      <div className="p-3 bg-cyan-50 rounded-2xl text-[#075e6e] h-fit">
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{selectedStudent.alamat || 'Alamat tidak tersedia'}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
+                          <div className="bg-slate-50 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-wider border border-slate-100 italic">Distrik: {selectedStudent.kecamatan || '-'}</div>
+                          <div className="bg-slate-50 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-wider border border-slate-100 italic">Desa: {selectedStudent.kelurahan || '-'}</div>
+                          <div className="bg-slate-50 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-wider border border-slate-100 italic">RT/RW: {selectedStudent.rt || '00'}/{selectedStudent.rw || '00'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button Panel */}
+              <div className="p-6 bg-white border-t border-slate-100 text-right">
+                <button 
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-8 py-3 bg-[#075e6e] text-white font-black rounded-2xl text-xs uppercase tracking-widest hover:bg-[#085a6a] transition-all shadow-xl shadow-black/10 active:scale-95"
+                >
+                  Selesai Meninjau
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

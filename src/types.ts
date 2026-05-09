@@ -167,6 +167,18 @@ export interface MadingPost {
   updatedAt?: Timestamp;
 }
 
+export interface ProgressRecord {
+  id?: string;
+  nama_siswa: string;
+  kelas: string;
+  isi_catatan: string;
+  author_name: string;
+  author_uid: string;
+  author_role: UserRole;
+  tgl_catatan: Timestamp;
+  is_acknowledged?: boolean;
+}
+
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
   // Trim and convert to upper case for consistency

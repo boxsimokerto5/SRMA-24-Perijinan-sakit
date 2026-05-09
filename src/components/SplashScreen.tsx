@@ -21,49 +21,58 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] bg-[#0ea5e9] flex flex-col items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] bg-gradient-to-br from-[#4F46E5] to-[#312E81] flex flex-col items-center justify-center overflow-hidden"
         >
-          {/* Background Decorative Circles */}
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1.5, opacity: 0.1 }}
-            transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
-            className="absolute w-[500px] h-[500px] bg-white rounded-full"
-          />
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1.2, opacity: 0.05 }}
-            transition={{ duration: 3, delay: 0.5, repeat: Infinity, repeatType: "reverse" }}
-            className="absolute w-[300px] h-[300px] bg-white rounded-full"
-          />
+          {/* Background Decorative Elements */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+             <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+             <motion.div 
+               animate={{ 
+                 rotate: 360,
+                 scale: [1, 1.1, 1]
+               }}
+               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+               className="absolute -top-1/4 -right-1/4 w-[600px] h-[600px] bg-white/10 rounded-full blur-3xl" 
+             />
+             <motion.div 
+               animate={{ 
+                 rotate: -360,
+                 scale: [1, 1.2, 1]
+               }}
+               transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+               className="absolute -bottom-1/4 -left-1/4 w-[800px] h-[800px] bg-indigo-400/10 rounded-full blur-3xl" 
+             />
+          </div>
 
           <div className="relative flex flex-col items-center">
             {/* Animated Icon Container */}
             <motion.div
-              initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               transition={{ 
                 type: "spring",
-                stiffness: 260,
-                damping: 20,
-                delay: 0.2 
+                stiffness: 100,
+                damping: 15,
+                delay: 0.3 
               }}
-              className="mb-8 relative"
+              className="mb-12 relative p-4"
             >
-              <Logo size="lg" />
+              <div className="relative z-10 bg-white p-2 rounded-[2.5rem] shadow-2xl">
+                <Logo size="xl" showText={false} />
+              </div>
               
               {/* Pulse Effect */}
               <motion.div
                 animate={{ 
-                  scale: [1, 1.1, 1],
-                  opacity: [0.3, 0, 0.3]
+                  scale: [1, 1.5],
+                  opacity: [0.5, 0]
                 }}
                 transition={{ 
                   duration: 2,
                   repeat: Infinity,
-                  ease: "easeInOut"
+                  ease: "easeOut"
                 }}
-                className="absolute inset-0 border-4 border-white/30 rounded-[25%]"
+                className="absolute inset-0 border-2 border-white/40 rounded-[3rem]"
               />
             </motion.div>
 
@@ -71,48 +80,55 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="text-center"
+              transition={{ delay: 0.8 }}
+              className="text-center px-6"
             >
-              <h1 className="text-4xl font-black text-white tracking-tighter mb-2">
+              <h1 className="text-5xl font-black text-white tracking-widest mb-4 italic drop-shadow-2xl">
                 SRMA 24 KEDIRI
               </h1>
-              <div className="flex items-center justify-center gap-2">
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 0.8, repeat: Infinity }}
-                >
-                  <HeartPulse className="w-4 h-4 text-rose-300" />
-                </motion.div>
-                <p className="text-indigo-100 font-bold uppercase tracking-[0.2em] text-xs">
-                  Perizinan Siswa Sakit
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-[1px] w-12 bg-white/30" />
+                <p className="text-indigo-100 font-black uppercase tracking-[0.4em] text-[10px]">
+                  Digital Health Hub
                 </p>
+                <div className="h-[1px] w-12 bg-white/30" />
               </div>
             </motion.div>
 
-            {/* Loading Bar */}
-            <div className="mt-12 w-48 h-1 bg-[#0369a1] rounded-full overflow-hidden">
+            {/* Premium Loading Progress */}
+            <div className="mt-20 w-64 h-1 bg-white/10 rounded-full overflow-hidden relative border border-white/5">
               <motion.div
-                initial={{ x: "-100%" }}
-                animate={{ x: "100%" }}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
                 transition={{ 
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: "linear"
+                  duration: 2.5,
+                  ease: "easeInOut"
                 }}
-                className="w-full h-full bg-white/60"
+                className="h-full bg-gradient-to-r from-cyan-400 to-indigo-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]"
               />
             </div>
           </div>
           
-          <motion.p 
+          <motion.div 
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.6 }}
+            animate={{ opacity: 1 }}
             transition={{ delay: 1.5 }}
-            className="absolute bottom-10 text-white text-[10px] font-medium tracking-widest uppercase"
+            className="absolute bottom-12 flex flex-col items-center gap-2"
           >
-            Unit Pelayanan Kesehatan Sekolah
-          </motion.p>
+            <p className="text-white/40 text-[10px] font-black tracking-[0.3em] uppercase">
+              Powered by SRMA 24 Tech
+            </p>
+            <div className="flex gap-1">
+              {[1, 2, 3].map(i => (
+                <motion.div 
+                  key={i}
+                  animate={{ opacity: [0.2, 1, 0.2] }}
+                  transition={{ duration: 1.5, delay: i * 0.2, repeat: Infinity }}
+                  className="w-1 h-1 bg-cyan-400 rounded-full" 
+                />
+              ))}
+            </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
