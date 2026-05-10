@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -927,6 +927,246 @@ export const generateHealthCheckProposalPDF = async (proposal: HealthCheckPropos
       });
     } catch (error) {
       console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateSarprasReportPDF = async (report: SarprasReport) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- DESIGN: Border & Background ---
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287); // Page border
+  
+  // --- HEADER ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(185, 28, 28); // Red color for damage/sarpras
+  doc.text('UNIT LINGKUNGAN DAN ASRAMA (WALI ASRAMA)', 105, 32, { align: 'center' });
+  
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 38, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 43, { align: 'center' });
+  doc.text(`Email: srma24kediri@gmail.com   |   Kode Pos: 64152`, 105, 48, { align: 'center' });
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+  doc.setLineWidth(0.2);
+  doc.line(20, 53.5, 190, 53.5);
+
+  // --- TITLE ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LAPORAN KERUSAKAN SARANA DAN PRASARANA', 105, 65, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(40, 66.5, 170, 66.5);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const tglLaporStr = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd/MM/yyyy/HH:mm') : format(new Date(), 'dd/MM/yyyy');
+  doc.text(`Nomor Laporan: SARPRAS/${tglLaporStr}/${(report.author_name || '').substring(0,3).toUpperCase()}`, 105, 72, { align: 'center' });
+
+  // --- RECIPIENT ---
+  doc.setFontSize(11);
+  doc.text('Kepada Yth.', 20, 85);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Bagian Sarpras SRMA 24 Kediri`, 20, 91);
+  doc.setFont('helvetica', 'normal');
+  doc.text('di Tempat', 20, 96);
+
+  // --- CONTENT ---
+  doc.text('Dengan hormat,', 20, 110);
+  doc.text('Bersama surat ini, saya yang bertanda tangan di bawah ini melaporkan adanya kerusakan pada sarana/prasarana di lingkungan asrama dengan rincian sebagai berikut:', 20, 117, { maxWidth: 170 });
+
+  const startY = 135;
+  const labelX = 25;
+  const valueX = 75;
+
+  const details = [
+    { label: 'Nama Barang/Sarana', value: report.item_name },
+    { label: 'Lokasi Kerusakan', value: report.location },
+    { label: 'Asrama', value: report.asrama },
+    { label: 'Deskripsi Kerusakan', value: report.damage_description },
+    { label: 'Status Laporan', value: report.status.toUpperCase() }
+  ];
+
+  let currentY = startY;
+  details.forEach((item) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(item.label, labelX, currentY);
+    
+    doc.setFont('helvetica', 'normal');
+    const valueText = `:  ${item.value}`;
+    const splitValue = doc.splitTextToSize(valueText, 110);
+    doc.text(splitValue, valueX, currentY);
+    
+    currentY += (splitValue.length * 6) + 4;
+  });
+
+  doc.text('Demikian laporan ini saya sampaikan untuk dapat segera ditindaklanjuti demi kenyamanan dan kelancaran kegiatan di asrama. Atas perhatiannya diucapkan terima kasih.', 20, currentY + 10, { maxWidth: 170 });
+
+  // --- SIGNATURE ---
+  const footerY = 240;
+  const tglStr = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd MMMM yyyy') : format(new Date(), 'dd MMMM yyyy');
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Kediri, ${tglStr}`, 155, footerY - 15, { align: 'center' });
+  doc.text('Pelapor,', 155, footerY - 10, { align: 'center' });
+  
+  const qrData = `SARPRAS_REPORT_VERIFIED_${report.id}_${report.author_name}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+  doc.addImage(qrUrl, 'PNG', 142.5, footerY - 2, 25, 25);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(report.author_name, 155, footerY + 28, { align: 'center' });
+  doc.line(130, footerY + 29, 180, footerY + 29);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Wali Asrama', 155, footerY + 34, { align: 'center' });
+
+  // --- OUTPUT ---
+  const fileName = `Laporan_Sarpras_${(report.item_name || '').replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Kerusakan Sarpras',
+        text: `Laporan Sarpras - ${report.item_name}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Laporan'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateSarprasSummaryPDF = async (reports: SarprasReport[], filter: string, currentUser: { name: string, role: string }) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- HEADER ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(185, 28, 28);
+  doc.text('REKAPITULASI KERUSAKAN SARANA DAN PRASARANA', 105, 32, { align: 'center' });
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Periode Rekap: ${filter.replace('_', ' ').toUpperCase()}`, 20, 60);
+  doc.text(`Tanggal Cetak: ${format(new Date(), 'dd MMMM yyyy')}`, 20, 65);
+
+  // --- TABLE HEADER ---
+  const startY = 75;
+  doc.setFont('helvetica', 'bold');
+  doc.setFillColor(245, 245, 245);
+  doc.rect(20, startY, 170, 10, 'F');
+  doc.rect(20, startY, 170, 10);
+  
+  doc.text('No', 25, startY + 7);
+  doc.text('Tgl Lapor', 40, startY + 7);
+  doc.text('Item / Lokasi', 75, startY + 7);
+  doc.text('Status', 160, startY + 7);
+
+  // --- TABLE ROWS ---
+  let currentY = startY + 10;
+  doc.setFont('helvetica', 'normal');
+  
+  reports.forEach((report, index) => {
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    const tglStr = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd/MM/yy') : '-';
+    
+    doc.text(`${index + 1}`, 25, currentY + 7);
+    doc.text(tglStr, 40, currentY + 7);
+    
+    const itemLoc = `${report.item_name} (${report.location})`;
+    const splitItem = doc.splitTextToSize(itemLoc, 80);
+    doc.text(splitItem, 75, currentY + 7);
+    
+    doc.text(report.status.toUpperCase(), 160, currentY + 7);
+    
+    const rowHeight = Math.max(splitItem.length * 5, 10);
+    doc.rect(20, currentY, 170, rowHeight);
+    currentY += rowHeight;
+  });
+
+  // --- SIGNATURE ---
+  const footerY = 250;
+  if (currentY > 230) {
+    doc.addPage();
+    currentY = 20;
+  }
+  
+  const roleLabel = currentUser.role === 'kepala_sekolah' ? 'Kepala Sekolah' : 
+                   currentUser.role === 'wali_asuh' ? 'Wali Asuh' : 
+                   currentUser.role === 'wali_asrama' ? 'Wali Asrama' : 'Petugas';
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Kediri, ${format(new Date(), 'dd MMMM yyyy')}`, 155, footerY - 15, { align: 'center' });
+  doc.text('Mengetahui,', 155, footerY - 10, { align: 'center' });
+  doc.text(roleLabel, 155, footerY - 5, { align: 'center' });
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text(currentUser.name, 155, footerY + 20, { align: 'center' });
+  doc.line(130, footerY + 21, 180, footerY + 21);
+
+  // --- OUTPUT ---
+  const fileName = `Rekap_Sarpras_${filter}_${Date.now()}.pdf`;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Rekap Laporan Sarpras',
+        url: savedFile.uri
+      });
+    } catch (error) {
       doc.save(fileName);
     }
   } else {

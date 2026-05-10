@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, orderBy, onSnapshot, Timestamp, addDoc, deleteDoc, doc, where, getDocs, writeBatch } from 'firebase/firestore';
-import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest, HPRequest, AppNotification } from '../types';
+import { collection, query, orderBy, onSnapshot, Timestamp, addDoc, deleteDoc, doc, where, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
+import { IzinSakit, AppUser, Memorandum, UserRole, normalizeKelas, Announcement, PinjamHP, Siswa, LaptopRequest, HPRequest, AppNotification, SarprasReport } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, subDays } from 'date-fns';
 import { 
@@ -43,9 +43,9 @@ import {
   ChevronRight,
   Laptop,
   Calendar,
-  Tablet, Smartphone, Check, Menu, GraduationCap, IdCard, LayoutDashboard, LogOut, BookOpen
+  Tablet, Smartphone, Check, Menu, GraduationCap, IdCard, LayoutDashboard, LogOut, BookOpen, Wrench, Shield
 } from 'lucide-react';
-import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
@@ -73,7 +73,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil' | 'mading'>('statistik');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil' | 'mading' | 'sarpras'>('statistik');
+
+  const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
+  const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('minggu_ini');
 
   useEffect(() => {
     if (activeTab === 'profil') setViewMode('profil');
@@ -145,7 +148,8 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     kartu_siswa: 'Kartu Siswa',
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
-    settings: 'Pengaturan'
+    settings: 'Pengaturan',
+    sarpras: 'Sarana & Prasarana'
   };
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
@@ -248,6 +252,13 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       setHpRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HPRequest)));
     });
 
+    const qSarpras = query(collection(db, 'sarpras_reports'), orderBy('tgl_lapor', 'desc'));
+    const unsubscribeSarpras = onSnapshot(qSarpras, (snapshot) => {
+      setSarprasReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SarprasReport)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'sarpras_reports');
+    });
+
     return () => {
       unsubscribePermits();
       unsubscribeMemos();
@@ -255,6 +266,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       unsubscribeSiswa();
       unsubscribeLaptop();
       unsubscribeHP();
+      unsubscribeSarpras();
     };
   }, []);
 
@@ -470,6 +482,19 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       console.error("PDF Error:", error);
     } finally {
       setHpRequestPdfLoading(null);
+    }
+  };
+
+  const handleUpdateSarprasStatus = async (id: string, status: 'pending' | 'on_progress' | 'fixed') => {
+    try {
+      await updateDoc(doc(db, 'sarpras_reports', id), { 
+        status, 
+        updatedAt: Timestamp.now(),
+        last_updated_by: user.name
+      });
+      alert('Status laporan diperbarui');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `sarpras_reports/${id}`);
     }
   };
 
@@ -843,6 +868,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                           { id: 'perizinan', label: 'Perizinan Siswa', icon: ClipboardList },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
+                          { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
                           { id: 'pengumuman', label: 'Pengumuman', icon: Bell },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: Smartphone },
@@ -927,6 +953,104 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        
+        {viewMode === 'sarpras' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black text-[#3e2723] font-display italic">Sarana & Prasarana</h2>
+                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Monitor Kerusakan Fasilitas Asrama</p>
+              </div>
+              <div className="flex items-center gap-2">
+                 <select 
+                   value={sarprasFilter}
+                   onChange={(e) => setSarprasFilter(e.target.value as any)}
+                   className="px-4 py-2.5 rounded-full bg-white border border-slate-100 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-display"
+                 >
+                   <option value="minggu_ini">Minggu Ini</option>
+                   <option value="bulan_ini">Bulan Ini</option>
+                   <option value="semua">Semua Laporan</option>
+                 </select>
+                 <button
+                   onClick={() => {
+                     const filtered = sarprasReports.filter(r => {
+                       const date = r.tgl_lapor?.toDate();
+                       if (!date) return false;
+                       if (sarprasFilter === 'minggu_ini') return isThisWeek(date);
+                       if (sarprasFilter === 'bulan_ini') return isThisMonth(date);
+                       return true;
+                     });
+                     generateSarprasSummaryPDF(filtered, sarprasFilter, { name: user.name, role: user.role });
+                   }}
+                   className="px-6 py-2.5 bg-emerald-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
+                 >
+                   <Printer className="w-3.5 h-3.5" />
+                   Rekap Laporan
+                 </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              {sarprasReports.map((report) => (
+                <div key={report.id} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col md:flex-row gap-6 items-start md:items-center relative group">
+                  <div className={`p-4 rounded-[2rem] ${
+                    report.status === 'fixed' ? 'bg-emerald-50 text-emerald-600' :
+                    report.status === 'on_progress' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    <Wrench className="w-8 h-8" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+                      </span>
+                      <span className="w-1 h-1 bg-slate-200 rounded-full" />
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-tight">Pelapor: {report.author_name}</span>
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900">{report.item_name}</h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {report.location} ({report.asrama})
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-2xl italic font-medium mt-2">"{report.damage_description}"</p>
+                  </div>
+                  <div className="flex flex-col gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2 mb-2">
+                      <select 
+                        value={report.status}
+                        onChange={(e) => handleUpdateSarprasStatus(report.id!, e.target.value as any)}
+                        className={`w-full md:w-44 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all outline-none ${
+                          report.status === 'fixed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                          report.status === 'on_progress' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                          'bg-rose-50 text-rose-700 border-rose-100'
+                        }`}
+                      >
+                        <option value="pending">🟡 PENDING</option>
+                        <option value="on_progress">🔵 PROSES</option>
+                        <option value="fixed">🟢 SELESAI</option>
+                      </select>
+                      <button
+                        onClick={() => generateSarprasReportPDF(report)}
+                        className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95"
+                        title="Cetak Laporan"
+                      >
+                        <Printer className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {sarprasReports.length === 0 && (
+                <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                  <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-xs italic">Tidak ada laporan kerusakan sarpras</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {viewMode === 'statistik' && (
           <div className="space-y-8 animate-in fade-in duration-500">

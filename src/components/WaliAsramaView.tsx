@@ -27,14 +27,16 @@ import {
   LayoutDashboard,
   IdCard,
   Database,
-  BookOpen
+  BookOpen,
+  Wrench,
+  AlertTriangle
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal } from '../types';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
+import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
@@ -55,8 +57,20 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
+  
+  // Sarpras states
+  const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
+  const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('minggu_ini');
+  const [isAddingSarpras, setIsAddingSarpras] = useState(false);
+  const [newSarpras, setNewSarpras] = useState({
+    item_name: '',
+    damage_description: '',
+    location: '',
+    asrama: ''
+  });
+  const [submittingSarpras, setSubmittingSarpras] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -144,6 +158,19 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     return () => unsubscribe();
   }, [user.uid]);
 
+  useEffect(() => {
+    const q = query(
+      collection(db, 'sarpras_reports'),
+      orderBy('tgl_lapor', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setSarprasReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SarprasReport)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'sarpras_reports');
+    });
+    return () => unsubscribe();
+  }, []);
+
   const filteredPermits = permits.filter(p => {
     const permitDate = p.tgl_surat?.toDate();
     if (!permitDate) return false;
@@ -190,6 +217,38 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     }
   };
 
+  const handleSubmitSarpras = async () => {
+    if (!newSarpras.item_name || !newSarpras.damage_description || !newSarpras.location || !newSarpras.asrama) {
+      alert('Mohon lengkapi semua data laporan');
+      return;
+    }
+    setSubmittingSarpras(true);
+    try {
+      await addDoc(collection(db, 'sarpras_reports'), {
+        ...newSarpras,
+        author_name: user.name,
+        author_uid: user.uid,
+        tgl_lapor: serverTimestamp(),
+        status: 'pending'
+      });
+
+      notifyAllRoles(['kepala_sekolah', 'wali_asuh'], 'Laporan Kerusakan Sarpras Baru', `Wali Asrama ${user.name} melaporkan adanya kerusakan sarana & prasarana.`);
+      
+      setNewSarpras({
+        item_name: '',
+        damage_description: '',
+        location: '',
+        asrama: ''
+      });
+      setIsAddingSarpras(false);
+      alert('Laporan berhasil dikirim');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'sarpras_reports');
+    } finally {
+      setSubmittingSarpras(false);
+    }
+  };
+
   const toggleStudentSelection = (name: string) => {
     setSelectedStudents(prev => 
       prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
@@ -211,7 +270,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     memorandum: 'Memorandum',
     pangkalan_data: 'Pangkalan Data Wali Asuh',
     profil: 'Profil Saya',
-    mading: 'Mading Sekolah'
+    mading: 'Mading Sekolah',
+    sarpras: 'Sarana & Prasarana'
   };
 
   const navItems = [
@@ -283,6 +343,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
+                          { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
                           { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
                           { id: 'profil', label: 'Profil Saya', icon: User }
@@ -617,6 +678,169 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
              title="Pangkalan Data Wali Asuh"
              allow="autoplay; fullscreen"
            />
+        </div>
+      )}
+
+      {viewMode === 'sarpras' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+               <div>
+                 <h3 className="text-lg font-black text-slate-900 font-display">Laporan Sarana & Prasarana</h3>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Kelola dan Rekap Laporan Kerusakan</p>
+               </div>
+               <div className="flex items-center gap-2">
+                 <select 
+                   value={sarprasFilter}
+                   onChange={(e) => setSarprasFilter(e.target.value as any)}
+                   className="px-4 py-2.5 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-display"
+                 >
+                   <option value="minggu_ini">Minggu Ini</option>
+                   <option value="bulan_ini">Bulan Ini</option>
+                   <option value="semua">Semua Laporan</option>
+                 </select>
+                 <button
+                   onClick={() => {
+                     const filtered = sarprasReports.filter(r => {
+                       const date = r.tgl_lapor?.toDate();
+                       if (!date) return false;
+                       if (sarprasFilter === 'minggu_ini') return isThisWeek(date);
+                       if (sarprasFilter === 'bulan_ini') return isThisMonth(date);
+                       return true;
+                     });
+                     generateSarprasSummaryPDF(filtered, sarprasFilter, { name: user.name, role: user.role });
+                   }}
+                   className="px-6 py-2.5 bg-emerald-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
+                 >
+                   <Printer className="w-3.5 h-3.5" />
+                   Rekap Laporan
+                 </button>
+                 <button 
+                   onClick={() => setIsAddingSarpras(!isAddingSarpras)}
+                   className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                     isAddingSarpras ? 'bg-rose-500 text-white' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                   }`}
+                 >
+                   {isAddingSarpras ? 'Batal' : 'Laporan Baru'}
+                 </button>
+               </div>
+            </div>
+
+            {isAddingSarpras && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 animate-in zoom-in-95 duration-300">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Barang / Sarana</label>
+                    <input
+                      type="text"
+                      value={newSarpras.item_name}
+                      onChange={(e) => setNewSarpras({...newSarpras, item_name: e.target.value})}
+                      placeholder="Contoh: AC Kamar, Pintu Kamar Mandi, dsb"
+                      className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Lokasi Detail</label>
+                    <input
+                      type="text"
+                      value={newSarpras.location}
+                      onChange={(e) => setNewSarpras({...newSarpras, location: e.target.value})}
+                      placeholder="Contoh: Kamar 10, Lobby Lt.2, dsb"
+                      className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Asrama</label>
+                    <select
+                      value={newSarpras.asrama}
+                      onChange={(e) => setNewSarpras({...newSarpras, asrama: e.target.value})}
+                      className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-sm"
+                    >
+                      <option value="">Pilih Asrama</option>
+                      <option value="Asrama Putra">Asrama Putra</option>
+                      <option value="Asrama Putri">Asrama Putri</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Deskripsi Kerusakan</label>
+                    <textarea
+                      value={newSarpras.damage_description}
+                      onChange={(e) => setNewSarpras({...newSarpras, damage_description: e.target.value})}
+                      placeholder="Jelaskan detail kerusakan yang terjadi..."
+                      className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-sm h-[115px]"
+                    />
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <button
+                    onClick={handleSubmitSarpras}
+                    disabled={submittingSarpras}
+                    className="w-full py-5 bg-[#075e6e] text-white font-black rounded-2xl shadow-xl shadow-cyan-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    {submittingSarpras ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 rotate-45" />}
+                    KIRIM LAPORAN KERUSAKAN
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-2">Riwayat Laporan Sarpras</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {sarprasReports.map((report) => (
+                  <div key={report.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4 relative group hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
+                    <div className="flex justify-between items-start">
+                      <div className="flex gap-4">
+                        <div className={`p-3 rounded-2xl ${
+                          report.status === 'fixed' ? 'bg-emerald-50 text-emerald-600' :
+                          report.status === 'on_progress' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'
+                        }`}>
+                          <Wrench className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
+                          </p>
+                          <h4 className="font-bold text-slate-900">{report.item_name}</h4>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-tight">{report.location} • {report.asrama}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => generateSarprasReportPDF(report)}
+                          className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all"
+                          title="Cetak Laporan"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                          report.status === 'fixed' ? 'bg-emerald-100 text-emerald-700' :
+                          report.status === 'on_progress' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'
+                        }`}>
+                          {report.status}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-white rounded-2xl border border-slate-100 flex gap-3">
+                       <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+                       <p className="text-xs text-slate-600 leading-relaxed font-bold italic line-clamp-2">
+                         "{report.damage_description}"
+                       </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {sarprasReports.length === 0 && (
+                <div className="text-center py-20 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200">
+                  <Wrench className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada laporan kerusakan</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

@@ -171,6 +171,22 @@
         "is_acknowledged": { "type": "boolean" }
       },
       "required": ["nama_siswa", "kelas", "isi_catatan", "author_name", "author_uid", "author_role", "tgl_catatan"]
+    },
+    "SarprasReport": {
+      "title": "Sarpras Report",
+      "description": "Dormitory facilities and infrastructure damage reports",
+      "type": "object",
+      "properties": {
+        "asrama": { "type": "string" },
+        "item_name": { "type": "string" },
+        "damage_description": { "type": "string" },
+        "location": { "type": "string" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "tgl_lapor": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "on_progress", "fixed"] }
+      },
+      "required": ["asrama", "item_name", "damage_description", "location", "author_name", "author_uid", "tgl_lapor", "status"]
     }
   },
   "firestore": {
@@ -213,6 +229,10 @@
     "/progress_records/{recordId}": {
       "schema": "ProgressRecord",
       "description": "Student progress records"
+    },
+    "/sarpras_reports/{reportId}": {
+      "schema": "SarprasReport",
+      "description": "Dormitory facilities and infrastructure damage reports"
     }
   }
 }

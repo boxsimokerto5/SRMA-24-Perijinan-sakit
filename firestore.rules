@@ -121,6 +121,18 @@ service cloud.firestore {
              (!('is_acknowledged' in data) || data.is_acknowledged is bool);
     }
 
+    function isValidSarprasReport(data) {
+      return data.keys().hasAll(['asrama', 'item_name', 'damage_description', 'location', 'author_name', 'author_uid', 'tgl_lapor', 'status']) &&
+             data.asrama is string && data.asrama.size() <= 64 &&
+             data.item_name is string && data.item_name.size() <= 200 &&
+             data.damage_description is string && data.damage_description.size() <= 2000 &&
+             data.location is string && data.location.size() <= 200 &&
+             data.author_name is string && data.author_name.size() <= 128 &&
+             data.author_uid == request.auth.uid &&
+             data.tgl_lapor == request.time &&
+             data.status in ['pending', 'on_progress', 'fixed'];
+    }
+
     function isMadingAuthor(authId) {
       return isSignedIn() && authId == request.auth.uid;
     }
@@ -281,6 +293,13 @@ service cloud.firestore {
         isAdmin()
       );
       allow delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && existing().author_uid == request.auth.uid);
+    }
+
+    match /sarpras_reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if hasRole('wali_asrama') && isValidSarprasReport(incoming());
+      allow update: if (hasRole('wali_asrama') || hasRole('kepala_sekolah') || hasRole('wali_asuh') || isAdmin());
+      allow delete: if isAdmin() || (hasRole('wali_asrama') && existing().author_uid == request.auth.uid);
     }
   }
 }

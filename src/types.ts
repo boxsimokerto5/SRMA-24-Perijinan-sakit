@@ -179,6 +179,18 @@ export interface ProgressRecord {
   is_acknowledged?: boolean;
 }
 
+export interface SarprasReport {
+  id?: string;
+  asrama: string;
+  item_name: string;
+  damage_description: string;
+  location: string;
+  author_name: string;
+  author_uid: string;
+  tgl_lapor: Timestamp;
+  status: 'pending' | 'on_progress' | 'fixed';
+}
+
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
   // Trim and convert to upper case for consistency
