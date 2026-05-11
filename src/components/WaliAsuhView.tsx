@@ -23,6 +23,7 @@ import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import ProgressRecordsView from './ProgressRecordsView';
+import MonthlyReportView from './MonthlyReportView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -44,7 +45,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -926,7 +927,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     catatan_perkembangan: 'Catatan Perkembangan',
     settings: 'Pengaturan',
     mading: 'Mading Sekolah',
-    sarpras_asrama: 'Sarpras Asrama'
+    sarpras_asrama: 'Sarpras Asrama',
+    laporan_bulanan: 'Laporan Bulanan'
   };
 
   const getRoleLabel = (role: string) => {
@@ -991,6 +993,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
+                          { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
                           { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
                           { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
@@ -1246,6 +1249,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
         
         {viewMode === 'sarpras_asrama' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1394,18 +1398,27 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
             <div>
               <h2 className="text-xl font-black text-[#3e2723] font-display italic">Klik Menu Cepat:</h2>
-              <div className="flex gap-4 mt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="flex-1 py-4 px-6 bg-[#3e2723] text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-[10px]"
+                  className="py-4 px-6 bg-[#3e2723] text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
                 >
+                  <Activity size={20} className="text-amber-200" />
                   Lihat Perizinan
                 </button>
                 <button
                   onClick={() => setViewMode('kartu_siswa')}
-                  className="flex-1 py-4 px-6 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl hover:bg-[#3e2723] transition-all active:scale-95 uppercase tracking-widest text-[10px]"
+                  className="py-4 px-6 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl hover:bg-[#3e2723] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
                 >
+                   <User size={20} className="text-amber-200" />
                   Lihat Siswa
+                </button>
+                <button
+                  onClick={() => setViewMode('laporan_bulanan')}
+                  className="py-4 px-6 bg-[#8b5e3c] text-white font-black rounded-2xl shadow-xl hover:bg-[#5d4037] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
+                >
+                  <FileText size={20} className="text-amber-200" />
+                  Laporan Bulanan
                 </button>
               </div>
             </div>

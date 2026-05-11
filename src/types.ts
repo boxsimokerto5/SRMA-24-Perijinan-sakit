@@ -118,6 +118,7 @@ export interface Siswa {
   ibu?: string;
   niy?: string;
   niy_waliklas?: string;
+  foto_url?: string;
 }
 
 export interface LaptopRequest {
@@ -177,6 +178,45 @@ export interface ProgressRecord {
   author_role: UserRole;
   tgl_catatan: Timestamp;
   is_acknowledged?: boolean;
+}
+
+export interface MonthlyReport {
+  id?: string;
+  siswa_id: string; // ID from siswa collection
+  nama_siswa: string;
+  kelas: string;
+  asrama: string;
+  wali_asuh_name: string;
+  wali_asuh_uid: string;
+  periode_bulan: string; // e.g., "Mei 2026"
+  
+  // Kesehatan & Fisik
+  berat_badan: number;
+  tinggi_badan: number;
+  status_kesehatan: string;
+  catatan_kesehatan: string;
+  
+  // Evaluasi Karakter
+  ibadah_score: number; // 1-5
+  adab_score: number;   // 1-5
+  kemandirian_score: number; // 0-100
+  kemandirian_level: string; // e.g., "Sangat Mandiri"
+  karakter_deskripsi: string;
+  
+  // Akademik & Minat Bakat
+  akademik_deskripsi: string;
+  ekstrakurikuler: string[];
+  capaian_khusus: string;
+  
+  // Dokumentasi
+  foto_siswa_url?: string;
+  foto_kegiatan: string[]; // URLs or base64 (prefer URLs if uploaded)
+  video_url?: string;
+  
+  // Pesan Wali Asuh
+  pesan_wali_asuh: string;
+  
+  createdAt: Timestamp;
 }
 
 export interface SarprasReport {

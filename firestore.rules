@@ -133,12 +133,24 @@ service cloud.firestore {
              data.status in ['pending', 'on_progress', 'fixed'];
     }
 
+    function isValidMonthlyReport(data) {
+      return data.keys().hasAll(['siswa_id', 'nama_siswa', 'kelas', 'asrama', 'wali_asuh_name', 'wali_asuh_uid', 'periode_bulan', 'berat_badan', 'tinggi_badan', 'status_kesehatan', 'catatan_kesehatan', 'ibadah_score', 'adab_score', 'kemandirian_score', 'kemandirian_level', 'karakter_deskripsi', 'akademik_deskripsi', 'ekstrakurikuler', 'capaian_khusus', 'foto_kegiatan', 'pesan_wali_asuh', 'createdAt']) &&
+             data.nama_siswa is string && data.nama_siswa.size() <= 128 &&
+             data.wali_asuh_uid == request.auth.uid &&
+             data.createdAt == request.time &&
+             data.ibadah_score >= 1 && data.ibadah_score <= 5 &&
+             data.adab_score >= 1 && data.adab_score <= 5 &&
+             data.kemandirian_score >= 0 && data.kemandirian_score <= 100 &&
+             (data.get('video_url', '') is string) &&
+             (!('foto_siswa_url' in data) || (data.foto_siswa_url is string));
+    }
+
     function isMadingAuthor(authId) {
       return isSignedIn() && authId == request.auth.uid;
     }
 
     function isValidId(id) { 
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\.\\-]+$'); 
     }
 
     // ===============================================================
@@ -146,16 +158,18 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{uid} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && (uid == request.auth.uid) && isValidUser(incoming());
-      allow update: if isSignedIn() && (uid == request.auth.uid) && (
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(uid);
+      allow create: if isSignedIn() && isValidId(uid) && (uid == request.auth.uid) && isValidUser(incoming());
+      allow update: if isSignedIn() && isValidId(uid) && (uid == request.auth.uid) && (
         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'fcmToken', 'role', 'pfp', 'mapel']) &&
         (incoming().role == existing().role || isAdmin())
       );
     }
 
     match /izin_sakit/{permitId} {
-      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(permitId);
       
       allow create: if isSignedIn() && isValidId(permitId) && isValidIzinSakit(incoming()) && (
         isMasterAdmin() ||
@@ -165,7 +179,7 @@ service cloud.firestore {
         isAdmin()
       );
 
-      allow update: if isSignedIn() && (
+      allow update: if isSignedIn() && isValidId(permitId) && (
         isMasterAdmin() ||
         (hasRole('wali_asuh') && existing().status == 'pending_asuh' && incoming().status == 'pending_kelas' &&
          incoming().diff(existing()).affectedKeys().hasAny(['catatan_kamar', 'status'])) ||
@@ -187,11 +201,11 @@ service cloud.firestore {
 
     match /notifications/{notifId} {
       allow list: if isSignedIn() && (isMasterAdmin() || getUserData().role in resource.data.recipientRoles || isAdmin() || isSystemAdmin());
-      allow get: if isSignedIn() && (isMasterAdmin() || getUserData().role in resource.data.recipientRoles || isAdmin() || isSystemAdmin());
+      allow get: if isSignedIn() && isValidId(notifId) && (isMasterAdmin() || getUserData().role in resource.data.recipientRoles || isAdmin() || isSystemAdmin());
       
-      allow create: if isSignedIn() && isValidNotification(incoming());
+      allow create: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming());
       
-      allow update: if isSignedIn() && (
+      allow update: if isSignedIn() && isValidId(notifId) && (
         isMasterAdmin() ||
         (incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) && 
          incoming().readBy.hasAll(existing().readBy) &&
@@ -204,88 +218,82 @@ service cloud.firestore {
     }
 
     match /memorandums/{memoId} {
-      allow read: if isSignedIn() && (isMasterAdmin() || hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima) || isSystemAdmin());
-      allow create: if (isMasterAdmin() || hasRole('kepala_sekolah') || isSystemAdmin()) && (incoming().pengirim_uid == request.auth.uid);
+      allow list: if isSignedIn() && (isMasterAdmin() || hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima) || isSystemAdmin());
+      allow get: if isSignedIn() && isValidId(memoId) && (isMasterAdmin() || hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima) || isSystemAdmin());
+      allow create: if (isMasterAdmin() || hasRole('kepala_sekolah') || isSystemAdmin()) && isValidId(memoId) && (incoming().pengirim_uid == request.auth.uid);
       allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
     }
 
     match /pinjam_hp/{pinjamId} {
-      allow read: if isSignedIn();
-      allow create: if hasRole('wali_asuh') || isAdmin();
-      allow update: if hasRole('wali_asuh') || isAdmin();
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(pinjamId);
+      allow create: if (hasRole('wali_asuh') || isAdmin()) && isValidId(pinjamId);
+      allow update: if (hasRole('wali_asuh') || isAdmin()) && isValidId(pinjamId);
       allow delete: if isAdmin() || (hasRole('wali_asuh') && existing().wali_asuh_uid == request.auth.uid);
     }
 
     match /siswa/{siswaId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(siswaId);
+      allow write: if isAdmin() || isMasterAdmin();
+      allow update: if isSignedIn() && (hasRole('wali_asuh') || isAdmin() || isMasterAdmin()) &&
+                     incoming().diff(existing()).affectedKeys().hasOnly(['foto_url']);
     }
 
     match /announcements/{annId} {
-      allow read: if isSignedIn();
-      allow create: if isMasterAdmin() || hasRole('kepala_sekolah') || isAdmin() || isSystemAdmin();
-      allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(annId);
+      allow create: if (isMasterAdmin() || hasRole('kepala_sekolah') || isAdmin() || isSystemAdmin()) && isValidId(annId);
+      allow delete: if (isMasterAdmin() || isAdmin() || isSystemAdmin()) && isValidId(annId);
     }
 
     match /hp_requests/{requestId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && (
-        hasRole('kepala_sekolah') || 
-        hasRole('wali_asuh') || 
-        (hasRole('guru_mapel') && resource.data.guru_uid == request.auth.uid) ||
-        isAdmin()
-      );
-      allow create: if (hasRole('guru_mapel') || hasRole('wali_asuh')) && isValidHPRequest(incoming());
-      allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(requestId);
+      allow create: if (hasRole('guru_mapel') || hasRole('wali_asuh')) && isValidId(requestId) && isValidHPRequest(incoming());
+      allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin()) && isValidId(requestId);
       allow delete: if isAdmin() || (hasRole('guru_mapel') && existing().guru_uid == request.auth.uid);
     }
     
     match /health_check_proposals/{proposalId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && (
-        hasRole('dokter') || 
-        hasRole('wali_asrama') || 
-        isAdmin()
-      );
-      allow create: if hasRole('wali_asrama') && isValidHealthCheckProposal(incoming());
-      allow update: if (hasRole('dokter') || hasRole('wali_asrama') || isAdmin());
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(proposalId);
+      allow create: if hasRole('wali_asrama') && isValidId(proposalId) && isValidHealthCheckProposal(incoming());
+      allow update: if (hasRole('dokter') || hasRole('wali_asrama') || isAdmin()) && isValidId(proposalId);
       allow delete: if isAdmin() || (hasRole('wali_asrama') && existing().proposer_uid == request.auth.uid);
     }
 
     match /laptop_requests/{requestId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && (
-        hasRole('kepala_sekolah') || 
-        hasRole('wali_asuh') || 
-        (hasRole('guru_mapel') && resource.data.guru_uid == request.auth.uid) ||
-        isAdmin()
-      );
-      allow create: if hasRole('guru_mapel') && isValidLaptopRequest(incoming());
-      allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin());
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(requestId);
+      allow create: if hasRole('guru_mapel') && isValidId(requestId) && isValidLaptopRequest(incoming());
+      allow update: if (hasRole('wali_asuh') || hasRole('kepala_sekolah') || hasRole('guru_mapel') || isAdmin()) && isValidId(requestId);
       allow delete: if isAdmin() || (hasRole('guru_mapel') && existing().guru_uid == request.auth.uid);
     }
 
     match /mading/{postId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && 
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(postId);
+      allow create: if isSignedIn() && isValidId(postId) &&
                     incoming().authorUid == request.auth.uid &&
                     incoming().createdAt == request.time &&
                     isValidMadingPost(incoming());
-      allow update: if isSignedIn() && 
+      allow update: if isSignedIn() && isValidId(postId) &&
                     (isAdmin() || (existing().authorUid == request.auth.uid)) &&
                     incoming().updatedAt == request.time &&
                     incoming().createdAt == existing().createdAt &&
                     incoming().authorUid == existing().authorUid &&
                     isValidMadingPost(incoming()) &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']);
-      allow delete: if isSignedIn() && 
+      allow delete: if isSignedIn() && isValidId(postId) &&
                     (isAdmin() || (existing().authorUid == request.auth.uid));
     }
 
     match /progress_records/{recordId} {
-      allow read: if isSignedIn();
-      allow create: if (isMasterAdmin() || hasRole('guru_mapel') || hasRole('wali_kelas')) && isValidProgressRecord(incoming());
-      allow update: if (
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(recordId);
+      allow create: if (isMasterAdmin() || hasRole('guru_mapel') || hasRole('wali_kelas')) && isValidId(recordId) && isValidProgressRecord(incoming());
+      allow update: if (isValidId(recordId)) && (
         isMasterAdmin() ||
         (hasRole('wali_asuh') && incoming().diff(existing()).affectedKeys().hasOnly(['is_acknowledged'])) ||
         ((hasRole('guru_mapel') || hasRole('wali_kelas')) && existing().author_uid == request.auth.uid && 
@@ -296,10 +304,18 @@ service cloud.firestore {
     }
 
     match /sarpras_reports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if hasRole('wali_asrama') && isValidSarprasReport(incoming());
-      allow update: if (hasRole('wali_asrama') || hasRole('kepala_sekolah') || hasRole('wali_asuh') || isAdmin());
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(reportId);
+      allow create: if hasRole('wali_asrama') && isValidId(reportId) && isValidSarprasReport(incoming());
+      allow update: if isValidId(reportId) && (hasRole('wali_asrama') || hasRole('kepala_sekolah') || hasRole('wali_asuh') || isAdmin());
       allow delete: if isAdmin() || (hasRole('wali_asrama') && existing().author_uid == request.auth.uid);
+    }
+
+    match /monthly_reports/{reportId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(reportId);
+      allow create: if (isMasterAdmin() || hasRole('wali_asuh')) && isValidId(reportId) && isValidMonthlyReport(incoming());
+      allow delete: if isMasterAdmin() || isAdmin() || (hasRole('wali_asuh') && existing().wali_asuh_uid == request.auth.uid);
     }
   }
 }

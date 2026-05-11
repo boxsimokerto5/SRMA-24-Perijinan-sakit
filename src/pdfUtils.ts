@@ -1,9 +1,28 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import QRCode from 'qrcode';
+import { compressImage } from './imageUtils';
+
+export const getImageDataUrl = async (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = url;
+  });
+};
 
 export const terbilang = (n: number): string => {
   const words = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
@@ -1101,33 +1120,47 @@ export const generateSarprasSummaryPDF = async (reports: SarprasReport[], filter
   doc.rect(20, startY, 170, 10, 'F');
   doc.rect(20, startY, 170, 10);
   
-  doc.text('No', 25, startY + 7);
-  doc.text('Tgl Lapor', 40, startY + 7);
-  doc.text('Item / Lokasi', 75, startY + 7);
-  doc.text('Status', 160, startY + 7);
+  doc.text('No', 22, startY + 7);
+  doc.text('Tgl Lapor', 32, startY + 7);
+  doc.text('Item / Lokasi', 55, startY + 7);
+  doc.text('Deskripsi Kerusakan', 115, startY + 7);
 
   // --- TABLE ROWS ---
   let currentY = startY + 10;
   doc.setFont('helvetica', 'normal');
   
   reports.forEach((report, index) => {
-    if (currentY > 250) {
+    const tglStr = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' 
+      ? format(report.tgl_lapor.toDate(), 'dd/MM/yy') 
+      : '-';
+
+    const itemLoc = `${report.item_name} (${report.location})`;
+    const splitItem = doc.splitTextToSize(itemLoc, 55);
+    const splitDesc = doc.splitTextToSize(report.damage_description || '-', 70);
+    
+    const rowHeight = Math.max(splitItem.length * 5, splitDesc.length * 5, 10);
+
+    if (currentY + rowHeight > 270) {
       doc.addPage();
       currentY = 20;
+      // Redraw header on new page
+      doc.setFont('helvetica', 'bold');
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, currentY, 170, 10, 'F');
+      doc.rect(20, currentY, 170, 10);
+      doc.text('No', 22, currentY + 7);
+      doc.text('Tgl Lapor', 32, currentY + 7);
+      doc.text('Item / Lokasi', 55, currentY + 7);
+      doc.text('Deskripsi Kerusakan', 115, currentY + 7);
+      doc.setFont('helvetica', 'normal');
+      currentY += 10;
     }
-
-    const tglStr = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd/MM/yy') : '-';
     
-    doc.text(`${index + 1}`, 25, currentY + 7);
-    doc.text(tglStr, 40, currentY + 7);
+    doc.text(`${index + 1}`, 22, currentY + 7);
+    doc.text(tglStr, 32, currentY + 7);
+    doc.text(splitItem, 55, currentY + 7);
+    doc.text(splitDesc, 115, currentY + 7);
     
-    const itemLoc = `${report.item_name} (${report.location})`;
-    const splitItem = doc.splitTextToSize(itemLoc, 80);
-    doc.text(splitItem, 75, currentY + 7);
-    
-    doc.text(report.status.toUpperCase(), 160, currentY + 7);
-    
-    const rowHeight = Math.max(splitItem.length * 5, 10);
     doc.rect(20, currentY, 170, rowHeight);
     currentY += rowHeight;
   });
@@ -1164,6 +1197,307 @@ export const generateSarprasSummaryPDF = async (reports: SarprasReport[], filter
       });
       await Share.share({
         title: 'Rekap Laporan Sarpras',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateMonthlyReportPDF = async (report: MonthlyReport) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- Background and Border ---
+  doc.setDrawColor(240, 240, 240);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287);
+  
+  // --- Header ---
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('SEKOLAH RAKYAT · SRMA 24 KEDIRI', 105, 12, { align: 'center' });
+  
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Laporan Tumbuh Kembang Bulanan', 105, 19, { align: 'center' });
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Periode: ${report.periode_bulan}`, 105, 25, { align: 'center' });
+  
+  doc.setDrawColor(20, 148, 140); // Teal color from image
+  doc.setLineWidth(0.8);
+  doc.line(20, 29, 190, 29);
+
+  // --- Profile Section (Card) ---
+  doc.setFillColor(252, 255, 254);
+  doc.roundedRect(20, 35, 170, 38, 3, 3, 'F');
+  doc.setDrawColor(230, 240, 238);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(20, 35, 170, 38, 3, 3, 'S');
+
+  // Avatar Placeholder (Circle)
+  doc.setDrawColor(20, 148, 140);
+  doc.setLineWidth(0.5);
+  doc.circle(42, 54, 12, 'S');
+
+  if (report.foto_siswa_url) {
+    try {
+      const imgData = await getImageDataUrl(report.foto_siswa_url);
+      doc.saveGraphicsState();
+      doc.circle(42, 54, 12, 'f'); // This is a bit tricky with clipping
+      // Actually jspdf clipping is complex, let's just use regular addImage
+      // and maybe draw a circle over it if we want it perfect, but let's try clipping
+      doc.clip();
+      doc.addImage(imgData, 'JPEG', 30, 42, 24, 24);
+      doc.restoreGraphicsState();
+      // redraw circle border
+      doc.setDrawColor(20, 148, 140);
+      doc.circle(42, 54, 12, 'S');
+    } catch (e) {
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text('PHOTO', 42, 55, { align: 'center' });
+    }
+  } else {
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text('PHOTO', 42, 55, { align: 'center' });
+  }
+
+  // Student Info
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text(report.nama_siswa, 65, 43);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  
+  const labels = ['Kelas / Jenjang', 'Kamar / Asrama', 'Wali Asuh', 'Periode Laporan'];
+  const values = [report.kelas, report.asrama, report.wali_asuh_name, report.periode_bulan];
+  
+  labels.forEach((label, i) => {
+    doc.text(label, 65, 50 + (i * 5));
+    doc.text(`:  ${values[i]}`, 100, 50 + (i * 5));
+  });
+
+  // --- KESEHATAN Section ---
+  let currentY = 82;
+  doc.setTextColor(160, 160, 160);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KESEHATAN & FISIK', 20, currentY);
+  
+  currentY += 7;
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Berat Badan:`, 20, currentY);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${report.berat_badan} kg`, 40, currentY);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Tinggi Badan:`, 65, currentY);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${report.tinggi_badan} cm`, 85, currentY);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text('Status:', 115, currentY);
+  doc.setFillColor(34, 197, 94); // Green
+  doc.circle(128, currentY - 1, 1.5, 'F');
+  doc.text(report.status_kesehatan, 132, currentY);
+
+  currentY += 8;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Catatan:', 25, currentY);
+  doc.setFont('helvetica', 'normal');
+  const catTexts = doc.splitTextToSize(report.catatan_kesehatan || '-', 150);
+  doc.text(catTexts, 40, currentY);
+  currentY += (catTexts.length * 5) + 6;
+
+  // --- KARAKTER Section ---
+  doc.setTextColor(160, 160, 160);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EVALUASI KARAKTER', 20, currentY);
+  
+  currentY += 7;
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kedisplinan Ibadah:', 20, currentY);
+  // draw stars
+  for(let i = 0; i < 5; i++) {
+    if (i < report.ibadah_score) {
+      doc.setTextColor(255, 193, 7); // Gold
+    } else {
+      doc.setTextColor(220, 220, 220); // light gray
+    }
+    doc.text('★', 55 + (i * 4), currentY);
+  }
+  doc.setTextColor(150, 150, 150);
+  doc.text(`(${report.ibadah_score}/5)`, 77, currentY);
+
+  doc.setTextColor(40, 40, 40);
+  doc.text('Kesantunan & Adab:', 110, currentY);
+  for(let i = 0; i < 5; i++) {
+    if (i < report.adab_score) {
+      doc.setTextColor(255, 193, 7);
+    } else {
+      doc.setTextColor(220, 220, 220);
+    }
+    doc.text('★', 145 + (i * 4), currentY);
+  }
+  doc.setTextColor(150, 150, 150);
+  doc.text(`(${report.adab_score}/5)`, 167, currentY);
+
+  currentY += 7;
+  doc.setTextColor(40, 40, 40);
+  doc.text(`Kemandirian:`, 20, currentY);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${report.kemandirian_score}/100`, 42, currentY);
+  doc.setTextColor(20, 148, 140);
+  doc.text(`(${report.kemandirian_level})`, 57, currentY);
+
+  currentY += 8;
+  doc.setTextColor(40, 40, 40);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Deskripsi:', 25, currentY);
+  doc.setFont('helvetica', 'normal');
+  const karTexts = doc.splitTextToSize(report.karakter_deskripsi || '-', 150);
+  doc.text(karTexts, 42, currentY);
+  currentY += (karTexts.length * 5) + 6;
+
+  // --- AKADEMIK Section ---
+  doc.setTextColor(160, 160, 160);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('AKADEMIK & MINAT BAKAT', 20, currentY);
+  
+  currentY += 8;
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const acadTexts = doc.splitTextToSize(report.akademik_deskripsi || '-', 170);
+  doc.text(acadTexts, 20, currentY);
+  currentY += (acadTexts.length * 5) + 5;
+
+  doc.text(`Ekstrakurikuler:`, 20, currentY);
+  doc.setFont('helvetica', 'bold');
+  doc.text(report.ekstrakurikuler ? report.ekstrakurikuler.join(', ') : '-', 45, currentY);
+  
+  currentY += 7;
+  doc.setFont('helvetica', 'normal');
+  doc.text('Capaian Khusus:', 20, currentY);
+  doc.setFont('helvetica', 'bold');
+  const capTexts = doc.splitTextToSize(report.capaian_khusus || '-', 145);
+  doc.text(capTexts, 47, currentY);
+  currentY += (capTexts.length * 5) + 8;
+
+  // --- DOKUMENTASI Section ---
+  doc.setTextColor(160, 160, 160);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DOKUMENTASI KEGIATAN', 20, currentY);
+  
+  currentY += 5;
+  const docPhotos = report.foto_kegiatan || [];
+  for(let i = 0; i < 3; i++) {
+    const x = 20 + (i * 58);
+    doc.setFillColor(248, 248, 248);
+    doc.setDrawColor(240, 240, 240);
+    doc.rect(x, currentY, 54, 34, 'FD');
+    
+    if (docPhotos[i]) {
+      try {
+        const imgData = await getImageDataUrl(docPhotos[i]);
+        doc.addImage(imgData, 'JPEG', x, currentY, 54, 34);
+      } catch (e) {
+        doc.setFontSize(7);
+        doc.setTextColor(200, 200, 200);
+        doc.text('IMAGE ERROR', x + 27, currentY + 18, { align: 'center' });
+      }
+    } else {
+      doc.setFontSize(7);
+      doc.setTextColor(200, 200, 200);
+      doc.text('TANPA FOTO', x + 27, currentY + 18, { align: 'center' });
+    }
+  }
+  currentY += 42;
+
+  // --- PESAN WALI ASUH Section ---
+  doc.setTextColor(160, 160, 160);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PESAN WALI ASUH', 20, currentY);
+  
+  currentY += 6;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(20, currentY, 20, currentY + 15);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(60, 60, 60);
+  doc.setFontSize(10);
+  const msgTexts = doc.splitTextToSize(`"${report.pesan_wali_asuh || '-'}"`, 165);
+  doc.text(msgTexts, 25, currentY + 4);
+  currentY += (msgTexts.length * 6) + 12;
+
+  // --- FOOTER (QR & Signature) ---
+  const footerY = 245;
+  doc.setDrawColor(240, 240, 240);
+  doc.line(20, footerY - 5, 190, footerY - 5);
+
+  if (report.video_url) {
+    try {
+      const qrDataUrl = await QRCode.toDataURL(report.video_url);
+      doc.addImage(qrDataUrl, 'PNG', 20, footerY, 32, 32);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text('Scan untuk melihat', 20, footerY + 36);
+      doc.text('video pesan ananda', 20, footerY + 40);
+    } catch (e) {
+      console.error("QR Gen Error:", e);
+    }
+  }
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(40, 40, 40);
+  doc.text(`Kediri, ${report.periode_bulan}`, 160, footerY + 2, { align: 'center' });
+  doc.text('Wali Asuh,', 160, footerY + 7, { align: 'center' });
+  
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(report.wali_asuh_name, 160, footerY + 35, { align: 'center' });
+  doc.setLineWidth(0.4);
+  doc.line(135, footerY + 36, 185, footerY + 36);
+
+  const fileName = `Laporan_Bulanan_${report.nama_siswa.replace(/\s+/g, '_')}_${report.periode_bulan.replace(/\s+/g, '_')}.pdf`;
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Bulanan Siswa',
+        text: `Laporan Tumbuh Kembang - ${report.nama_siswa}`,
         url: savedFile.uri
       });
     } catch (error) {
