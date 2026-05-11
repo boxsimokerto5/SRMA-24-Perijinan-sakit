@@ -89,9 +89,12 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
 
-  // Auto-cleanup functionality
+  // Auto-cleanup functionality - Run only once on mount
   useEffect(() => {
+    let isMounted = true;
     const performCleanup = async () => {
+      if (reports.length === 0) return;
+      
       // 2 months in milliseconds (approx)
       const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
       const cutoffDate = new Date(Date.now() - TWO_MONTHS_MS);
@@ -106,12 +109,15 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
       if (oldReports.length > 0) {
         console.log(`Cleaning up ${oldReports.length} old reports...`);
         for (const report of oldReports) {
+          if (!isMounted) break;
           try {
             // 1. Delete documentation images from Storage
             for (const photoUrl of report.foto_kegiatan) {
               try {
-                const photoRef = ref(storage, photoUrl);
-                await deleteObject(photoRef);
+                if (photoUrl.includes('firebasestorage')) {
+                  const photoRef = ref(storage, photoUrl);
+                  await deleteObject(photoRef);
+                }
               } catch (e) {
                 console.warn("Failed to delete storage object (already gone or error):", e);
               }
@@ -126,10 +132,12 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
       }
     };
 
-    if (reports.length > 0 && (user.role === 'wali_asuh' || user.role === 'kepala_sekolah')) {
+    if (loading === false && (user.role === 'wali_asuh' || user.role === 'kepala_sekolah')) {
       performCleanup();
     }
-  }, [reports, user.role]);
+
+    return () => { isMounted = false; };
+  }, [loading, user.role]); // Run once when loading completes
 
   useEffect(() => {
     const reportsPath = 'monthly_reports';
@@ -181,15 +189,22 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
       }
 
       // 2. Parallel Compress and Upload Documentation Photos
-      setUploadStatus('Memproses foto dokumentasi...');
+      setUploadStatus('Memproses & mengunggah dokumentasi (0%)...');
+      let completedCount = 0;
+      const totalToUpload = docPhotoFiles.filter(f => f !== null).length;
+
       const uploadPromises = docPhotoFiles.map(async (file, i) => {
         if (!file) return null;
-        // Compress
-        const compressed = await compressImage(file, 1000, 0.7);
+        // Compress - reduced to 800 for faster mobile upload
+        const compressed = await compressImage(file, 800, 0.7);
         // Upload
         const docRef = ref(storage, `reports/${selectedStudent.id}/${batchTimestamp}_doc_${i}.jpg`);
         await uploadBytes(docRef, compressed);
-        return getDownloadURL(docRef);
+        const url = await getDownloadURL(docRef);
+        
+        completedCount++;
+        setUploadStatus(`Mengunggah dokumentasi (${Math.round((completedCount / totalToUpload) * 100)}%)...`);
+        return url;
       });
 
       const results = await Promise.all(uploadPromises);

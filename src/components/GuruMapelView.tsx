@@ -637,7 +637,13 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
-        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'catatan_perkembangan' && (
+          <ProgressRecordsView 
+            user={user} 
+            autoOpenAdd={autoOpenAddCatatan} 
+            onCloseAdd={() => setAutoOpenAddCatatan(false)} 
+          />
+        )}
 
         {viewMode === 'kartu_siswa' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1094,7 +1100,13 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
         {/* perizinan history removed from this section */}
 
-        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'catatan_perkembangan' && (
+          <ProgressRecordsView 
+            user={user} 
+            autoOpenAdd={autoOpenAddCatatan} 
+            onCloseAdd={() => setAutoOpenAddCatatan(false)} 
+          />
+        )}
 
         {viewMode === 'pinjam_laptop' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

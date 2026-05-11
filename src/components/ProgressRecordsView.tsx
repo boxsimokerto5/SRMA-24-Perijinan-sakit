@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, addDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, addDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { ProgressRecord, AppUser, Siswa } from '../types';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,9 +12,10 @@ import QRCode from 'qrcode';
 interface ProgressRecordsViewProps {
   user: AppUser;
   autoOpenAdd?: boolean;
+  onCloseAdd?: () => void;
 }
 
-export default function ProgressRecordsView({ user, autoOpenAdd }: ProgressRecordsViewProps) {
+export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: ProgressRecordsViewProps) {
   const [records, setRecords] = useState<ProgressRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -107,19 +108,20 @@ export default function ProgressRecordsView({ user, autoOpenAdd }: ProgressRecor
         author_uid: user.uid,
         author_name: user.name || user.email || 'Guru',
         author_role: user.role,
-        tgl_catatan: Timestamp.now(),
+        tgl_catatan: serverTimestamp(),
         is_acknowledged: false,
-        created_at: Timestamp.now()
       });
 
       // Notify Wali Asuh
       notifyAllRoles(['wali_asuh'], 'Catatan Baru', `Guru ${user.name || user.email || 'Kami'} telah menambahkan catatan perkembangan untuk siswa ${newRecord.nama_siswa}.`);
       
       setIsAdding(false);
+      onCloseAdd?.();
       setNewRecord({ nama_siswa: '', kelas: '', isi_catatan: '' });
       alert('Catatan perkembangan berhasil disimpan!');
     } catch (err) {
-      alert('Gagal menyimpan catatan. Silakan coba lagi.');
+      console.error('Progress record creation failed:', err);
+      alert(`Gagal menyimpan catatan: ${err instanceof Error ? err.message : String(err)}. Silakan coba lagi.`);
       handleFirestoreError(err, OperationType.CREATE, 'progress_records');
     } finally {
       setSubmitting(false);
@@ -383,7 +385,10 @@ export default function ProgressRecordsView({ user, autoOpenAdd }: ProgressRecor
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsAdding(false)}
+              onClick={() => {
+                setIsAdding(false);
+                onCloseAdd?.();
+              }}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
             <motion.div
@@ -394,7 +399,10 @@ export default function ProgressRecordsView({ user, autoOpenAdd }: ProgressRecor
             >
               <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-white relative">
                 <button 
-                  onClick={() => setIsAdding(false)}
+                  onClick={() => {
+                    setIsAdding(false);
+                    onCloseAdd?.();
+                  }}
                   className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -495,7 +503,10 @@ export default function ProgressRecordsView({ user, autoOpenAdd }: ProgressRecor
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIsAdding(false)}
+                    onClick={() => {
+                      setIsAdding(false);
+                      onCloseAdd?.();
+                    }}
                     className="px-8 bg-white text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-100 transition-all font-display"
                   >
                     Batal

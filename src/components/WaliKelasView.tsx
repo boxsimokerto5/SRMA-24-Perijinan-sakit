@@ -461,7 +461,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
-        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} autoOpenAdd={autoOpenAddCatatan} />}
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} autoOpenAdd={autoOpenAddCatatan} onCloseAdd={() => setAutoOpenAddCatatan(false)} />}
 
         {viewMode === 'pinjam_laptop' && (
           <div className="space-y-6 animate-in fade-in duration-500">
