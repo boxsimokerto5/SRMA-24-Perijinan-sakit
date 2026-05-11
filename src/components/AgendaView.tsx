@@ -254,7 +254,7 @@ export default function AgendaView({ user }: AgendaViewProps) {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl relative"
+              className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden"
             >
               <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-white relative">
                 <button 
@@ -270,7 +270,7 @@ export default function AgendaView({ user }: AgendaViewProps) {
                 <p className="text-indigo-100 opacity-80">Jadwalkan kegiatan dan atur visibilitas.</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-1">Judul Agenda</label>
