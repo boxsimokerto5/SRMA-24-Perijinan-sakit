@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, auth, storage } from '../firebase';
 import { MonthlyReport, Siswa, AppUser } from '../types';
 import { format } from 'date-fns';
-import { Plus, FileText, Download, Trash2, X, Star, Camera, Video, ChevronRight, Save, User, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, X, Star, Camera, Video, ChevronRight, Save, User, Image as ImageIcon, Loader2, CheckCircle2 } from 'lucide-react';
 import { generateMonthlyReportPDF } from '../pdfUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { compressImage } from '../imageUtils';
@@ -87,6 +87,7 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
   const [studentPhotoFile, setStudentPhotoFile] = useState<File | null>(null);
   const [docPhotoFiles, setDocPhotoFiles] = useState<(File | null)[]>([null, null, null]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
 
   // Auto-cleanup functionality
   useEffect(() => {
@@ -159,36 +160,42 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
     e.preventDefault();
     if (!selectedStudent) return;
     setIsUploading(true);
+    setUploadStatus('Menyiapkan data...');
 
     try {
       let fotoSiswaUrl = selectedStudent.foto_url || '';
-      const documentationUrls: string[] = [];
+      const batchTimestamp = Date.now();
 
-      // 1. Upload Student Photo if changed
+      // 1. Compress and Upload Student Photo if changed
       if (studentPhotoFile) {
-        const compressed = await compressImage(studentPhotoFile, 400, 0.7); // Small for profile
-        const photoRef = ref(storage, `students/${selectedStudent.id}/profile_${Date.now()}.jpg`);
+        setUploadStatus('Mengompres foto profil...');
+        const compressed = await compressImage(studentPhotoFile, 400, 0.7);
+        setUploadStatus('Mengunggah foto profil...');
+        const photoRef = ref(storage, `students/${selectedStudent.id}/profile_${batchTimestamp}.jpg`);
         await uploadBytes(photoRef, compressed);
         fotoSiswaUrl = await getDownloadURL(photoRef);
         
-        // Update Siswa record too
         await updateDoc(doc(db, 'siswa', selectedStudent.id!), {
           foto_url: fotoSiswaUrl
         });
       }
 
-      // 2. Upload Documentation Photos
-      for (let i = 0; i < docPhotoFiles.length; i++) {
-        const file = docPhotoFiles[i];
-        if (file) {
-          const compressed = await compressImage(file, 1000, 0.7); // Larger for documentation
-          const docRef = ref(storage, `reports/${selectedStudent.id}/${Date.now()}_doc_${i}.jpg`);
-          await uploadBytes(docRef, compressed);
-          const url = await getDownloadURL(docRef);
-          documentationUrls.push(url);
-        }
-      }
+      // 2. Parallel Compress and Upload Documentation Photos
+      setUploadStatus('Memproses foto dokumentasi...');
+      const uploadPromises = docPhotoFiles.map(async (file, i) => {
+        if (!file) return null;
+        // Compress
+        const compressed = await compressImage(file, 1000, 0.7);
+        // Upload
+        const docRef = ref(storage, `reports/${selectedStudent.id}/${batchTimestamp}_doc_${i}.jpg`);
+        await uploadBytes(docRef, compressed);
+        return getDownloadURL(docRef);
+      });
 
+      const results = await Promise.all(uploadPromises);
+      const documentationUrls = results.filter((url): url is string => url !== null);
+
+      setUploadStatus('Menyimpan laporan...');
       const reportData: Omit<MonthlyReport, 'id'> = {
         siswa_id: selectedStudent.id!,
         nama_siswa: selectedStudent.nama_lengkap,
@@ -217,9 +224,16 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
       };
 
       await addDoc(collection(db, 'monthly_reports'), reportData);
-      setShowForm(false);
-      resetForm();
+      
+      setUploadStatus('Berhasil!');
+      setTimeout(() => {
+        setShowForm(false);
+        resetForm();
+        setUploadStatus('');
+      }, 1500);
     } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Gagal mengunggah laporan. Silakan cek koneksi internet Anda atau coba kompres foto terlebih dahulu.');
       handleFirestoreError(error, OperationType.WRITE, 'monthly_reports');
     } finally {
       setIsUploading(false);
@@ -686,7 +700,12 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
                     {isUploading ? (
                       <>
                         <Loader2 size={20} className="animate-spin" />
-                        <span>Sedang Mengunggah...</span>
+                        <span>{uploadStatus || 'Sedang Mengunggah...'}</span>
+                      </>
+                    ) : uploadStatus === 'Berhasil!' ? (
+                      <>
+                        <CheckCircle2 size={20} />
+                        <span>Laporan Terbit!</span>
                       </>
                     ) : (
                       <>

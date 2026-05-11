@@ -26,7 +26,6 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [loading, setLoading] = useState(false);
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
-  const [showCatatanForm, setShowCatatanForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -131,13 +130,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   }, []);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Siswa | null>(null);
-
   const [students, setStudents] = useState<Siswa[]>([]);
-  const [filteredStudentsList, setFilteredStudentsList] = useState<Siswa[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [namaSiswa, setNamaSiswa] = useState('');
-  const [kelas, setKelas] = useState('X-1');
-  const [isiCatatan, setIsiCatatan] = useState('');
+  const [autoOpenAddCatatan, setAutoOpenAddCatatan] = useState(false);
 
   const filteredPermits = permits.filter(p => {
     const permitDate = p.tgl_surat?.toDate();
@@ -193,32 +187,17 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   }, []);
 
   const handleNamaSiswaChange = (value: string) => {
-    setNamaSiswa(value);
-    if (value.length > 1) {
-      const filtered = students.filter(s => 
-        (s.nama_lengkap || '').toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 10);
-      setFilteredStudentsList(filtered);
-      setShowSuggestions(true);
-    } else {
-      setFilteredStudentsList([]);
-      setShowSuggestions(false);
-    }
+    // Shared handled by ProgressRecordsView
   };
 
   const selectStudent = (student: Siswa) => {
-    setNamaSiswa(student.nama_lengkap);
-    setKelas(student.kelas);
-    setShowSuggestions(false);
+    // Shared handled by ProgressRecordsView
   };
 
   // Close suggestions on click outside
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.relative')) {
-        setShowSuggestions(false);
-      }
+      // Logic handled by child components or not needed
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -339,35 +318,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   };
 
   const handleSubmitCatatan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      await addDoc(collection(db, 'progress_records'), {
-        nama_siswa: namaSiswa,
-        kelas: kelas,
-        isi_catatan: isiCatatan,
-        tgl_catatan: serverTimestamp(),
-        author_name: user.name,
-        author_uid: user.uid,
-        author_role: user.role,
-        is_acknowledged: false
-      });
-
-      // Notify relevant roles
-      notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Catatan Perkembangan Baru', `Wali Kelas ${user.name} mengirimkan catatan perkembangan untuk siswa ${namaSiswa}.`);
-
-      setShowCatatanForm(false);
-      setNamaSiswa('');
-      setIsiCatatan('');
-      setViewMode('catatan_perkembangan');
-    } catch (err) {
-      console.error(err);
-      alert('Gagal mengirim catatan');
-      handleFirestoreError(err, OperationType.WRITE, 'progress_records');
-    } finally {
-      setLoading(false);
-    }
+    // Shared handled by ProgressRecordsView
   };
 
   const viewTitles: Record<string, string> = {
@@ -510,7 +461,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
-        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} autoOpenAdd={autoOpenAddCatatan} />}
 
         {viewMode === 'pinjam_laptop' && (
           <div className="space-y-6 animate-in fade-in duration-500">
@@ -1199,111 +1150,16 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       )}
 
-      {showCatatanForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-xl">
-                  <MessageSquare className="w-5 h-5 text-indigo-600" />
-                </div>
-                <h3 className="font-black text-slate-900">Input Catatan Siswa</h3>
-              </div>
-              <button onClick={() => setShowCatatanForm(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
-                <Plus className="w-6 h-6 rotate-45" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmitCatatan} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      value={namaSiswa}
-                      onChange={(e) => handleNamaSiswaChange(e.target.value)}
-                      onFocus={() => {
-                        if (namaSiswa.length > 1) {
-                          handleNamaSiswaChange(namaSiswa);
-                        }
-                      }}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
-                      placeholder="Nama lengkap siswa"
-                    />
-                    <AnimatePresence>
-                      {showSuggestions && filteredStudentsList.length > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden"
-                        >
-                          {filteredStudentsList.map((student) => (
-                            <button
-                              key={student.id}
-                              type="button"
-                              onClick={() => selectStudent(student)}
-                              className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
-                            >
-                              <div>
-                                <p className="text-sm font-bold text-slate-900">{student.nama_lengkap}</p>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">{student.kelas}</p>
-                              </div>
-                              <Check className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
-                  <select
-                    value={kelas}
-                    onChange={(e) => setKelas(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-all text-sm"
-                  >
-                    {WALI_KELAS_LIST.map(wk => (
-                      <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Isi Catatan / Perkembangan</label>
-                  <div className="relative">
-                    <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                    <textarea
-                      required
-                      value={isiCatatan}
-                      onChange={(e) => setIsiCatatan(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm min-h-[120px]"
-                      placeholder="Tuliskan perkembangan atau catatan penting siswa..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Kirim ke Wali Asuh</>}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Redundant catatan form removed */}
 
       {/* Floating Action Button (FAB) */}
       <motion.button 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        onClick={() => setShowCatatanForm(true)}
+        onClick={() => {
+          setViewMode('catatan_perkembangan');
+          setAutoOpenAddCatatan(true);
+        }}
         className="fixed bottom-24 right-6 bg-indigo-950 text-white px-8 py-5 rounded-full shadow-2xl flex items-center gap-3 z-30 transition-all"
       >
         <Plus className="w-6 h-6" />

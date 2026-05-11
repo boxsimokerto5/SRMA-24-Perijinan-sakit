@@ -11,14 +11,21 @@ import QRCode from 'qrcode';
 
 interface ProgressRecordsViewProps {
   user: AppUser;
+  autoOpenAdd?: boolean;
 }
 
-export default function ProgressRecordsView({ user }: ProgressRecordsViewProps) {
+export default function ProgressRecordsView({ user, autoOpenAdd }: ProgressRecordsViewProps) {
   const [records, setRecords] = useState<ProgressRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<ProgressRecord | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
+  const [isAdding, setIsAdding] = useState(autoOpenAdd || false);
+
+  useEffect(() => {
+    if (autoOpenAdd) {
+      setIsAdding(true);
+    }
+  }, [autoOpenAdd]);
   const [submitting, setSubmitting] = useState(false);
   const [students, setStudents] = useState<Siswa[]>([]);
   const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
@@ -88,14 +95,17 @@ export default function ProgressRecordsView({ user }: ProgressRecordsViewProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRecord.nama_siswa || !newRecord.kelas || !newRecord.isi_catatan) return;
+    if (!newRecord.nama_siswa || !newRecord.kelas || !newRecord.isi_catatan) {
+      alert('Mohon lengkapi semua field (Nama, Kelas, dan Isi Catatan)');
+      return;
+    }
 
     setSubmitting(true);
     try {
       await addDoc(collection(db, 'progress_records'), {
         ...newRecord,
         author_uid: user.uid,
-        author_name: user.name || user.email,
+        author_name: user.name || user.email || 'Guru',
         author_role: user.role,
         tgl_catatan: Timestamp.now(),
         is_acknowledged: false,
@@ -103,11 +113,13 @@ export default function ProgressRecordsView({ user }: ProgressRecordsViewProps) 
       });
 
       // Notify Wali Asuh
-      notifyAllRoles(['wali_asuh'], 'Catatan Baru', `Guru ${user.name || user.email} telah menambahkan catatan perkembangan untuk siswa ${newRecord.nama_siswa}.`);
+      notifyAllRoles(['wali_asuh'], 'Catatan Baru', `Guru ${user.name || user.email || 'Kami'} telah menambahkan catatan perkembangan untuk siswa ${newRecord.nama_siswa}.`);
       
       setIsAdding(false);
       setNewRecord({ nama_siswa: '', kelas: '', isi_catatan: '' });
+      alert('Catatan perkembangan berhasil disimpan!');
     } catch (err) {
+      alert('Gagal menyimpan catatan. Silakan coba lagi.');
       handleFirestoreError(err, OperationType.CREATE, 'progress_records');
     } finally {
       setSubmitting(false);
