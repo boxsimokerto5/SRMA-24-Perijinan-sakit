@@ -844,7 +844,44 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         </div>
       )}
 
-      </main>
+      {viewMode === 'memorandum' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 gap-4">
+            {memos.map(memo => (
+              <motion.div 
+                key={memo.id}
+                whileHover={{ scale: 1.01, x: 4 }}
+                onClick={() => setSelectedMemo(memo)}
+                className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 hover:border-[#075e6e] transition-all cursor-pointer"
+              >
+                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center shrink-0 group-hover:bg-[#075e6e] group-hover:text-white transition-colors border border-slate-100">
+                  <Mail className="w-8 h-8" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-black text-slate-900 truncate font-display italic">{memo.perihal}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dari: {memo.pengirim_name}</span>
+                    <span className="text-slate-200">•</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                      {memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-[#075e6e] transition-all">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
+              </motion.div>
+            ))}
+            {memos.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <Mail className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Belum ada memorandum masuk</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
 
       {/* Modal Detail Izin (View Only) */}
       <AnimatePresence>
@@ -951,6 +988,72 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                     </button>
                   )}
                 </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedMemo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 bg-[#075e6e] text-white flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/20 rounded-2xl">
+                    <Mail className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black italic tracking-tight uppercase">Memorandum Intern</h3>
+                    <p className="text-[10px] font-bold text-cyan-100/60 tracking-widest">{selectedMemo.nomor_memo}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedMemo(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70">
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+              
+              <div className="p-8 space-y-8">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Pengirim</label>
+                    <p className="font-black text-slate-900 text-lg">{selectedMemo.pengirim_name}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tanggal</label>
+                    <p className="font-bold text-slate-600">
+                      {selectedMemo.tgl_memo && typeof selectedMemo.tgl_memo.toDate === 'function' ? format(selectedMemo.tgl_memo.toDate(), 'EEEE, dd MMM yyyy') : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Perihal</label>
+                  <p className="text-xl font-black text-[#075e6e] font-display italic">
+                    {selectedMemo.perihal}
+                  </p>
+                </div>
+
+                <div className="space-y-3 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Isi Instruksi</label>
+                  <p className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {selectedMemo.isi}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+                <button
+                  onClick={() => setSelectedMemo(null)}
+                  className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all uppercase tracking-widest text-xs"
+                >
+                  Selesai Membaca
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

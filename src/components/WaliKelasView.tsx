@@ -196,8 +196,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     setNamaSiswa(value);
     if (value.length > 1) {
       const filtered = students.filter(s => 
-        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 5);
+        (s.nama_lengkap || '').toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 10);
       setFilteredStudentsList(filtered);
       setShowSuggestions(true);
     } else {
@@ -1225,6 +1225,11 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                       required
                       value={namaSiswa}
                       onChange={(e) => handleNamaSiswaChange(e.target.value)}
+                      onFocus={() => {
+                        if (namaSiswa.length > 1) {
+                          handleNamaSiswaChange(namaSiswa);
+                        }
+                      }}
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
                       placeholder="Nama lengkap siswa"
                     />

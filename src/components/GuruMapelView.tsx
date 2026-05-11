@@ -165,8 +165,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     setNamaSiswa(value);
     if (value.length > 1) {
       const filtered = students.filter(s => 
-        s.nama_lengkap.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 5);
+        (s.nama_lengkap || '').toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 10);
       setFilteredStudentsList(filtered);
       setShowSuggestions(true);
     } else {
@@ -1399,6 +1399,11 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       required
                       value={namaSiswa}
                       onChange={(e) => handleNamaSiswaChange(e.target.value)}
+                      onFocus={() => {
+                        if (namaSiswa.length > 1) {
+                          handleNamaSiswaChange(namaSiswa);
+                        }
+                      }}
                       className="w-full pl-12 pr-4 py-4 bg-[#fdfcf0] border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#5d4037]/5 outline-none transition-all text-sm font-medium text-[#3e2723]"
                       placeholder="Nama lengkap siswa"
                     />

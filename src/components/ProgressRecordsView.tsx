@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, addDoc } from 'firebase/firestore';
-import { ProgressRecord, AppUser } from '../types';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, addDoc, getDocs } from 'firebase/firestore';
+import { ProgressRecord, AppUser, Siswa } from '../types';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClipboardList, Search, Activity, User, Calendar, CheckCircle2, Clock, ChevronRight, MessageSquare, ShieldCheck, Check, Download, X, Printer, FileText, Plus, Send, Loader2 } from 'lucide-react';
@@ -20,11 +20,29 @@ export default function ProgressRecordsView({ user }: ProgressRecordsViewProps) 
   const [selectedRecord, setSelectedRecord] = useState<ProgressRecord | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [students, setStudents] = useState<Siswa[]>([]);
+  const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [newRecord, setNewRecord] = useState({
     nama_siswa: '',
     kelas: '',
     isi_catatan: ''
   });
+
+  useEffect(() => {
+    // Fetch all students for suggestions
+    const fetchStudents = async () => {
+      try {
+        const q = query(collection(db, 'siswa'), orderBy('nama_lengkap', 'asc'));
+        const snapshot = await getDocs(q);
+        const studentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Siswa));
+        setStudents(studentData);
+      } catch (err) {
+        console.error('Error fetching students:', err);
+      }
+    };
+    fetchStudents();
+  }, []);
 
   useEffect(() => {
     let q;
@@ -44,6 +62,29 @@ export default function ProgressRecordsView({ user }: ProgressRecordsViewProps) 
 
     return () => unsubscribe();
   }, [user.role, user.uid]);
+
+  const handleStudentSearch = (value: string) => {
+    setNewRecord({ ...newRecord, nama_siswa: value });
+    if (value.length > 1) {
+      const filtered = students.filter(s => 
+        (s.nama_lengkap || '').toLowerCase().includes(value.toLowerCase())
+      );
+      setStudentSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setStudentSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectStudent = (student: Siswa) => {
+    setNewRecord({
+      ...newRecord,
+      nama_siswa: student.nama_lengkap,
+      kelas: student.kelas || ''
+    });
+    setShowSuggestions(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,16 +400,49 @@ export default function ProgressRecordsView({ user }: ProgressRecordsViewProps) 
 
               <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 <div className="space-y-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-2 italic">Nama Siswa</label>
                     <input
                       type="text"
                       required
                       value={newRecord.nama_siswa}
-                      onChange={(e) => setNewRecord({...newRecord, nama_siswa: e.target.value})}
+                      onChange={(e) => handleStudentSearch(e.target.value)}
+                      onFocus={() => {
+                        if (newRecord.nama_siswa.length > 1) setShowSuggestions(true);
+                      }}
                       placeholder="Masukkan nama lengkap siswa..."
                       className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
                     />
+                    
+                    <AnimatePresence>
+                      {showSuggestions && studentSuggestions.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute z-[110] left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
+                        >
+                          {studentSuggestions.map((student) => (
+                            <button
+                              key={student.id}
+                              type="button"
+                              onClick={() => selectStudent(student)}
+                              className="w-full px-6 py-3 text-left hover:bg-indigo-50 flex flex-col transition-colors border-b border-slate-50 last:border-0"
+                            >
+                              <span className="text-sm font-bold text-slate-700">{student.nama_lengkap}</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Kelas {student.kelas}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    
+                    {showSuggestions && (
+                      <div 
+                        className="fixed inset-0 z-[105]" 
+                        onClick={() => setShowSuggestions(false)}
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-2 italic">Kelas</label>

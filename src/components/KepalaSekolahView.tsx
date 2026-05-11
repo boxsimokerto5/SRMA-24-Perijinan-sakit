@@ -456,10 +456,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   };
 
   const selectAllPenerima = () => {
-    if (newMemo.penerima.length === 3) {
+    if (newMemo.penerima.length === 5) {
       setNewMemo(prev => ({ ...prev, penerima: [] }));
     } else {
-      setNewMemo(prev => ({ ...prev, penerima: ['dokter', 'wali_asuh', 'wali_kelas'] }));
+      setNewMemo(prev => ({ ...prev, penerima: ['dokter', 'wali_asuh', 'wali_kelas', 'guru_mapel', 'wali_asrama'] }));
     }
   };
 
@@ -1723,12 +1723,12 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                     type="button"
                     onClick={selectAllPenerima}
                     className={`px-4 py-2 rounded-xl text-[10px] font-black border transition-all tracking-widest ${
-                      newMemo.penerima.length === 3 ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500'
+                      newMemo.penerima.length === 5 ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500'
                     }`}
                   >
                     SEMUA STAF
                   </button>
-                  {(['dokter', 'wali_asuh', 'wali_kelas'] as UserRole[]).map(role => (
+                  {(['dokter', 'wali_asuh', 'wali_kelas', 'guru_mapel', 'wali_asrama'] as UserRole[]).map(role => (
                     <button
                       key={role}
                       type="button"
