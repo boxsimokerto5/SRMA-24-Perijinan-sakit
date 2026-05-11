@@ -49,6 +49,8 @@ import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, gen
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
+import ProgressRecordsView from './ProgressRecordsView';
+import AgendaView from './AgendaView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface KepalaSekolahViewProps {
@@ -73,7 +75,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil' | 'mading' | 'sarpras'>('statistik');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil' | 'mading' | 'sarpras' | 'catatan_perkembangan' | 'agenda'>('statistik');
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
   const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('minggu_ini');
@@ -149,7 +151,9 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
     settings: 'Pengaturan',
-    sarpras: 'Sarana & Prasarana'
+    sarpras: 'Sarana & Prasarana',
+    catatan_perkembangan: 'Catatan Siswa',
+    agenda: 'Agenda Kegiatan'
   };
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [laptopRequests, setLaptopRequests] = useState<LaptopRequest[]>([]);
@@ -864,8 +868,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                       <div className="space-y-1.5">
                         {[
                           { id: 'statistik', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'perizinan', label: 'Perizinan Siswa', icon: ClipboardList },
+                          { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: Activity },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
                           { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
@@ -953,6 +959,8 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'agenda' && <AgendaView user={user} />}
         
         {viewMode === 'sarpras' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

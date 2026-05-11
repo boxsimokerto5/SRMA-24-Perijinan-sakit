@@ -172,6 +172,22 @@
       },
       "required": ["nama_siswa", "kelas", "isi_catatan", "author_name", "author_uid", "author_role", "tgl_catatan"]
     },
+    "Agenda": {
+      "title": "Agenda",
+      "description": "School agenda and events with role-based visibility",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "author_role": { "type": "string" },
+        "sharedWith": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "author_name", "author_uid", "author_role", "sharedWith", "createdAt"]
+    },
     "SarprasReport": {
       "title": "Sarpras Report",
       "description": "Dormitory facilities and infrastructure damage reports",
@@ -233,6 +249,10 @@
     "/sarpras_reports/{reportId}": {
       "schema": "SarprasReport",
       "description": "Dormitory facilities and infrastructure damage reports"
+    },
+    "/agendas/{agendaId}": {
+      "schema": "Agenda",
+      "description": "School agenda and events"
     }
   }
 }

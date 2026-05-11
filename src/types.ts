@@ -219,6 +219,18 @@ export interface MonthlyReport {
   createdAt: Timestamp;
 }
 
+export interface Agenda {
+  id?: string;
+  title: string;
+  description: string;
+  date: Timestamp;
+  author_name: string;
+  author_uid: string;
+  author_role: UserRole;
+  sharedWith: UserRole[];
+  createdAt: Timestamp;
+}
+
 export interface SarprasReport {
   id?: string;
   asrama: string;

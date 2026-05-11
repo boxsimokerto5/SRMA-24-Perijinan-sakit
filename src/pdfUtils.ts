@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -1501,6 +1501,151 @@ export const generateMonthlyReportPDF = async (report: MonthlyReport) => {
         url: savedFile.uri
       });
     } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateProgressRecordPDF = async (record: ProgressRecord) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const dateOrigin = record.tgl_catatan?.toDate ? record.tgl_catatan.toDate() : new Date();
+  const dateFormatted = format(dateOrigin, 'dd MMMM yyyy');
+  
+  // Official Kop Surat
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 15, { align: 'center' });
+  
+  doc.setFontSize(14);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 21, { align: 'center' });
+  
+  // Joint Role line
+  doc.setTextColor(67, 56, 202); 
+  doc.setFontSize(12);
+  doc.text('WALI KELAS / GURU MAPEL', 105, 27, { align: 'center' });
+  
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 33, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 37, { align: 'center' });
+  doc.text('Email: srma24kediri@gmail.com | Kode Pos: 64152', 105, 41, { align: 'center' });
+
+  // Double lines below header
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(20, 44, 190, 44);
+  doc.setLineWidth(0.2);
+  doc.line(20, 45.5, 190, 45.5);
+
+  // Document Title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SURAT CATATAN PERKEMBANGAN SISWA', 105, 58, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(55, 59.5, 155, 59.5);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Nomor : SRMA-C-${record.id?.slice(-6).toUpperCase()}`, 105, 65, { align: 'center' });
+
+  // Recipient Section
+  doc.setFontSize(11);
+  doc.text('Kepada Yth.', 20, 80);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Bapak/Ibu Wali Asuh ananda ${record.nama_siswa}`, 20, 85);
+  doc.text('SRMA 24 Kediri', 20, 90);
+  doc.setFont('helvetica', 'normal');
+  doc.text('di Tempat', 20, 95);
+
+  doc.text('Dengan hormat,', 20, 110);
+  const openingText = 'Menerangkan bahwa berdasarkan hasil pengamatan dan evaluasi belajar di SRMA 24 Kediri, terdapat catatan penting bagi siswa tersebut di bawah ini:';
+  const splitOpening = doc.splitTextToSize(openingText, 170);
+  doc.text(splitOpening, 20, 116);
+
+  // Student Data Table
+  const tableTop = 130;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Nama Lengkap', 30, tableTop + 5);
+  doc.text('Kelas / Jurusan', 30, tableTop + 13);
+  doc.text('Isi Catatan', 30, tableTop + 21);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${record.nama_siswa.toUpperCase()}`, 70, tableTop + 5);
+  doc.text(`: ${record.kelas}`, 70, tableTop + 13);
+  
+  const splitContent = doc.splitTextToSize(record.isi_catatan, 110);
+  doc.text(':', 70, tableTop + 21);
+  doc.text(splitContent, 73, tableTop + 21);
+
+  doc.setDrawColor(220, 220, 220);
+  doc.line(30, tableTop + 8, 190, tableTop + 8);
+  doc.line(30, tableTop + 16, 190, tableTop + 16);
+  const tableBottom = Math.max(tableTop + 24, tableTop + 18 + (splitContent.length * 5.5));
+  doc.line(30, tableBottom, 190, tableBottom);
+
+  const closingY = tableBottom + 12;
+  doc.setFontSize(10);
+  const closingText1 = 'Catatan ini diberikan sebagai bentuk perhatian dan koordinasi antara Wali Kelas dan Wali Asuh demi kebaikan proses belajar siswa yang bersangkutan. Mohon untuk dapat diperhatikan dan ditindaklanjuti sebagaimana mestinya.';
+  const splitClosing1 = doc.splitTextToSize(closingText1, 170);
+  doc.text(splitClosing1, 20, closingY);
+  
+  const closingText2 = 'Demikian surat keterangan ini diberikan agar dapat dipergunakan sebagaimana mestinya. Atas perhatian Bapak/Ibu, kami sampaikan terima kasih.';
+  const splitClosing2 = doc.splitTextToSize(closingText2, 170);
+  doc.text(splitClosing2, 20, closingY + 20);
+
+  const sigY = closingY + 45;
+  doc.text(`Kediri, ${dateFormatted}`, 135, sigY);
+  const authorRoleLabel = record.author_role === 'wali_kelas' ? 'Wali Kelas,' : 'Guru Mapel,';
+  doc.text(authorRoleLabel, 135, sigY + 6);
+  
+  try {
+    const qrData = `SRMA 24 DIGITAL HUB\nRecord ID: ${record.id}\nStudent: ${record.nama_siswa}\nAuthor: ${record.author_name}\nDate: ${dateFormatted}`;
+    const qrDataUrl = await QRCode.toDataURL(qrData);
+    doc.addImage(qrDataUrl, 'PNG', 145, sigY + 10, 25, 25);
+  } catch (err) {
+    console.error('Failed to generate QR code', err);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${record.author_name}`, 135, sigY + 45);
+  doc.setLineWidth(0.3);
+  doc.line(135, sigY + 46.5, 185, sigY + 46.5); 
+  
+  doc.setTextColor(180, 180, 180);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const disclaimerLabel = 'Dokumen ini sah dan ditandatangani secara elektronik melalui Sistem Digital Hub SRMA 24.';
+  doc.text(disclaimerLabel, 105, 280, { align: 'center' });
+  doc.text('Verifikasi keaslian dapat dilakukan dengan memindai QR Code di atas.', 105, 284, { align: 'center' });
+
+  const fileName = `Catatan_Siswa_${record.nama_siswa.replace(/ /g, '_')}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Catatan Perkembangan Siswa',
+        text: `Catatan Siswa - ${record.nama_siswa}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Catatan'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
       doc.save(fileName);
     }
   } else {

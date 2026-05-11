@@ -24,6 +24,7 @@ import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import ProgressRecordsView from './ProgressRecordsView';
 import MonthlyReportView from './MonthlyReportView';
+import AgendaView from './AgendaView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -45,7 +46,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -991,6 +992,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'agenda', label: 'Agenda', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
@@ -1248,6 +1250,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'agenda' && <AgendaView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
         

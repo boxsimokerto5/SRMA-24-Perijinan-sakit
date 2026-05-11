@@ -40,6 +40,7 @@ import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasRepor
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
+import AgendaView from './AgendaView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -57,7 +58,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
   // Sarpras states
@@ -271,6 +272,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     pangkalan_data: 'Pangkalan Data Wali Asuh',
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
+    agenda: 'Agenda Kegiatan',
     sarpras: 'Sarana & Prasarana'
   };
 
@@ -341,6 +343,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                       <div className="space-y-1.5">
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
                           { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
@@ -402,6 +405,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
       <main className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'agenda' && <AgendaView user={user} />}
 
         {viewMode === 'perizinan' && (
           <div className="space-y-6">

@@ -133,6 +133,16 @@ service cloud.firestore {
              data.status in ['pending', 'on_progress', 'fixed'];
     }
 
+    function isValidAgenda(data) {
+      return data.keys().hasAll(['title', 'date', 'author_name', 'author_uid', 'author_role', 'sharedWith', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.date is timestamp &&
+             data.author_name is string &&
+             data.author_uid == request.auth.uid &&
+             data.sharedWith is list &&
+             data.createdAt == request.time;
+    }
+
     function isValidMonthlyReport(data) {
       return data.keys().hasAll(['siswa_id', 'nama_siswa', 'kelas', 'asrama', 'wali_asuh_name', 'wali_asuh_uid', 'periode_bulan', 'berat_badan', 'tinggi_badan', 'status_kesehatan', 'catatan_kesehatan', 'ibadah_score', 'adab_score', 'kemandirian_score', 'kemandirian_level', 'karakter_deskripsi', 'akademik_deskripsi', 'ekstrakurikuler', 'capaian_khusus', 'foto_kegiatan', 'pesan_wali_asuh', 'createdAt']) &&
              data.nama_siswa is string && data.nama_siswa.size() <= 128 &&
@@ -316,6 +326,18 @@ service cloud.firestore {
       allow get: if isSignedIn() && isValidId(reportId);
       allow create: if (isMasterAdmin() || hasRole('wali_asuh')) && isValidId(reportId) && isValidMonthlyReport(incoming());
       allow delete: if isMasterAdmin() || isAdmin() || (hasRole('wali_asuh') && existing().wali_asuh_uid == request.auth.uid);
+    }
+
+    match /agendas/{agendaId} {
+      allow list: if isSignedIn() && (
+        hasRole('kepala_sekolah') || 
+        resource.data.author_uid == request.auth.uid || 
+        getUserData().role in resource.data.sharedWith
+      );
+      allow get: if isSignedIn() && isValidId(agendaId);
+      allow create: if isSignedIn() && isValidId(agendaId) && isValidAgenda(incoming());
+      allow update: if isSignedIn() && isValidId(agendaId) && (isAdmin() || existing().author_uid == request.auth.uid) && isValidAgenda(incoming());
+      allow delete: if isSignedIn() && isValidId(agendaId) && (isAdmin() || existing().author_uid == request.auth.uid);
     }
   }
 }

@@ -9,6 +9,7 @@ import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, gen
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
+import AgendaView from './AgendaView';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
 import ProgressRecordsView from './ProgressRecordsView';
@@ -80,6 +81,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
     riwayat_sakit: 'Perizinan Sakit',
+    agenda: 'Agenda Kegiatan',
     catatan_perkembangan: 'Catatan Perkembangan'
   };
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
@@ -479,6 +481,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'riwayat_sakit', label: 'Perizinan Sakit', icon: Activity },
@@ -637,6 +640,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'agenda' && <AgendaView user={user} />}
         {viewMode === 'catatan_perkembangan' && (
           <ProgressRecordsView 
             user={user} 

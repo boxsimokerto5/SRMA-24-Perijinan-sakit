@@ -21,6 +21,7 @@ import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from '
 import { generatePermitPDF, generateMemorandumPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
+import AgendaView from './AgendaView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface DokterViewProps {
@@ -69,7 +70,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
   // View Mode
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek' | 'statistik' | 'profil' | 'memorandum' | 'buat_surat' | 'riwayat_skd' | 'mading'>('statistik');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek' | 'statistik' | 'profil' | 'memorandum' | 'buat_surat' | 'riwayat_skd' | 'mading' | 'agenda'>('statistik');
 
   useEffect(() => {
     if (activeTab === 'profil') setViewMode('profil');
@@ -589,6 +590,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                       <nav className="space-y-1.5">
                         {[
                           { id: 'statistik', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'buat_surat', label: 'Buat SKD', icon: FileText },
                           { id: 'riwayat_skd', label: 'Riwayat Surat Kesehatan', icon: ClipboardList },
@@ -742,6 +744,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       <main className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
+        {viewMode === 'agenda' && <AgendaView user={user} />}
 
         {viewMode === 'buat_surat' && (
           <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
