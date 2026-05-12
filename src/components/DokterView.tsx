@@ -15,7 +15,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
@@ -35,6 +35,26 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const formatRealTime = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date).replace(/\./g, ':');
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [notifications] = useState([
     { id: 1, title: 'Izin Disetujui', message: 'Siswa Ahmad Fauzi (X-1) telah disetujui izinnya.', time: '5m ago', type: 'success' },
     { id: 2, title: 'Memo Baru', message: 'Anda menerima memorandum baru dari Kepala Sekolah.', time: '1h ago', type: 'info' }
@@ -699,7 +719,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         </div>
       </header>
 
-      {/* Top Banner / Announcement */}
+      {/* Top Banner / Announcement (Mobile Native Style) */}
       <AnimatePresence mode="wait">
         {showBanner && banners.length > 0 && banners[bannerIndex] && (
           <motion.div 
@@ -708,28 +728,28 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="max-w-7xl mx-auto px-6 pt-6">
-              <div className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-r ${banners[bannerIndex].color} p-6 text-white shadow-xl shadow-rose-200/20`}>
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#075e6e] to-[#085a6a]'} p-4 text-white shadow-lg shadow-black/10`}>
                 <div className="relative z-10 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
-                      {React.createElement(banners[bannerIndex].icon, { className: "w-6 h-6" })}
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5 text-amber-200" })}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80">{banners[bannerIndex].title}</h4>
-                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[8px] font-black uppercase tracking-widest border border-white/10">
-                          {banners[bannerIndex].author}
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author || 'Sistem'}
                         </span>
                       </div>
-                      <p className="text-sm font-bold leading-tight mt-1">{banners[bannerIndex].content}</p>
+                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setShowBanner(false)}
-                    className="p-2 hover:bg-white/20 rounded-xl transition-colors shrink-0"
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
                   >
-                    <Info className="w-5 h-5 rotate-180" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
                 {/* Decorative circles */}
@@ -740,6 +760,19 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Shrunken Real-time Clock Bar */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
+        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
+          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+          </div>
+        </div>
+      </div>
 
       <main className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}

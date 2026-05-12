@@ -43,7 +43,7 @@ import {
   ChevronRight,
   Laptop,
   Calendar,
-  Tablet, Smartphone, Check, Menu, GraduationCap, IdCard, LayoutDashboard, LogOut, BookOpen, Wrench, Shield
+  Tablet, Smartphone, Check, Menu, GraduationCap, IdCard, LayoutDashboard, LogOut, BookOpen, Wrench, Shield, X, Info
 } from 'lucide-react';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
@@ -51,6 +51,7 @@ import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import ProgressRecordsView from './ProgressRecordsView';
 import AgendaView from './AgendaView';
+import EvaluationNotesView from './EvaluationNotesView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface KepalaSekolahViewProps {
@@ -75,7 +76,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
   const [announcementLoading, setAnnouncementLoading] = useState(false);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil' | 'mading' | 'sarpras' | 'catatan_perkembangan' | 'agenda'>('statistik');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'memorandum' | 'pengumuman' | 'pinjam_laptop' | 'permohonan_hp' | 'kartu_siswa' | 'statistik' | 'profil' | 'mading' | 'sarpras' | 'catatan_perkembangan' | 'catatan_evaluasi' | 'agenda'>('statistik');
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
   const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('minggu_ini');
@@ -118,13 +119,31 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     }).format(date).replace(/\./g, ':');
   };
 
+  const banners = announcements.length > 0 ? announcements.map(a => ({
+    id: a.id,
+    title: a.title,
+    content: a.content,
+    color: "from-rose-600 to-orange-600",
+    icon: Bell,
+    author: a.authorName || 'Sistem'
+  })) : [
+    {
+      id: 'def-1',
+      title: "Informasi Kepala Sekolah",
+      content: "Gunakan panel ini untuk monitoring seluruh kegiatan dan perizinan sekolah.",
+      color: "from-[#5d4037] to-[#8b5e3c]",
+      icon: Info,
+      author: 'Sistem'
+    }
+  ];
+
   useEffect(() => {
-    if (announcements.length <= 1) return;
+    if (banners.length <= 1) return;
     const timer = setInterval(() => {
-      setBannerIndex((prev) => (prev + 1) % announcements.length);
+      setBannerIndex((prev) => (prev + 1) % banners.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [announcements.length]);
+  }, [banners.length]);
 
   useEffect(() => {
     const q = query(
@@ -872,6 +891,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'perizinan', label: 'Perizinan Siswa', icon: ClipboardList },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: Activity },
+                          { id: 'catatan_evaluasi', label: 'Evaluasi Santri', icon: FileText },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
                           { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
@@ -956,10 +976,66 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         </div>
       </header>
 
+      {/* Top Banner / Announcement (Mobile Native Style) */}
+      <AnimatePresence mode="wait">
+        {showBanner && banners.length > 0 && banners[bannerIndex] && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#8b5e3c] to-[#c0b298]'} p-4 text-white shadow-lg shadow-black/10`}>
+                <div className="relative z-10 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      {React.createElement(banners[bannerIndex].icon as any, { className: "w-5 h-5 text-amber-200" })}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author || 'Sistem'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBanner(false)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Decorative circles */}
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-black/10 rounded-full blur-2xl" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shrunken Real-time Clock Bar */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
+        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
+          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+          </div>
+        </div>
+      </div>
+
       <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
         
         {viewMode === 'sarpras' && (

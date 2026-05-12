@@ -106,7 +106,8 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
       title: "Informasi Kesehatan",
       content: "Jaga kebersihan diri dan lingkungan asrama untuk mencegah penyebaran penyakit.",
       color: "from-indigo-600 to-violet-600",
-      icon: CheckCircle2
+      icon: CheckCircle2,
+      author: 'Sistem'
     }
   ];
 
@@ -334,7 +335,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     pinjam_laptop: 'Peminjaman Laptop',
     pinjam_hp: 'Peminjaman HP',
     catatan_perkembangan: 'Catatan Perkembangan',
-    dinding: 'Dinding Wali Asrama',
+    dinding: 'Dinding Guru & Wali Kelas',
     settings: 'Pengaturan'
   };
 
@@ -398,7 +399,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
-                          { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
+                          { id: 'dinding', label: 'Dinding Guru & Wali Kelas', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
@@ -463,11 +464,66 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       </header>
 
+      {/* Top Banner / Announcement (Mobile Native Style) */}
+      <AnimatePresence mode="wait">
+        {showBanner && banners.length > 0 && banners[bannerIndex] && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#8b5e3c] to-[#c0b298]'} p-4 text-white shadow-lg shadow-black/10`}>
+                <div className="relative z-10 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5 text-amber-200" })}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author || 'Sistem'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBanner(false)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Decorative circles */}
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-black/10 rounded-full blur-2xl" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shrunken Real-time Clock Bar */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
+        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
+          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+          </div>
+        </div>
+      </div>
+
       <div className={`p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
-        {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
+        {viewMode === 'dinding' && <WallView user={user} wallType="kelas" title="Dinding Guru & Wali Kelas" />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} autoOpenAdd={autoOpenAddCatatan} onCloseAdd={() => setAutoOpenAddCatatan(false)} />}
 
         {viewMode === 'pinjam_laptop' && (

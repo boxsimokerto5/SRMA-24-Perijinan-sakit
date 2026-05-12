@@ -264,21 +264,23 @@ export default function EvaluationNotesView({ user }: EvaluationNotesViewProps) 
               </button>
             </div>
 
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
-                showForm 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20'
-              }`}
-            >
-              {showForm ? 'Batal' : (
-                <>
-                  <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
-                  Input
-                </>
-              )}
-            </button>
+            {user.role === 'wali_asrama' && (
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                  showForm 
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20'
+                }`}
+              >
+                {showForm ? 'Batal' : (
+                  <>
+                    <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
+                    Input
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

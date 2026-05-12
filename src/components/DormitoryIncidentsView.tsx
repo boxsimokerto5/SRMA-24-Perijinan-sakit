@@ -138,7 +138,7 @@ export default function DormitoryIncidentsView({ user }: DormitoryIncidentsViewP
   };
 
   const generatePDF = async (period: 'week' | 'month') => {
-    const doc = new jsPDF();
+    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for more space
     const now = new Date();
     const start = period === 'week' ? startOfWeek(now) : startOfMonth(now);
     const end = endOfDay(now);
@@ -155,32 +155,36 @@ export default function DormitoryIncidentsView({ user }: DormitoryIncidentsViewP
     const signatureName = user.name || user.email;
     const qrDataUrl = await QRCode.toDataURL(signatureName);
 
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
+
     // Header Brown Theme KOP
     doc.setFontSize(14);
     doc.setTextColor(62, 39, 35); // #3e2723
-    doc.text('ASRAMA SRMA 24 KEDIRI', 105, 15, { align: 'center' });
+    doc.text('ASRAMA SRMA 24 KEDIRI', centerX, 15, { align: 'center' });
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('LAPORAN KEJADIAN ASRAMA', 105, 25, { align: 'center' });
+    doc.text('LAPORAN KEJADIAN ASRAMA', centerX, 25, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(141, 110, 99);
-    doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, 105, 33, { align: 'center' });
+    doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, centerX, 33, { align: 'center' });
     doc.setLineWidth(0.5);
     doc.setDrawColor(121, 85, 72);
-    doc.line(20, 36, 190, 36);
+    doc.line(20, 36, pageWidth - 20, 36);
 
     const tableData = dataToPrint.map(item => [
       format(item.date.toDate(), 'dd/MM/yy', { locale: id }),
       item.time,
       item.subject,
+      item.asrama,
       item.incident_description,
       item.improvement_efforts
     ]);
 
     autoTable(doc, {
       startY: 42,
-      head: [['Tgl', 'Jam', 'Subjek', 'Kejadian', 'Upaya Perbaikan']],
+      head: [['Tgl', 'Jam', 'Subjek', 'Lks/Asr', 'Kejadian', 'Upaya Perbaikan']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [62, 39, 35], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
@@ -188,27 +192,36 @@ export default function DormitoryIncidentsView({ user }: DormitoryIncidentsViewP
       columnStyles: {
         0: { cellWidth: 20 },
         1: { cellWidth: 15 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 'auto' },
-        4: { cellWidth: 40 }
-      }
+        2: { cellWidth: 40 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 'auto' },
+        5: { cellWidth: 60 }
+      },
+      margin: { left: 20, right: 20 }
     });
 
     const finalY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(10);
-    doc.setTextColor(50, 50, 50);
-    doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, finalY);
     
-    const signatureX = 150;
-    doc.text('Mengetahui,', signatureX, finalY, { align: 'center' });
-    doc.text(user.role.replace('_', ' ').toUpperCase(), signatureX, finalY + 5, { align: 'center' });
+    // Check for page overflow
+    if (finalY + 50 > doc.internal.pageSize.getHeight()) {
+      doc.addPage();
+      doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, 20);
+    } else {
+      doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, finalY);
+    }
     
-    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, finalY + 8, 25, 25);
+    const signatureX = pageWidth - 60;
+    const sigY = finalY > doc.internal.pageSize.getHeight() - 60 ? 20 : finalY;
+
+    doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+    doc.text(user.role.replace('_', ' ').toUpperCase(), signatureX, sigY + 5, { align: 'center' });
+    
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
     doc.setFontSize(10);
-    doc.text(signatureName, signatureX, finalY + 40, { align: 'center' });
+    doc.text(signatureName, signatureX, sigY + 40, { align: 'center' });
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text('Digital Signature (Verified)', signatureX, finalY + 44, { align: 'center' });
+    doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
 
     doc.save(`Laporan_Kejadian_Asrama_${period}_${format(new Date(), 'yyyyMMdd')}.pdf`);
   };

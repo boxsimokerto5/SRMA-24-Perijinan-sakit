@@ -30,11 +30,15 @@ import {
   BookOpen,
   MessageSquare,
   Wrench,
-  AlertTriangle
+  AlertTriangle,
+  Info,
+  Bell,
+  BarChart3,
+  X
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport } from '../types';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport, Announcement } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
@@ -61,6 +65,86 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
+
+  // Banner & Time states
+  const [showBanner, setShowBanner] = useState(true);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatRealTime = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date).replace(/\./g, ':');
+  };
+
+  useEffect(() => {
+    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+      setAnnouncements(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'announcements');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const defaultBanners = [
+    {
+      id: 'def-1',
+      title: "Informasi Kesehatan",
+      content: "Jaga kebersihan diri dan lingkungan asrama agar tetap sehat dan produktif.",
+      color: "from-[#5d4037] to-[#8b5e3c]",
+      icon: Info
+    },
+    {
+      id: 'def-2',
+      title: "Sistem Terpadu",
+      content: "Data siswa kini terhubung dengan pangkalan data asrama secara real-time.",
+      color: "from-[#8b5e3c] to-[#c0b298]",
+      icon: BarChart3
+    },
+    {
+      id: 'def-3',
+      title: "Update Keamanan",
+      content: "Selalu verifikasi izin keluar masuk siswa melalui panel konfirmasi resmi.",
+      color: "from-[#075e6e] to-[#085a6a]",
+      icon: Bell
+    }
+  ];
+
+  const banners = announcements.length > 0 
+    ? announcements.map(ann => ({
+        id: ann.id,
+        title: ann.title,
+        content: ann.content,
+        color: "from-rose-600 to-orange-600",
+        icon: Bell,
+        author: "Kepala Sekolah"
+      }))
+    : defaultBanners.map(b => ({ ...b, author: "Sistem" }));
+
+  useEffect(() => {
+    if (banners.length === 0) return;
+    const timer = setInterval(() => {
+      setBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
   const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
@@ -412,6 +496,61 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
           </div>
         </div>
       </header>
+
+      {/* Top Banner / Announcement (Mobile Native Style) */}
+      <AnimatePresence mode="wait">
+        {showBanner && banners.length > 0 && banners[bannerIndex] && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#8b5e3c] to-[#c0b298]'} p-4 text-white shadow-lg shadow-black/10`}>
+                <div className="relative z-10 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5 text-amber-200" })}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author || 'Sistem'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBanner(false)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Decorative circles */}
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-black/10 rounded-full blur-2xl" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shrunken Real-time Clock Bar */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
+        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
+          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+          </div>
+        </div>
+      </div>
 
       <main className={`p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}

@@ -3,7 +3,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { UserRole, AppUser, IzinSakit, WALI_KELAS_LIST, Memorandum, normalizeKelas, LaptopRequest, HPRequest, AppNotification, Announcement, Siswa } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
-import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Laptop, Users, CheckSquare as CheckSquareIcon, Square, Tablet, GraduationCap, LayoutDashboard, Database, LogOut, BookOpen } from 'lucide-react';
+import { CheckSquare, Printer, Check, X, FileText, User, Calendar, Home, Loader2, Plus, MapPin, ClipboardList, CheckCircle2, MessageSquare, Send, Mail, ShieldCheck, Clock, BarChart3, Search, ChevronRight, Activity, Menu, IdCard, Laptop, Users, CheckSquare as CheckSquareIcon, Square, Tablet, GraduationCap, LayoutDashboard, Database, LogOut, BookOpen, Bell, Info } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
@@ -41,10 +41,36 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   const [showBanner, setShowBanner] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const formatRealTime = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date).replace(/\./g, ':');
+  };
+
   const banners = announcements.length > 0 ? announcements.map(a => ({
+    id: a.id,
     title: a.title,
-    content: a.content
-  })) : [];
+    content: a.content,
+    color: "from-rose-600 to-orange-600",
+    icon: Bell,
+    author: a.authorName || 'Kepala Sekolah'
+  })) : [
+    {
+      id: 'def-1',
+      title: "Informasi Akademik",
+      content: "Selalu update jurnal harian dan presensi siswa tepat waktu.",
+      color: "from-[#5d4037] to-[#8b5e3c]",
+      icon: Info,
+      author: 'Sistem'
+    }
+  ];
 
   useEffect(() => {
     const q = query(
@@ -83,7 +109,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     mading: 'Mading Sekolah',
     riwayat_sakit: 'Perizinan Sakit',
     agenda: 'Agenda Kegiatan',
-    dinding: 'Dinding Wali Asrama',
+    dinding: 'Dinding Guru & Wali Kelas',
     catatan_perkembangan: 'Catatan Perkembangan'
   };
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
@@ -431,10 +457,6 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     return labels[role] || role;
   };
 
-  const formatRealTime = (date: Date) => {
-    return format(date, 'EEEE, HH:mm:ss', { locale: undefined });
-  };
-
   const features = [
     'Input Perizinan Siswa (Sakit/Umum)',
     'Input Surat Memorandum Siswa',
@@ -484,7 +506,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
-                          { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
+                          { id: 'dinding', label: 'Dinding Guru & Wali Kelas', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'riwayat_sakit', label: 'Perizinan Sakit', icon: Activity },
@@ -548,6 +570,61 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
           </div>
         </div>
       </header>
+
+      {/* Top Banner / Announcement (Mobile Native Style) */}
+      <AnimatePresence mode="wait">
+        {showBanner && banners.length > 0 && banners[bannerIndex] && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#8b5e3c] to-[#c0b298]'} p-4 text-white shadow-lg shadow-black/10`}>
+                <div className="relative z-10 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      {React.createElement(banners[bannerIndex].icon as any, { className: "w-5 h-5 text-amber-200" })}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
+                          {banners[bannerIndex].author || 'Sistem'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBanner(false)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Decorative circles */}
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-black/10 rounded-full blur-2xl" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shrunken Real-time Clock Bar */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
+        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
+          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+          </div>
+        </div>
+      </div>
 
       <div className={`p-4 sm:p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none px-0 sm:px-6' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {/* Announcement Banner */}
@@ -642,7 +719,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
-        {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
+        {viewMode === 'dinding' && <WallView user={user} wallType="kelas" title="Dinding Guru & Wali Kelas" />}
         {viewMode === 'catatan_perkembangan' && (
           <ProgressRecordsView 
             user={user} 
