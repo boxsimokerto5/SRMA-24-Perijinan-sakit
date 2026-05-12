@@ -83,7 +83,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     mading: 'Mading Sekolah',
     riwayat_sakit: 'Perizinan Sakit',
     agenda: 'Agenda Kegiatan',
-    dinding: 'Dinding Kelas',
+    dinding: 'Dinding Wali Asrama',
     catatan_perkembangan: 'Catatan Perkembangan'
   };
   const [studentSearchTerm, setStudentSearchTerm] = useState('');

@@ -136,14 +136,18 @@ export default function EvaluationNotesView({ user }: EvaluationNotesViewProps) 
     const qrDataUrl = await QRCode.toDataURL(signatureName);
 
     // Header / KOP
-    doc.setFontSize(18);
+    doc.setFontSize(14);
     doc.setTextColor(44, 62, 80);
-    doc.text('LAPORAN EVALUASI WALI ASRAMA', 105, 20, { align: 'center' });
+    doc.text('ASRAMA SRMA 24 KEDIRI', 105, 15, { align: 'center' });
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('LAPORAN EVALUASI WALI ASRAMA', 105, 25, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, 105, 28, { align: 'center' });
+    doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, 105, 33, { align: 'center' });
     doc.setLineWidth(0.5);
-    doc.line(20, 32, 190, 32);
+    doc.line(20, 36, 190, 36);
 
     // Table
     const tableData = dataToPrint.map(note => [
@@ -155,7 +159,7 @@ export default function EvaluationNotesView({ user }: EvaluationNotesViewProps) 
     ]);
 
     autoTable(doc, {
-      startY: 40,
+      startY: 42,
       head: [['Tanggal', 'Jam', 'Asrama/Regu', 'Catatan Evaluasi', 'Keterangan']],
       body: tableData,
       theme: 'grid',

@@ -26,6 +26,7 @@ import ProgressRecordsView from './ProgressRecordsView';
 import MonthlyReportView from './MonthlyReportView';
 import AgendaView from './AgendaView';
 import WallView from './WallView';
+import DormitoryIncidentsView from './DormitoryIncidentsView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -47,7 +48,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'catatan_kejadian'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -927,6 +928,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     memos: 'Memorandum',
     siswa: 'Daftar Siswa',
     catatan_perkembangan: 'Catatan Perkembangan',
+    catatan_kejadian: 'Catatan Kejadian di Asrama',
+    dinding: 'Dinding Wali Asrama',
     settings: 'Pengaturan',
     mading: 'Mading Sekolah',
     sarpras_asrama: 'Sarpras Asrama',
@@ -993,10 +996,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-                          { id: 'agenda', label: 'Agenda', icon: Calendar },
+                          { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
+                          { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
                           { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
@@ -1254,6 +1258,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
         {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
+        {viewMode === 'catatan_kejadian' && <DormitoryIncidentsView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
         

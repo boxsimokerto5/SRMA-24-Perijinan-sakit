@@ -251,6 +251,20 @@ export interface EvaluationNote {
   createdAt: Timestamp;
 }
 
+export interface DormitoryIncident {
+  id?: string;
+  date: Timestamp;
+  time: string;
+  subject: string;
+  incident_description: string;
+  improvement_efforts: string;
+  author_name: string;
+  author_uid: string;
+  author_role: UserRole;
+  asrama: string;
+  createdAt: Timestamp;
+}
+
 export interface SarprasReport {
   id?: string;
   asrama: string;

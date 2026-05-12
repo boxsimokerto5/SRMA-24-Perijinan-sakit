@@ -164,6 +164,20 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
+    function isValidDormitoryIncident(data) {
+      return data.keys().hasAll(['date', 'time', 'subject', 'incident_description', 'improvement_efforts', 'author_name', 'author_uid', 'author_role', 'asrama', 'createdAt']) &&
+             data.date is timestamp &&
+             data.time is string && data.time.size() <= 5 &&
+             data.subject is string && data.subject.size() <= 255 &&
+             data.incident_description is string && data.incident_description.size() <= 5000 &&
+             data.improvement_efforts is string && data.improvement_efforts.size() <= 5000 &&
+             data.author_name is string &&
+             data.author_uid == request.auth.uid &&
+             data.author_role in ['wali_asuh', 'wali_asrama'] &&
+             data.asrama is string &&
+             data.createdAt == request.time;
+    }
+
     function isValidMonthlyReport(data) {
       return data.keys().hasAll(['siswa_id', 'nama_siswa', 'kelas', 'asrama', 'wali_asuh_name', 'wali_asuh_uid', 'periode_bulan', 'berat_badan', 'tinggi_badan', 'status_kesehatan', 'catatan_kesehatan', 'ibadah_score', 'adab_score', 'kemandirian_score', 'kemandirian_level', 'karakter_deskripsi', 'akademik_deskripsi', 'ekstrakurikuler', 'capaian_khusus', 'foto_kegiatan', 'pesan_wali_asuh', 'createdAt']) &&
              data.nama_siswa is string && data.nama_siswa.size() <= 128 &&
@@ -382,6 +396,13 @@ service cloud.firestore {
       allow get: if isSignedIn() && isValidId(noteId);
       allow create: if (isAdmin() || isMasterAdmin() || hasRole('wali_asrama')) && isValidId(noteId) && isValidEvaluationNote(incoming());
       allow delete: if isAdmin() || isMasterAdmin() || (hasRole('wali_asrama') && existing().author_uid == request.auth.uid);
+    }
+
+    match /dormitory_incidents/{incidentId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(incidentId);
+      allow create: if (isAdmin() || isMasterAdmin() || hasRole('wali_asuh') || hasRole('wali_asrama')) && isValidId(incidentId) && isValidDormitoryIncident(incoming());
+      allow delete: if isAdmin() || isMasterAdmin() || (existing().author_uid == request.auth.uid);
     }
   }
 }

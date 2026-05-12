@@ -44,6 +44,7 @@ import Logo from './Logo';
 import AgendaView from './AgendaView';
 import WallView from './WallView';
 import EvaluationNotesView from './EvaluationNotesView';
+import DormitoryIncidentsView from './DormitoryIncidentsView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -61,7 +62,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
   // Sarpras states
@@ -278,7 +279,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     agenda: 'Agenda Kegiatan',
     dinding: 'Dinding Wali Asrama',
     sarpras: 'Sarana & Prasarana',
-    catatan_evaluasi: 'Catatan Evaluasi'
+    catatan_evaluasi: 'Catatan Evaluasi',
+    catatan_kejadian: 'Catatan Kejadian di Asrama'
   };
 
   const navItems = [
@@ -352,6 +354,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
                           { id: 'catatan_evaluasi', label: 'Catatan Evaluasi', icon: ClipboardList },
+                          { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
                           { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
@@ -416,6 +419,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         {viewMode === 'agenda' && <AgendaView user={user} />}
         {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
+        {viewMode === 'catatan_kejadian' && <DormitoryIncidentsView user={user} />}
 
         {viewMode === 'perizinan' && (
           <div className="space-y-6">

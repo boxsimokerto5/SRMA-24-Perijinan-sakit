@@ -334,6 +334,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     pinjam_laptop: 'Peminjaman Laptop',
     pinjam_hp: 'Peminjaman HP',
     catatan_perkembangan: 'Catatan Perkembangan',
+    dinding: 'Dinding Wali Asrama',
     settings: 'Pengaturan'
   };
 
