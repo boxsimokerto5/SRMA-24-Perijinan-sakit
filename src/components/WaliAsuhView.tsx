@@ -960,7 +960,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   ];
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#1a0f0d]' : 'bg-[#fcf8f5] text-[#2d1e1a]'} font-sans antialiased selection:bg-[#8b5e3c]/20`}>
       {/* Sidebar Navigation */}
       <AnimatePresence>
         {showSidebar && (
@@ -977,24 +977,24 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
+              className={`fixed inset-y-0 left-0 w-[280px] z-[70] shadow-2xl flex flex-col ${isDarkMode ? 'bg-[#2d1e1a] border-white/5' : 'bg-[#3e2723]'} text-white`}
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-6">
-                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                  <div className={`rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group ${isDarkMode ? 'bg-white/5' : 'bg-black/20'}`}>
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
                     <div className="flex items-center gap-4 relative z-10">
                       <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
                         <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
-                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 opacity-70 ${isDarkMode ? 'text-amber-200' : 'text-[#d7ccc8]'}`}>SEKOLAH RAKYAT</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div>
-                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
+                      <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 ${isDarkMode ? 'text-amber-200/40' : 'text-[#d7ccc8]/40'}`}>HOME</p>
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
@@ -1023,11 +1023,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                             }}
                             className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
                               viewMode === item.id 
-                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
-                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                                ? 'bg-white text-[#3e2723] shadow-xl shadow-black/10' 
+                                : `bg-transparent text-white/70 hover:bg-white/10 hover:text-white`
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#3e2723]' : 'text-white/40'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -1038,12 +1038,12 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </div>
 
               <div className="p-6 border-t border-white/10">
-                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+                <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 ${isDarkMode ? 'text-amber-200/40' : 'text-[#d7ccc8]/40'}`}>TOKO & AKUN</p>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all shadow-lg border border-white/5 active:scale-95 ${isDarkMode ? 'bg-white/5 text-rose-400 hover:bg-white/10' : 'bg-black/20 text-rose-300 hover:bg-black/30'}`}
                 >
-                  <LogOut className="w-5 h-5 text-cyan-300" />
+                  <LogOut className="w-5 h-5" />
                   Keluar Akun
                 </button>
               </div>
@@ -1053,24 +1053,24 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       </AnimatePresence>
 
       {/* Top Header Navigation */}
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-indigo-100/60'} backdrop-blur-xl border-b shadow-[0_4px_20_rgb(0,0,0,0.03)]`}>
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-[#2d1e1a]/90 border-white/5' : 'bg-[#f8f3ed]/90 border-[#d7ccc8]/40'} backdrop-blur-xl border-b shadow-sm`}>
         <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
               className={`p-3 rounded-2xl transition-all duration-300 ${
                 isDarkMode 
-                  ? 'bg-slate-800 text-slate-200 hover:bg-slate-700 shadow-lg shadow-black/20' 
-                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 shadow-sm'
+                  ? 'bg-white/5 text-amber-200 hover:bg-white/10 shadow-lg shadow-black/20' 
+                  : 'bg-[#8b5e3c]/10 text-[#5d4037] hover:bg-[#8b5e3c]/20 shadow-sm'
               } active:scale-95`}
             >
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex flex-col">
-              <h1 className={`text-sm font-black uppercase tracking-widest text-[#075e6e] leading-none mb-0.5`}>
+              <h1 className={`text-sm font-black uppercase tracking-widest leading-none mb-0.5 ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
                 {viewTitles[viewMode] || 'SRMA 24'}
               </h1>
-              <p className={`text-[9px] font-bold uppercase tracking-tighter opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              <p className={`text-[9px] font-bold uppercase tracking-tighter opacity-50 ${isDarkMode ? 'text-amber-200/50' : 'text-[#8b5e3c]'}`}>
                 Digital Health System
               </p>
             </div>
@@ -1130,7 +1130,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-indigo-50'
                       }`}
                     >
-                      <div className="p-5 border-b border-slate-100/10 bg-indigo-600 flex items-center justify-between">
+                      <div className="p-5 border-b border-slate-100/10 bg-[#3e2723] flex items-center justify-between">
                         <h4 className="font-black text-white text-[10px] uppercase tracking-widest">Notifikasi Baru</h4>
                         <button 
                           onClick={() => setShowNotifications(false)}

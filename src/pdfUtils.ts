@@ -1,10 +1,12 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import QRCode from 'qrcode';
+import autoTable from 'jspdf-autotable';
+import { id } from 'date-fns/locale';
 import { compressImage } from './imageUtils';
 
 export const getImageDataUrl = async (url: string): Promise<string> => {
@@ -1646,6 +1648,223 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
       });
     } catch (error) {
       console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateEvaluationNotesReportPDF = async (notes: EvaluationNote[], period: 'week' | 'month', userName: string) => {
+  const doc = new jsPDF();
+  const now = new Date();
+  const { startOfWeek, startOfMonth, endOfDay } = await import('date-fns');
+  const start = period === 'week' ? startOfWeek(now) : startOfMonth(now);
+  const end = endOfDay(now);
+
+  const dataToPrint = notes.filter(note => {
+    const d = note.date?.toDate ? note.date.toDate() : new Date();
+    return d >= start && d <= end;
+  }).sort((a, b) => {
+    const da = a.date?.toDate ? a.date.toDate().getTime() : 0;
+    const db = b.date?.toDate ? b.date.toDate().getTime() : 0;
+    return da - db;
+  });
+
+  if (dataToPrint.length === 0) {
+    alert('Tidak ada data untuk periode ini.');
+    return;
+  }
+
+  // Header / KOP
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('ASRAMA SRMA 24 KEDIRI', 105, 15, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LAPORAN EVALUASI WALI ASRAMA', 105, 25, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, 105, 33, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(20, 36, 190, 36);
+
+  // Table
+  const tableData = dataToPrint.map(note => [
+    format(note.date.toDate(), 'dd/MM/yy', { locale: id }),
+    format(note.date.toDate(), 'HH:mm'),
+    note.asrama,
+    note.description,
+    'Semua Anak'
+  ]);
+
+  autoTable(doc, {
+    startY: 42,
+    head: [['Tanggal', 'Jam', 'Asrama/Regu', 'Catatan Evaluasi', 'Keterangan']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 'auto' },
+      4: { cellWidth: 25 }
+    }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  doc.setFontSize(10);
+  doc.setTextColor(50, 50, 50);
+  doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, Math.min(finalY, 280));
+  
+  const signatureX = 150;
+  const sigY = Math.min(finalY, 240);
+  doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+  doc.text('Wali Asrama', signatureX, sigY + 5, { align: 'center' });
+  
+  try {
+    const qrDataUrl = await QRCode.toDataURL(userName);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
+  } catch (e) {
+    console.error("QR Error", e);
+  }
+  
+  doc.setFontSize(10);
+  doc.text(userName, signatureX, sigY + 40, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
+
+  const fileName = `Laporan_Evaluasi_${period}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Evaluasi Asrama',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateDormitoryIncidentsReportPDF = async (incidents: DormitoryIncident[], period: 'week' | 'month', userName: string) => {
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const now = new Date();
+  const { startOfWeek, startOfMonth, endOfDay } = await import('date-fns');
+  const start = period === 'week' ? startOfWeek(now) : startOfMonth(now);
+  const end = endOfDay(now);
+
+  const dataToPrint = incidents.filter(item => {
+    const d = item.date?.toDate ? item.date.toDate() : new Date();
+    return d >= start && d <= end;
+  }).sort((a, b) => {
+    const da = a.date?.toDate ? a.date.toDate().getTime() : 0;
+    const db = b.date?.toDate ? b.date.toDate().getTime() : 0;
+    return da - db;
+  });
+
+  if (dataToPrint.length === 0) {
+    alert('Tidak ada data untuk periode ini.');
+    return;
+  }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+
+  // Header Brown Theme KOP
+  doc.setFontSize(14);
+  doc.setTextColor(62, 39, 35);
+  doc.text('ASRAMA SRMA 24 KEDIRI', centerX, 15, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LAPORAN KEJADIAN ASRAMA', centerX, 25, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(141, 110, 99);
+  doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, centerX, 33, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(121, 85, 72);
+  doc.line(20, 36, pageWidth - 20, 36);
+
+  const tableData = dataToPrint.map(item => [
+    format(item.date.toDate(), 'dd/MM/yy', { locale: id }),
+    item.time,
+    item.subject,
+    item.asrama,
+    item.incident_description,
+    item.improvement_efforts
+  ]);
+
+  autoTable(doc, {
+    startY: 42,
+    head: [['Tgl', 'Jam', 'Subjek', 'Lks/Asr', 'Kejadian', 'Upaya Perbaikan']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [62, 39, 35], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 'auto' },
+      5: { cellWidth: 60 }
+    },
+    margin: { left: 20, right: 20 }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, Math.min(finalY, pageHeight - 10));
+  
+  const signatureX = pageWidth - 60;
+  const sigY = Math.min(finalY, pageHeight - 60);
+
+  doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+  doc.text('Petugas Asrama', signatureX, sigY + 5, { align: 'center' });
+  
+  try {
+    const qrDataUrl = await QRCode.toDataURL(userName);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
+  } catch (e) {
+    console.error("QR Error", e);
+  }
+  
+  doc.setFontSize(10);
+  doc.text(userName, signatureX, sigY + 40, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
+
+  const fileName = `Laporan_Kejadian_Asrama_${period}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Kejadian Asrama',
+        url: savedFile.uri
+      });
+    } catch (error) {
       doc.save(fileName);
     }
   } else {

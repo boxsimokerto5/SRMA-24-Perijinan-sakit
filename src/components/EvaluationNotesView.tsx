@@ -32,9 +32,7 @@ import {
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, isWithinInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import QRCode from 'qrcode';
+import { generateEvaluationNotesReportPDF } from '../pdfUtils';
 
 interface EvaluationNotesViewProps {
   user: AppUser;
@@ -117,83 +115,7 @@ export default function EvaluationNotesView({ user }: EvaluationNotesViewProps) 
   };
 
   const generatePDF = async (period: 'week' | 'month') => {
-    const doc = new jsPDF();
-    const now = new Date();
-    const start = period === 'week' ? startOfWeek(now) : startOfMonth(now);
-    const end = endOfDay(now);
-
-    const dataToPrint = notes.filter(note => 
-      isWithinInterval(note.date.toDate(), { start, end })
-    ).sort((a, b) => a.date.toMillis() - b.date.toMillis());
-
-    if (dataToPrint.length === 0) {
-      alert('Tidak ada data untuk periode ini.');
-      return;
-    }
-
-    // Generate QR Code for Signature
-    const signatureName = user.name || user.email;
-    const qrDataUrl = await QRCode.toDataURL(signatureName);
-
-    // Header / KOP
-    doc.setFontSize(14);
-    doc.setTextColor(44, 62, 80);
-    doc.text('ASRAMA SRMA 24 KEDIRI', 105, 15, { align: 'center' });
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('LAPORAN EVALUASI WALI ASRAMA', 105, 25, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, 105, 33, { align: 'center' });
-    doc.setLineWidth(0.5);
-    doc.line(20, 36, 190, 36);
-
-    // Table
-    const tableData = dataToPrint.map(note => [
-      format(note.date.toDate(), 'dd/MM/yy', { locale: id }),
-      format(note.date.toDate(), 'HH:mm'),
-      note.asrama,
-      note.description,
-      'Semua Anak' // Default remark as requested
-    ]);
-
-    autoTable(doc, {
-      startY: 42,
-      head: [['Tanggal', 'Jam', 'Asrama/Regu', 'Catatan Evaluasi', 'Keterangan']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-      columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 15 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 'auto' },
-        4: { cellWidth: 25 }
-      }
-    });
-
-    // Signature
-    const finalY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(10);
-    doc.setTextColor(50, 50, 50);
-    doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, finalY);
-    
-    const signatureX = 150;
-    doc.text('Mengetahui,', signatureX, finalY, { align: 'center' });
-    doc.text('Wali Asrama', signatureX, finalY + 5, { align: 'center' });
-    
-    // Add QR Code Signature
-    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, finalY + 8, 25, 25);
-    
-    doc.setFontSize(10);
-    doc.text(signatureName, signatureX, finalY + 40, { align: 'center' });
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.text('Digital Signature (Verified)', signatureX, finalY + 44, { align: 'center' });
-
-    doc.save(`Laporan_Evaluasi_${period}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    await generateEvaluationNotesReportPDF(notes, period, user.name || user.email);
   };
 
   const filteredNotes = notes.filter(note => {
@@ -219,11 +141,11 @@ export default function EvaluationNotesView({ user }: EvaluationNotesViewProps) 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Sleek Compact Header */}
-      <div className="bg-slate-900 rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-slate-800">
+      <div className="bg-[#3e2723] rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-white/5 relative">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20 shrink-0">
-              <ClipboardCheck className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-lg shadow-black/20 shrink-0">
+              <ClipboardCheck className="w-5 h-5 text-[#3e2723]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
