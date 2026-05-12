@@ -231,6 +231,26 @@ export interface Agenda {
   createdAt: Timestamp;
 }
 
+export interface WallMessage {
+  id?: string;
+  content: string;
+  author_name: string;
+  author_uid: string;
+  author_role: UserRole;
+  wall_type: 'asrama' | 'asuh' | 'kelas';
+  createdAt: Timestamp;
+}
+
+export interface EvaluationNote {
+  id?: string;
+  description: string;
+  date: Timestamp;
+  author_name: string;
+  author_uid: string;
+  asrama: string;
+  createdAt: Timestamp;
+}
+
 export interface SarprasReport {
   id?: string;
   asrama: string;

@@ -10,6 +10,7 @@ import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import AgendaView from './AgendaView';
+import WallView from './WallView';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
 import { LaptopRequest, HPRequest } from '../types';
@@ -31,7 +32,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
-  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading' | 'pinjam_laptop' | 'pinjam_hp' | 'catatan_perkembangan' | 'agenda'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'kartu_siswa' | 'memos' | 'pangkalan_data' | 'profil' | 'mading' | 'pinjam_laptop' | 'pinjam_hp' | 'catatan_perkembangan' | 'agenda' | 'dinding'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -396,6 +397,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
+                          { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
@@ -460,10 +462,11 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         </div>
       </header>
 
-      <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
+      <div className={`p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
+        {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} autoOpenAdd={autoOpenAddCatatan} onCloseAdd={() => setAutoOpenAddCatatan(false)} />}
 
         {viewMode === 'pinjam_laptop' && (

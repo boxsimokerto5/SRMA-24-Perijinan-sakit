@@ -28,6 +28,7 @@ import {
   IdCard,
   Database,
   BookOpen,
+  MessageSquare,
   Wrench,
   AlertTriangle
 } from 'lucide-react';
@@ -41,6 +42,8 @@ import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import AgendaView from './AgendaView';
+import WallView from './WallView';
+import EvaluationNotesView from './EvaluationNotesView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -58,7 +61,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
   // Sarpras states
@@ -273,12 +276,15 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     profil: 'Profil Saya',
     mading: 'Mading Sekolah',
     agenda: 'Agenda Kegiatan',
-    sarpras: 'Sarana & Prasarana'
+    dinding: 'Dinding Wali Asrama',
+    sarpras: 'Sarana & Prasarana',
+    catatan_evaluasi: 'Catatan Evaluasi'
   };
 
   const navItems = [
     { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
     { id: 'cek_kesehatan', label: 'Usulan Cek', icon: Activity },
+    { id: 'catatan_evaluasi', label: 'Evaluasi', icon: ClipboardList },
     { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Tablet },
     { id: 'memorandum', label: 'Memorandum', icon: Mail },
     { id: 'profil', label: 'Profil Saya', icon: User }
@@ -344,6 +350,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
+                          { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
+                          { id: 'catatan_evaluasi', label: 'Catatan Evaluasi', icon: ClipboardList },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
                           { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
@@ -402,10 +410,12 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         </div>
       </header>
 
-      <main className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
+      <main className={`p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
+        {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
+        {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
 
         {viewMode === 'perizinan' && (
           <div className="space-y-6">

@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import ProgressRecordsView from './ProgressRecordsView';
 import MonthlyReportView from './MonthlyReportView';
 import AgendaView from './AgendaView';
+import WallView from './WallView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -46,7 +47,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -114,7 +115,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       id: 'def-3',
       title: "Update Keamanan",
       content: "Selalu verifikasi izin keluar masuk siswa melalui panel konfirmasi resmi.",
-      color: "from-[#5d4037] to-[#3e2723]",
+      color: "from-[#075e6e] to-[#085a6a]",
       icon: Bell
     }
   ];
@@ -993,6 +994,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda', icon: Calendar },
+                          { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
@@ -1044,7 +1046,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       </AnimatePresence>
 
       {/* Top Header Navigation */}
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-slate-800' : 'border-indigo-100/60'} shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-indigo-100/60'} backdrop-blur-xl border-b shadow-[0_4px_20_rgb(0,0,0,0.03)]`}>
         <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
           <div className="flex items-center gap-4">
             <button
@@ -1248,9 +1250,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         </div>
       </div>
 
-      <div className={`p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
+      <div className={`p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
+        {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
         
@@ -1258,7 +1261,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black text-[#3e2723] font-display italic">Sarana & Prasarana</h2>
+                <h2 className="text-xl font-black text-[#075e6e] font-display italic">Sarana & Prasarana</h2>
                 <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Monitor Kerusakan Fasilitas Asrama</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1367,19 +1370,21 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
         {viewMode === 'home' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-gradient-to-br from-[#5d4037] to-[#3e2723] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-black/20">
+            <div className="bg-gradient-to-br from-[#075e6e] to-[#0a8ea4] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
               <div className="relative z-10">
-                <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Halo, {user.name || user.email}</h1>
-                <p className="text-lg font-black text-amber-100 flex items-center gap-2 mb-6 italic">
-                  <ShieldCheck className="w-5 h-5 text-amber-200" />
-                  {getRoleLabel(user.role || 'wali_asuh')}
+                <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic text-white flex items-center gap-3">
+                   Hallo, {user.name.split(' ')[0]} 👋
+                </h1>
+                <p className="text-lg font-black text-cyan-50 flex items-center gap-2 mb-6 italic opacity-80">
+                  <ShieldCheck className="w-5 h-5 text-cyan-300" />
+                  Pusat Informasi Wali Asuh
                 </p>
                 
                 <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/10 shadow-inner">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[#fdfcf0] mb-4 flex items-center gap-2 italic">
-                    <LayoutDashboard className="w-4 h-4 text-amber-200" />
-                    Daftar Fitur Akun:
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-cyan-50 mb-4 flex items-center gap-2 italic">
+                    <LayoutDashboard className="w-4 h-4 text-cyan-300" />
+                    Daftar Akses Fitur:
                   </h3>
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {features.map((f, i) => (
@@ -1388,9 +1393,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="flex items-center gap-3 text-xs font-black text-[#fdfcf0] italic"
+                        className="flex items-center gap-3 text-xs font-black text-cyan-50 italic"
                       >
-                        <div className="w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                        <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
                         {f}
                       </motion.li>
                     ))}
@@ -1400,18 +1405,18 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
 
             <div>
-              <h2 className="text-xl font-black text-[#3e2723] font-display italic">Klik Menu Cepat:</h2>
+              <h2 className="text-xl font-black text-[#075e6e] font-display italic">Klik Menu Cepat:</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="py-4 px-6 bg-[#3e2723] text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
+                  className="py-4 px-6 bg-[#075e6e] text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
                 >
                   <Activity size={20} className="text-amber-200" />
                   Lihat Perizinan
                 </button>
                 <button
                   onClick={() => setViewMode('kartu_siswa')}
-                  className="py-4 px-6 bg-[#5d4037] text-white font-black rounded-2xl shadow-xl hover:bg-[#3e2723] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
+                  className="py-4 px-6 bg-[#085a6a] text-white font-black rounded-2xl shadow-xl hover:bg-[#075e6e] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
                 >
                    <User size={20} className="text-amber-200" />
                   Lihat Siswa

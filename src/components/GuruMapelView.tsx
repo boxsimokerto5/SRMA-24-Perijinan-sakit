@@ -10,6 +10,7 @@ import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
 import AgendaView from './AgendaView';
+import WallView from './WallView';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDocs } from 'firebase/firestore';
 import ProgressRecordsView from './ProgressRecordsView';
@@ -82,6 +83,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     mading: 'Mading Sekolah',
     riwayat_sakit: 'Perizinan Sakit',
     agenda: 'Agenda Kegiatan',
+    dinding: 'Dinding Kelas',
     catatan_perkembangan: 'Catatan Perkembangan'
   };
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
@@ -443,7 +445,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
   ];
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#3e2723]' : 'bg-[#f8f3ed]'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
       {/* Sidebar Navigation */}
       <AnimatePresence>
         {showSidebar && (
@@ -460,28 +462,29 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-[#5d4037] text-white z-[70] shadow-2xl flex flex-col"
+              className="fixed inset-y-0 left-0 w-[280px] bg-[#075e6e] text-white z-[70] shadow-2xl flex flex-col"
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-6">
-                  <div className="bg-[#3e2723] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
+                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
                     <div className="flex items-center gap-4 relative z-10">
                       <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
                         <span className="font-black text-white text-base leading-tight tracking-tight uppercase italic">SRMA 24 KEDIRI</span>
-                        <span className="text-[10px] font-bold text-amber-200/60 uppercase tracking-widest mt-0.5 opacity-70 italic">SEKOLAH RAKYAT</span>
+                        <span className="text-[10px] font-bold text-cyan-200/60 uppercase tracking-widest mt-0.5 opacity-70 italic font-display">SEKOLAH RAKYAT</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div>
-                      <p className="text-[10px] font-black text-amber-200/40 uppercase tracking-[0.2em] mb-4 px-2">NAVIGASI UTAMA</p>
+                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2 italic">NAVIGASI UTAMA</p>
                       <div className="space-y-1.5">
                         {[
                           { id: 'perizinan', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
+                          { id: 'dinding', label: 'Dinding Wali Asrama', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: ClipboardList },
                           { id: 'riwayat_sakit', label: 'Perizinan Sakit', icon: Activity },
@@ -499,11 +502,11 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                             }}
                             className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
                               viewMode === item.id 
-                                ? 'bg-white text-[#5d4037] shadow-xl shadow-black/10 translate-x-2' 
-                                : 'bg-transparent text-white/70 hover:bg-[#3e2723] hover:text-white'
+                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10 translate-x-2' 
+                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#5d4037]' : 'text-white/40'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -515,12 +518,12 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
               {/* Bottom Logout Section */}
               <div className="p-6 border-t border-white/10">
-                <p className="text-[10px] font-black text-amber-200/40 uppercase tracking-[0.2em] mb-4 px-2 italic">Pengaturan</p>
+                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2 italic font-display">Sistem & Akun</p>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#3e2723] text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-lg border border-white/5 active:scale-95"
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95 group"
                 >
-                  <LogOut className="w-5 h-5 text-amber-200" />
+                  <LogOut className="w-5 h-5 text-cyan-300 group-hover:text-white" />
                   Keluar Akun
                 </button>
               </div>
@@ -530,23 +533,23 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
       </AnimatePresence>
 
       {/* Top Header */}
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-[#3e2723]/90' : 'bg-white/90'} backdrop-blur-xl border-b ${isDarkMode ? 'border-[#d7ccc8]/10' : 'border-[#d7ccc8]/40'} shadow-sm`}>
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-indigo-100/60'} backdrop-blur-xl border-b shadow-[0_4px_20px_rgb(0,0,0,0.03)]`}>
         <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
-              className="p-3 bg-[#f8f3ed] text-[#5d4037] rounded-2xl border border-[#d7ccc8]/40 shadow-sm"
+              className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-black uppercase tracking-widest text-[#5d4037] italic">
+            <h1 className="text-sm font-black uppercase tracking-widest text-[#075e6e]">
               {viewTitles[viewMode] || 'SRMA 24'}
             </h1>
           </div>
         </div>
       </header>
 
-      <div className={`p-4 sm:p-6 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
+      <div className={`p-4 sm:p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none px-0 sm:px-6' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
         {/* Announcement Banner */}
         {announcements.length > 0 && showBanner && (
           <motion.div 
@@ -594,10 +597,8 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
         {viewMode === 'home' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-[#075e6e] p-8 rounded-[3rem] text-white shadow-2xl mb-8 relative overflow-hidden group border-b-8 border-[#054a57]">
+            <div className="bg-gradient-to-br from-[#075e6e] to-[#0a8ea4] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-400/10 rounded-full -ml-16 -mb-16 blur-2xl" />
-              
               <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                 <div className="shrink-0 p-1 bg-white/10 rounded-[2.5rem] backdrop-blur-sm border border-white/20">
                   <Logo size="lg" showText={false} className="shadow-2xl" />
@@ -610,7 +611,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   </div>
                   <h1 className="text-4xl font-black font-display tracking-tight mb-3 italic leading-tight">
                     {user.name.split(' ')[0]}, <br />
-                    <span className="text-cyan-300">Pusat Data Kesehatan.</span>
+                    <span className="text-cyan-300">Pusat Informasi Guru.</span>
                   </h1>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
                     <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-white/20">
@@ -619,7 +620,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                     </div>
                     <div className="bg-cyan-900/50 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-cyan-400/20">
                       <Clock className="w-4 h-4 text-cyan-400" />
-                      <span className="text-xs font-black text-white font-mono">{formatRealTime(currentTime).split(',')[1]}</span>
+                      <span className="text-xs font-black text-white font-mono">{format(currentTime, 'HH:mm:ss')}</span>
                     </div>
                   </div>
                 </div>
@@ -641,6 +642,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
+        {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
         {viewMode === 'catatan_perkembangan' && (
           <ProgressRecordsView 
             user={user} 

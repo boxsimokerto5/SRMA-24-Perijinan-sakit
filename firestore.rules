@@ -21,13 +21,15 @@ service cloud.firestore {
     }
     
     function hasRole(role) {
-      return isEmailVerified() && getUserData().role == role;
+      return isMasterAdmin() || (isEmailVerified() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role);
     }
 
     function isAdmin() {
-      // Primary admin is the master admin account.
-      // Secondary admin check: Any user with kepala_sekolah role.
-      return isMasterAdmin() || (isSignedIn() && getUserData().role == 'kepala_sekolah');
+      return isMasterAdmin() || isSystemAdmin() || (isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'kepala_sekolah');
     }
     
     function isMasterAdmin() {
@@ -143,6 +145,25 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
+    function isValidWallMessage(data) {
+      return data.keys().hasAll(['content', 'author_name', 'author_uid', 'author_role', 'wall_type', 'createdAt']) &&
+             data.content is string && data.content.size() <= 1000 &&
+             data.author_name is string &&
+             data.author_uid == request.auth.uid &&
+             data.wall_type in ['asrama', 'asuh', 'kelas'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidEvaluationNote(data) {
+      return data.keys().hasAll(['description', 'date', 'author_name', 'author_uid', 'asrama', 'createdAt']) &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.date is timestamp &&
+             data.author_name is string &&
+             data.author_uid == request.auth.uid &&
+             data.asrama is string &&
+             data.createdAt == request.time;
+    }
+
     function isValidMonthlyReport(data) {
       return data.keys().hasAll(['siswa_id', 'nama_siswa', 'kelas', 'asrama', 'wali_asuh_name', 'wali_asuh_uid', 'periode_bulan', 'berat_badan', 'tinggi_badan', 'status_kesehatan', 'catatan_kesehatan', 'ibadah_score', 'adab_score', 'kemandirian_score', 'kemandirian_level', 'karakter_deskripsi', 'akademik_deskripsi', 'ekstrakurikuler', 'capaian_khusus', 'foto_kegiatan', 'pesan_wali_asuh', 'createdAt']) &&
              data.nama_siswa is string && data.nama_siswa.size() <= 128 &&
@@ -228,8 +249,8 @@ service cloud.firestore {
     }
 
     match /memorandums/{memoId} {
-      allow list: if isSignedIn() && (isMasterAdmin() || hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima) || isSystemAdmin());
-      allow get: if isSignedIn() && isValidId(memoId) && (isMasterAdmin() || hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima) || isSystemAdmin());
+      allow list: if isMasterAdmin() || isSystemAdmin() || (isSignedIn() && (hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima)));
+      allow get: if isMasterAdmin() || isSystemAdmin() || (isSignedIn() && (hasRole('kepala_sekolah') || (getUserData().role in resource.data.penerima)));
       allow create: if (isMasterAdmin() || hasRole('kepala_sekolah') || isSystemAdmin()) && isValidId(memoId) && (incoming().pengirim_uid == request.auth.uid);
       allow delete: if isMasterAdmin() || isAdmin() || isSystemAdmin();
     }
@@ -338,6 +359,29 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(agendaId) && isValidAgenda(incoming());
       allow update: if isSignedIn() && isValidId(agendaId) && (isAdmin() || existing().author_uid == request.auth.uid) && isValidAgenda(incoming());
       allow delete: if isSignedIn() && isValidId(agendaId) && (isAdmin() || existing().author_uid == request.auth.uid);
+    }
+
+    match /wall_messages/{messageId} {
+      allow read: if isAdmin() || isMasterAdmin() || (isSignedIn() && (
+        hasRole('kepala_sekolah') ||
+        (resource.data.wall_type == 'asrama' && hasRole('wali_asrama')) ||
+        (resource.data.wall_type == 'asuh' && hasRole('wali_asuh')) ||
+        (resource.data.wall_type == 'kelas' && (hasRole('wali_kelas') || hasRole('guru_mapel')))
+      ));
+      allow create: if (isAdmin() || isMasterAdmin() || isSignedIn()) && isValidId(messageId) && isValidWallMessage(incoming()) && (
+        isMasterAdmin() || isAdmin() ||
+        (incoming().wall_type == 'asrama' && hasRole('wali_asrama')) ||
+        (incoming().wall_type == 'asuh' && hasRole('wali_asuh')) ||
+        (incoming().wall_type == 'kelas' && (hasRole('wali_kelas') || hasRole('guru_mapel')))
+      );
+      allow delete: if isSignedIn() && (isAdmin() || isMasterAdmin() || existing().author_uid == request.auth.uid);
+    }
+
+    match /evaluation_notes/{noteId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(noteId);
+      allow create: if (isAdmin() || isMasterAdmin() || hasRole('wali_asrama')) && isValidId(noteId) && isValidEvaluationNote(incoming());
+      allow delete: if isAdmin() || isMasterAdmin() || (hasRole('wali_asrama') && existing().author_uid == request.auth.uid);
     }
   }
 }

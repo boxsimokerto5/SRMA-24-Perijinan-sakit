@@ -188,6 +188,34 @@
       },
       "required": ["title", "date", "author_name", "author_uid", "author_role", "sharedWith", "createdAt"]
     },
+    "WallMessage": {
+      "title": "Wall Message",
+      "description": "Messages left on role-specific interaction walls",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "author_role": { "type": "string" },
+        "wall_type": { "type": "string", "enum": ["asrama", "asuh", "kelas"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content", "author_name", "author_uid", "author_role", "wall_type", "createdAt"]
+    },
+    "EvaluationNote": {
+      "title": "Evaluation Note",
+      "description": "Daily evaluation notes from wali asrama",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "asrama": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "date", "author_name", "author_uid", "asrama", "createdAt"]
+    },
     "SarprasReport": {
       "title": "Sarpras Report",
       "description": "Dormitory facilities and infrastructure damage reports",
@@ -253,6 +281,14 @@
     "/agendas/{agendaId}": {
       "schema": "Agenda",
       "description": "School agenda and events"
+    },
+    "/wall_messages/{messageId}": {
+      "schema": "WallMessage",
+      "description": "Messages left on role-specific interaction walls"
+    },
+    "/evaluation_notes/{noteId}": {
+      "schema": "EvaluationNote",
+      "description": "Daily evaluation notes created by wali asrama"
     }
   }
 }
