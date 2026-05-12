@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<string, string> = {
   wali_asuh: 'Wali Asuh',
   wali_asrama: 'Wali Asrama',
   dokter: 'Dokter',
+  kepala_sekolah: 'Kepala Sekolah',
 };
 
 export default function AgendaView({ user }: AgendaViewProps) {
@@ -38,7 +39,9 @@ export default function AgendaView({ user }: AgendaViewProps) {
   useEffect(() => {
     if (isAdding) {
       let defaults: UserRole[] = [];
-      if (user.role === 'wali_asuh' || user.role === 'wali_asrama') {
+      if (user.role === 'kepala_sekolah') {
+        defaults = Object.keys(ROLE_LABELS) as UserRole[];
+      } else if (user.role === 'wali_asuh' || user.role === 'wali_asrama') {
         defaults = ['wali_asuh', 'wali_asrama'];
       } else if (user.role === 'wali_kelas' || user.role === 'guru_mapel') {
         defaults = ['wali_kelas', 'guru_mapel'];
@@ -141,15 +144,13 @@ export default function AgendaView({ user }: AgendaViewProps) {
           <h2 className="text-3xl font-black text-slate-800 tracking-tight font-display">Agenda Kegiatan</h2>
           <p className="text-slate-500 font-medium">Monitoring dan penjadwalan kegiatan sekolah</p>
         </div>
-        {user.role !== 'kepala_sekolah' && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 text-sm"
-          >
-            <Plus className="w-5 h-5" />
-            Agenda Baru
-          </button>
-        )}
+        <button
+          onClick={() => setIsAdding(true)}
+          className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 text-sm"
+        >
+          <Plus className="w-5 h-5" />
+          Agenda Baru
+        </button>
       </div>
 
       {loading ? (
