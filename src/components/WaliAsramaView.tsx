@@ -44,7 +44,7 @@ import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckPropo
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasReportPDF, generateSarprasSummaryPDF, generatePinjamHPReportPDF } from '../pdfUtils';
+import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasReportPDF, generateSarprasSummaryPDF, generatePinjamHPReportPDF, generateMemorandumPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
@@ -1329,37 +1329,58 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
       )}
 
       {viewMode === 'memorandum' && (
-        <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="grid grid-cols-1 gap-4">
-            {memos.map(memo => (
+        <div className="space-y-6 animate-in fade-in duration-700">
+          <div className="flex items-center justify-between px-2">
+            <div>
+              <h2 className="text-xl font-black text-[#2d1e1a] font-display italic">Memorandum Intern</h2>
+              <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1 italic">Daftar Instruksi & Pengumuman Resmi</p>
+            </div>
+            <div className="w-10 h-10 bg-[#3e2723] rounded-2xl flex items-center justify-center text-white shadow-lg">
+              <Mail className="w-5 h-5 text-amber-200" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {memos.map((memo) => (
               <motion.div 
                 key={memo.id}
-                whileHover={{ scale: 1.01, x: 4 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedMemo(memo)}
-                className="group flex items-center gap-5 p-5 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 hover:border-[#075e6e] transition-all cursor-pointer"
+                className="group bg-orange-50 p-6 rounded-[2.5rem] shadow-sm border border-orange-100 border-l-8 border-l-orange-500 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4"
               >
-                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center shrink-0 group-hover:bg-[#075e6e] group-hover:text-white transition-colors border border-slate-100">
-                  <Mail className="w-8 h-8" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-slate-900 truncate font-display italic">{memo.perihal}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dari: {memo.pengirim_name}</span>
-                    <span className="text-slate-200">•</span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                      {memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
-                    </span>
+                <div className="flex items-center justify-between flex-1">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-all duration-500">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-900 font-display group-hover:text-orange-700 transition-colors uppercase tracking-tight">{memo.perihal}</h3>
+                      <p className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest flex items-center gap-2">
+                        <span>{memo.nomor_memo}</span>
+                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                        <span>{memo.tgl_memo && typeof memo.tgl_memo.toDate === 'function' ? format(memo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {memo.penerima.map(r => (
+                          <span key={r} className="px-2 py-0.5 bg-orange-100/50 text-orange-700 text-[8px] font-black rounded uppercase tracking-tighter border border-orange-200/50">
+                            {r.replace('_', ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="p-2 bg-slate-50 rounded-xl text-slate-300 group-hover:text-[#075e6e] transition-all">
-                  <ChevronRight className="w-5 h-5" />
+                  <div className="text-slate-300 group-hover:text-orange-500 transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </div>
                 </div>
               </motion.div>
             ))}
             {memos.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Mail className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Belum ada memorandum masuk</p>
+              <div className="col-span-full text-center py-20 bg-white rounded-[3rem] border border-dashed border-orange-200">
+                <Mail className="w-12 h-12 text-orange-200/40 mx-auto mb-4" />
+                <h3 className="text-[#3e2723] font-black uppercase tracking-widest text-xs italic">Belum Ada Memo</h3>
+                <p className="text-stone-400 text-[9px] mt-1 uppercase font-black bg-orange-50 inline-block px-3 py-1 rounded-full italic">Tidak ditemukan riwayat memorandum</p>
               </div>
             )}
           </div>
@@ -1559,65 +1580,80 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
       <AnimatePresence>
         {selectedMemo && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden"
-            >
-              <div className="p-8 border-b border-slate-100 bg-[#075e6e] text-white flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 rounded-2xl">
-                    <Mail className="w-6 h-6 text-white" />
+            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-xl">
+                    <Mail className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black italic tracking-tight uppercase">Memorandum Intern</h3>
-                    <p className="text-[10px] font-bold text-cyan-100/60 tracking-widest">{selectedMemo.nomor_memo}</p>
+                    <h3 className="font-black text-slate-900">Detail Memorandum</h3>
+                    <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{selectedMemo.nomor_memo}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedMemo(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70">
+                <button onClick={() => setSelectedMemo(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
                   <Plus className="w-6 h-6 rotate-45" />
                 </button>
               </div>
               
-              <div className="p-8 space-y-8">
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Pengirim</label>
-                    <p className="font-black text-slate-900 text-lg">{selectedMemo.pengirim_name}</p>
+              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dari</label>
+                    <p className="font-black text-slate-900 flex items-center gap-1.5 font-display">
+                      <ShieldCheck className="w-4 h-4 text-orange-600" /> {selectedMemo.pengirim_name}
+                    </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tanggal</label>
-                    <p className="font-bold text-slate-600">
-                      {selectedMemo.tgl_memo && typeof selectedMemo.tgl_memo.toDate === 'function' ? format(selectedMemo.tgl_memo.toDate(), 'EEEE, dd MMM yyyy') : '-'}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</label>
+                    <p className="font-black text-slate-900 font-display">
+                      {selectedMemo.tgl_memo && typeof selectedMemo.tgl_memo.toDate === 'function' ? format(selectedMemo.tgl_memo.toDate(), 'dd MMM yyyy') : '-'}
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Perihal</label>
-                  <p className="text-xl font-black text-[#075e6e] font-display italic">
-                    {selectedMemo.perihal}
-                  </p>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Penerima</label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMemo.penerima.map(r => (
+                      <span key={r} className="px-3 py-1 bg-orange-50 text-orange-600 text-[10px] font-black rounded-lg uppercase tracking-widest">
+                        {r.replace('_', ' ')}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-3 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Isi Instruksi</label>
-                  <p className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
-                    {selectedMemo.isi}
-                  </p>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perihal</label>
+                  <p className="text-xl font-black text-slate-900 leading-tight font-display italic tracking-tight">{selectedMemo.perihal}</p>
+                </div>
+
+                <div className="space-y-1 pt-4 border-t border-slate-100">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Isi Pesan</label>
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium italic">{selectedMemo.isi}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+              <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                 <button
                   onClick={() => setSelectedMemo(null)}
                   className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all uppercase tracking-widest text-xs"
                 >
-                  Selesai Membaca
+                  Tutup
+                </button>
+                <button
+                  onClick={() => {
+                    generateMemorandumPDF(selectedMemo);
+                    setSelectedMemo(null);
+                  }}
+                  className="flex-1 py-4 bg-orange-600 text-white font-black rounded-2xl hover:bg-orange-700 shadow-xl shadow-orange-100 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-xs"
+                >
+                  <Printer className="w-4 h-4" /> Cetak PDF
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
       </AnimatePresence>

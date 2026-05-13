@@ -1,10 +1,7 @@
 {
-  "name": "SRMA 24 KEDIRI",
-  "description": "Sistem Informasi Sekolah Rakyat Simokerto 24 Kediri - Dashboard Terpadu Wali Asuh",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ],
+  "name": "Sekolah Rakyat SRMA 24 KEDIRI",
+  "description": "Sistem Informasi Manajemen Terintegrated Sekolah Rakyat SRMA 24 KEDIRI - Pemantauan Perkembangan, Kesehatan, dan Administrasi Siswa.",
+  "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

@@ -149,10 +149,10 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
     
     const maxWidth = 190 - valueX;
     
-    // Use jspdf text with maxWidth and justify for better wrapping
+    // Use jspdf text with maxWidth and left align for more stable wrapping
     doc.text(valueText, valueX, currentY, { 
       maxWidth: maxWidth, 
-      align: 'justify' 
+      align: 'left' 
     });
     
     // Calculate how much space this took
@@ -1570,7 +1570,7 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
 
   doc.text('Dengan hormat,', 20, 110);
   const openingText = 'Menerangkan bahwa berdasarkan hasil pengamatan dan evaluasi belajar di SRMA 24 Kediri, terdapat catatan penting bagi siswa tersebut di bawah ini:';
-  doc.text(openingText, 20, 116, { maxWidth: 170, align: 'justify' });
+  doc.text(openingText, 20, 116, { maxWidth: 170, align: 'left' });
 
   // Student Data Table
   const tableTop = 130;
@@ -1584,7 +1584,7 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
   doc.text(`: ${record.kelas}`, 70, tableTop + 13);
   
   doc.text(':', 70, tableTop + 21);
-  doc.text(record.isi_catatan, 73, tableTop + 21, { maxWidth: 115, align: 'justify' });
+  doc.text(record.isi_catatan, 73, tableTop + 21, { maxWidth: 115, align: 'left' });
 
   doc.setDrawColor(220, 220, 220);
   doc.line(30, tableTop + 8, 190, tableTop + 8);
@@ -1597,11 +1597,11 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
   const closingY = tableBottom + 12;
   doc.setFontSize(10);
   const closingText1 = 'Catatan ini diberikan sebagai bentuk perhatian dan koordinasi antara Wali Kelas dan Wali Asuh demi kebaikan proses belajar siswa yang bersangkutan. Mohon untuk dapat diperhatikan dan ditindaklanjuti sebagaimana mestinya.';
-  doc.text(closingText1, 20, closingY, { maxWidth: 170, align: 'justify' });
+  doc.text(closingText1, 20, closingY, { maxWidth: 170, align: 'left' });
   
   const closingText2 = 'Demikian surat keterangan ini diberikan agar dapat dipergunakan sebagaimana mestinya. Atas perhatian Bapak/Ibu, kami sampaikan terima kasih.';
   const closing2Y = closingY + doc.getTextDimensions(closingText1, { maxWidth: 170 }).h + 8;
-  doc.text(closingText2, 20, closing2Y, { maxWidth: 170, align: 'justify' });
+  doc.text(closingText2, 20, closing2Y, { maxWidth: 170, align: 'left' });
 
   const sigY = closing2Y + 25;
   doc.text(`Kediri, ${dateFormatted}`, 135, sigY);
@@ -2075,12 +2075,12 @@ export const generateProgressRecordReportPDF = async (data: ProgressRecord[], pe
       halign: 'center'
     },
     columnStyles: {
-      0: { cellWidth: 25 }, // Waktu
-      1: { cellWidth: 35 }, // Siswa
-      2: { cellWidth: 15 }, // Kelas
-      3: { cellWidth: 'auto', halign: 'justify' }, // Isi Catatan
-      4: { cellWidth: 30 }, // Penulis
-      5: { cellWidth: 22 }  // Status
+      0: { cellWidth: 25, halign: 'center' }, // Waktu
+      1: { cellWidth: 40 }, // Siswa
+      2: { cellWidth: 15, halign: 'center' }, // Kelas
+      3: { cellWidth: 'auto' }, // Isi Catatan
+      4: { cellWidth: 35 }, // Penulis
+      5: { cellWidth: 25, halign: 'center' }  // Status
     },
     margin: { left: 15, right: 15 }
   });

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, enableIndexedDbPersistence, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { initializeFirestore, enableIndexedDbPersistence, collection, addDoc, serverTimestamp, doc, getDocFromServer } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -77,6 +77,22 @@ export const getFCM = async () => {
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
+
+/**
+ * Tests the Firestore connection
+ */
+export async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'system', 'connection_test'));
+    console.log("Firestore connection verified.");
+    return true;
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes('offline') || error.message.includes('backend'))) {
+      console.warn("Firestore connection check: Backend unreachable or client is offline.");
+    }
+    return false;
+  }
+}
 
 export const storage = getStorage(app);
 
