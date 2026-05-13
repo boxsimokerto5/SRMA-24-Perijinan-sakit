@@ -1,8 +1,17 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="143" fill="#4F46E5"/>
-  <g transform="scale(0.5) translate(256, 256)">
-    <path d="M512 220C512 220 780 300 780 500C780 720 512 840 512 840C512 840 244 720 244 500C244 300 512 220 512 220Z" fill="white" fill-opacity="0.1" stroke="white" stroke-width="40" />
-    <path d="M512 360V640M372 500H652" stroke="white" stroke-width="110" stroke-linecap="round" />
-    <circle cx="700" cy="350" r="50" fill="#F43F5E" stroke="white" stroke-width="15" />
+<svg width="512" height="512" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="white" />
+  <path d="M150 320 L512 80 L874 320" stroke="#202020" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <g transform="translate(40, -40)">
+    <rect x="780" y="120" width="70" height="500" rx="15" fill="#202020" />
+    <rect x="850" y="180" width="15" height="150" rx="5" fill="#202020" />
+    <rect x="780" y="380" width="70" height="80" fill="#BA1B1B" />
+    <path d="M780 620 L815 760 L850 620 Z" fill="#BA1B1B" />
+  </g>
+  <text x="440" y="520" text-anchor="middle" fill="#202020" style="font-size: 170px; font-weight: 900; font-family: sans-serif;">Sekolah</text>
+  <text x="440" y="720" text-anchor="middle" fill="#202020" style="font-size: 190px; font-weight: 900; font-family: sans-serif;">Rakyat</text>
+  <path d="M480 560 Q530 620 580 560" stroke="#BA1B1B" stroke-width="25" stroke-linecap="round" fill="none" />
+  <g transform="translate(0, 30)">
+    <path d="M120 880 Q512 800 904 880" stroke="#202020" stroke-width="70" stroke-linecap="round" fill="none" />
+    <path d="M150 860 Q512 815 874 860" stroke="#BA1B1B" stroke-width="45" stroke-linecap="round" fill="none" />
   </g>
 </svg>
