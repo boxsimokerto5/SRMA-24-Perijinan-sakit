@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -144,20 +144,26 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
     doc.text(item.label, labelX, currentY);
     
     doc.setFont('helvetica', 'normal');
-    const valueText = `:  ${item.value}`;
+    const valueText = item.value || '-';
+    doc.text(':', valueX - 3, currentY);
+    
     const maxWidth = 190 - valueX;
     
-    // Wrap text functionality
-    const splitValue = doc.splitTextToSize(valueText, maxWidth);
-    doc.text(splitValue, valueX, currentY);
+    // Use jspdf text with maxWidth and justify for better wrapping
+    doc.text(valueText, valueX, currentY, { 
+      maxWidth: maxWidth, 
+      align: 'justify' 
+    });
     
-    // Calculate how much space this took (roughly 5mm per line)
-    const rowHeight = Math.max(lineGap, splitValue.length * 5);
+    // Calculate how much space this took
+    const dimensions = doc.getTextDimensions(valueText, { maxWidth: maxWidth });
+    const rowHeight = Math.max(lineGap, dimensions.h + 2);
     
     doc.setDrawColor(230, 230, 230);
-    doc.line(valueX, currentY + (splitValue.length > 1 ? (splitValue.length * 5) - 3.5 : 1.5), 190, currentY + (splitValue.length > 1 ? (splitValue.length * 5) - 3.5 : 1.5));
+    // Draw line below based on actual height
+    doc.line(valueX, currentY + rowHeight - 2, 190, currentY + rowHeight - 2);
     
-    currentY += rowHeight + 2;
+    currentY += rowHeight + 3;
   });
 
   // Body Text
@@ -311,53 +317,45 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
   doc.text(`Tanggal Cetak   : ${format(new Date(), 'dd MMMM yyyy, HH:mm')}`, 20, 60);
   doc.text(`Total Data      : ${permits.length} Kejadian`, 20, 65);
 
-  // --- TABLE HEADER ---
-  const tableTop = 75;
-  doc.setFillColor(240, 240, 240);
-  doc.rect(20, tableTop, 170, 10, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8); // Smaller font for table
-  doc.text('NO', 23, tableTop + 6.5);
-  doc.text('NAMA SISWA', 32, tableTop + 6.5);
-  doc.text('KELAS', 75, tableTop + 6.5);
-  doc.text('TIPE', 90, tableTop + 6.5);
-  doc.text('DIAGNOSA / KETERANGAN', 110, tableTop + 6.5);
-  doc.text('TANGGAL', 165, tableTop + 6.5);
+  // --- TABLE ---
+  const tableData = permits.map((p, index) => [
+    (index + 1).toString(),
+    p.nama_siswa || '',
+    p.kelas || '',
+    (p.tipe || '').toUpperCase(),
+    (p.diagnosa || p.alasan || p.isi_catatan || '-'),
+    p.tgl_surat && typeof p.tgl_surat.toDate === 'function' ? format(p.tgl_surat.toDate(), 'dd/MM/yy') : '-'
+  ]);
 
-  // --- TABLE ROWS ---
-  let currentY = tableTop + 10;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  
-  permits.forEach((p, index) => {
-    if (currentY > 260) {
-      doc.addPage();
-      currentY = 20;
-      // Border & Header on New Page
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.1);
-      doc.rect(5, 5, 200, 287);
-    }
-    
-    doc.text((index + 1).toString(), 23, currentY + 6.5);
-    doc.text((p.nama_siswa || '').substring(0, 25), 32, currentY + 6.5);
-    doc.text(p.kelas || '', 75, currentY + 6.5);
-    doc.text((p.tipe || '').toUpperCase(), 90, currentY + 6.5);
-    
-    const diagnosaText = (p.diagnosa || p.alasan || p.isi_catatan || '-');
-    const truncatedDiagnoasa = diagnosaText.length > 30 ? diagnosaText.substring(0, 27) + '...' : diagnosaText;
-    doc.text(truncatedDiagnoasa, 110, currentY + 6.5);
-    
-    const tgl = p.tgl_surat && typeof p.tgl_surat.toDate === 'function' ? format(p.tgl_surat.toDate(), 'dd/MM/yy') : '-';
-    doc.text(tgl, 165, currentY + 6.5);
-    
-    doc.setDrawColor(230, 230, 230);
-    doc.line(20, currentY + 10, 190, currentY + 10);
-    currentY += 10;
+  autoTable(doc, {
+    startY: 75,
+    head: [['NO', 'NAMA SISWA', 'KELAS', 'TIPE', 'DIAGNOSA / KETERANGAN', 'TANGGAL']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      overflow: 'linebreak',
+      cellPadding: 2,
+      fontSize: 8,
+      valign: 'top',
+      font: 'helvetica'
+    },
+    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontSize: 8, fontStyle: 'bold' },
+    bodyStyles: { textColor: [40, 40, 40] },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 15 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 'auto', halign: 'left' },
+      5: { cellWidth: 25 }
+    },
+    margin: { left: 20, right: 20 }
   });
 
+  const finalY = (doc as any).lastAutoTable.finalY;
+
   // --- SIGNATURE ---
-  const footerY = Math.min(currentY + 20, 230);
+  const footerY = Math.min(finalY + 15, 230);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Kediri, ' + format(new Date(), 'dd MMMM yyyy'), 150, footerY, { align: 'center' });
@@ -1405,9 +1403,9 @@ export const generateMonthlyReportPDF = async (report: MonthlyReport) => {
   doc.setFont('helvetica', 'normal');
   doc.text('Capaian Khusus:', 20, currentY);
   doc.setFont('helvetica', 'bold');
-  const capTexts = doc.splitTextToSize(report.capaian_khusus || '-', 145);
-  doc.text(capTexts, 47, currentY);
-  currentY += (capTexts.length * 5) + 8;
+  doc.text(report.capaian_khusus || '-', 47, currentY, { maxWidth: 145, align: 'justify' });
+  const capHeight = doc.getTextDimensions(report.capaian_khusus || '-', { maxWidth: 145 }).h;
+  currentY += Math.max(capHeight, 5) + 8;
 
   // --- DOKUMENTASI Section ---
   doc.setTextColor(160, 160, 160);
@@ -1452,9 +1450,10 @@ export const generateMonthlyReportPDF = async (report: MonthlyReport) => {
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(60, 60, 60);
   doc.setFontSize(10);
-  const msgTexts = doc.splitTextToSize(`"${report.pesan_wali_asuh || '-'}"`, 165);
-  doc.text(msgTexts, 25, currentY + 4);
-  currentY += (msgTexts.length * 6) + 12;
+  const pesanText = `"${report.pesan_wali_asuh || '-'}"`;
+  doc.text(pesanText, 25, currentY + 4, { maxWidth: 165, align: 'justify' });
+  const msgHeight = doc.getTextDimensions(pesanText, { maxWidth: 165 }).h;
+  currentY += Math.max(msgHeight, 6) + 12;
 
   // --- FOOTER (QR & Signature) ---
   const footerY = 245;
@@ -1571,8 +1570,7 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
 
   doc.text('Dengan hormat,', 20, 110);
   const openingText = 'Menerangkan bahwa berdasarkan hasil pengamatan dan evaluasi belajar di SRMA 24 Kediri, terdapat catatan penting bagi siswa tersebut di bawah ini:';
-  const splitOpening = doc.splitTextToSize(openingText, 170);
-  doc.text(splitOpening, 20, 116);
+  doc.text(openingText, 20, 116, { maxWidth: 170, align: 'justify' });
 
   // Student Data Table
   const tableTop = 130;
@@ -1585,27 +1583,27 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
   doc.text(`: ${record.nama_siswa.toUpperCase()}`, 70, tableTop + 5);
   doc.text(`: ${record.kelas}`, 70, tableTop + 13);
   
-  const splitContent = doc.splitTextToSize(record.isi_catatan, 110);
   doc.text(':', 70, tableTop + 21);
-  doc.text(splitContent, 73, tableTop + 21);
+  doc.text(record.isi_catatan, 73, tableTop + 21, { maxWidth: 115, align: 'justify' });
 
   doc.setDrawColor(220, 220, 220);
   doc.line(30, tableTop + 8, 190, tableTop + 8);
   doc.line(30, tableTop + 16, 190, tableTop + 16);
-  const tableBottom = Math.max(tableTop + 24, tableTop + 18 + (splitContent.length * 5.5));
+  
+  const contentDimensions = doc.getTextDimensions(record.isi_catatan, { maxWidth: 115 });
+  const tableBottom = Math.max(tableTop + 24, tableTop + 18 + contentDimensions.h + 5);
   doc.line(30, tableBottom, 190, tableBottom);
 
   const closingY = tableBottom + 12;
   doc.setFontSize(10);
   const closingText1 = 'Catatan ini diberikan sebagai bentuk perhatian dan koordinasi antara Wali Kelas dan Wali Asuh demi kebaikan proses belajar siswa yang bersangkutan. Mohon untuk dapat diperhatikan dan ditindaklanjuti sebagaimana mestinya.';
-  const splitClosing1 = doc.splitTextToSize(closingText1, 170);
-  doc.text(splitClosing1, 20, closingY);
+  doc.text(closingText1, 20, closingY, { maxWidth: 170, align: 'justify' });
   
   const closingText2 = 'Demikian surat keterangan ini diberikan agar dapat dipergunakan sebagaimana mestinya. Atas perhatian Bapak/Ibu, kami sampaikan terima kasih.';
-  const splitClosing2 = doc.splitTextToSize(closingText2, 170);
-  doc.text(splitClosing2, 20, closingY + 20);
+  const closing2Y = closingY + doc.getTextDimensions(closingText1, { maxWidth: 170 }).h + 8;
+  doc.text(closingText2, 20, closing2Y, { maxWidth: 170, align: 'justify' });
 
-  const sigY = closingY + 45;
+  const sigY = closing2Y + 25;
   doc.text(`Kediri, ${dateFormatted}`, 135, sigY);
   const authorRoleLabel = record.author_role === 'wali_kelas' ? 'Wali Kelas,' : 'Guru Mapel,';
   doc.text(authorRoleLabel, 135, sigY + 6);
@@ -1704,15 +1702,23 @@ export const generateEvaluationNotesReportPDF = async (notes: EvaluationNote[], 
     head: [['Tanggal', 'Jam', 'Asrama/Regu', 'Catatan Evaluasi', 'Keterangan']],
     body: tableData,
     theme: 'grid',
+    styles: {
+      overflow: 'linebreak',
+      cellPadding: 2,
+      fontSize: 8,
+      valign: 'top',
+      font: 'helvetica'
+    },
     headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+    bodyStyles: { textColor: [50, 50, 50] },
     columnStyles: {
       0: { cellWidth: 20 },
       1: { cellWidth: 15 },
       2: { cellWidth: 30 },
-      3: { cellWidth: 'auto' },
+      3: { cellWidth: 'auto', halign: 'justify' },
       4: { cellWidth: 25 }
-    }
+    },
+    margin: { left: 20, right: 20 }
   });
 
   const finalY = (doc as any).lastAutoTable.finalY + 15;
@@ -1813,15 +1819,22 @@ export const generateDormitoryIncidentsReportPDF = async (incidents: DormitoryIn
     head: [['Tgl', 'Jam', 'Subjek', 'Lks/Asr', 'Kejadian', 'Upaya Perbaikan']],
     body: tableData,
     theme: 'grid',
+    styles: {
+      overflow: 'linebreak',
+      cellPadding: 2,
+      fontSize: 8,
+      valign: 'top',
+      font: 'helvetica'
+    },
     headStyles: { fillColor: [62, 39, 35], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+    bodyStyles: { textColor: [50, 50, 50] },
     columnStyles: {
       0: { cellWidth: 20 },
       1: { cellWidth: 15 },
       2: { cellWidth: 40 },
       3: { cellWidth: 30 },
-      4: { cellWidth: 'auto' },
-      5: { cellWidth: 60 }
+      4: { cellWidth: 'auto', halign: 'justify' },
+      5: { cellWidth: 60, halign: 'justify' }
     },
     margin: { left: 20, right: 20 }
   });
@@ -1862,6 +1875,252 @@ export const generateDormitoryIncidentsReportPDF = async (incidents: DormitoryIn
       });
       await Share.share({
         title: 'Laporan Kejadian Asrama',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generatePinjamHPReportPDF = async (data: PinjamHP[], period: 'minggu' | 'bulan', userName: string) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const now = new Date();
+  const { startOfWeek, startOfMonth, endOfDay } = await import('date-fns');
+  const start = period === 'minggu' ? startOfWeek(now, { weekStartsOn: 1 }) : startOfMonth(now);
+  const end = endOfDay(now);
+
+  const dataToPrint = data.filter(item => {
+    const d = item.tgl_pinjam?.toDate ? item.tgl_pinjam.toDate() : new Date();
+    return d >= start && d <= end;
+  }).sort((a, b) => {
+    const da = a.tgl_pinjam?.toDate ? a.tgl_pinjam.toDate().getTime() : 0;
+    const db = b.tgl_pinjam?.toDate ? b.tgl_pinjam.toDate().getTime() : 0;
+    return da - db;
+  });
+
+  if (dataToPrint.length === 0) {
+    alert('Tidak ada data untuk periode ini.');
+    return;
+  }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+
+  // Header Blue Theme KOP
+  doc.setFontSize(14);
+  doc.setTextColor(30, 41, 59); // Slate-800
+  doc.text('ASRAMA SRMA 24 KEDIRI', centerX, 15, { align: 'center' });
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('MONITORING PENGGUNAAN GADGET', centerX, 23, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105); // Slate-600
+  doc.text(`Periode rekap: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, centerX, 30, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(79, 70, 229); // Indigo-600
+  doc.line(15, 33, pageWidth - 15, 33);
+
+  const tableData = dataToPrint.map(item => [
+    item.tgl_pinjam && typeof item.tgl_pinjam.toDate === 'function' ? format(item.tgl_pinjam.toDate(), 'dd/MM HH:mm', { locale: id }) : '-',
+    item.nama_siswa,
+    item.keperluan,
+    item.wali_asuh_name || '-',
+    item.status === 'dipinjam' ? 'AKTIF' : 'KEMBALI',
+    item.tgl_kembali && typeof item.tgl_kembali.toDate === 'function' ? format(item.tgl_kembali.toDate(), 'dd/MM HH:mm', { locale: id }) : '-',
+    item.penerima_kembali_name || '-'
+  ]);
+
+  autoTable(doc, {
+    startY: 38,
+    head: [['Waktu Pinjam', 'Siswa', 'Keperluan', 'Nama Peminjam', 'Status', 'Waktu Kembali', 'Nama Penerima']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      overflow: 'linebreak',
+      cellPadding: 1.5,
+      fontSize: 7,
+      valign: 'middle',
+      font: 'helvetica'
+    },
+    headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontSize: 7, fontStyle: 'bold', halign: 'center' },
+    bodyStyles: { textColor: [50, 50, 50] },
+    columnStyles: {
+      0: { cellWidth: 20 }, // Waktu Pinjam
+      1: { cellWidth: 25 }, // Siswa
+      2: { cellWidth: 'auto', halign: 'justify' }, // Keperluan
+      3: { cellWidth: 25 }, // Nama Peminjam
+      4: { cellWidth: 15, halign: 'center' }, // Status
+      5: { cellWidth: 20 }, // Waktu Kembali
+      6: { cellWidth: 25 }  // Nama Penerima
+    },
+    margin: { left: 10, right: 10 }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, Math.min(finalY, pageHeight - 10));
+  
+  const signatureX = pageWidth - 60;
+  const sigY = Math.min(finalY, pageHeight - 60);
+
+  doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+  doc.text('Wali Asuh', signatureX, sigY + 5, { align: 'center' });
+  
+  try {
+    const qrDataUrl = await QRCode.toDataURL(userName);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
+  } catch (e) {
+    console.error("QR Error", e);
+  }
+  
+  doc.setFontSize(10);
+  doc.text(userName, signatureX, sigY + 40, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
+
+  const fileName = `Laporan_Pinjam_HP_${period}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Pinjam HP',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateProgressRecordReportPDF = async (data: ProgressRecord[], period: 'minggu' | 'bulan', userName: string) => {
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const now = new Date();
+  const { startOfWeek, startOfMonth, endOfDay } = await import('date-fns');
+  const start = period === 'minggu' ? startOfWeek(now) : startOfMonth(now);
+  const end = endOfDay(now);
+
+  const dataToPrint = data.filter(item => {
+    const d = item.tgl_catatan?.toDate ? item.tgl_catatan.toDate() : new Date();
+    return d >= start && d <= end;
+  }).sort((a, b) => {
+    const da = a.tgl_catatan?.toDate ? a.tgl_catatan.toDate().getTime() : 0;
+    const db = b.tgl_catatan?.toDate ? b.tgl_catatan.toDate().getTime() : 0;
+    return da - db;
+  });
+
+  if (dataToPrint.length === 0) {
+    alert('Tidak ada data untuk periode ini.');
+    return;
+  }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+
+  // Header Theme KOP
+  doc.setFontSize(14);
+  doc.setTextColor(30, 41, 59);
+  doc.text('ASRAMA SRMA 24 KEDIRI', centerX, 15, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REKAPITULASI CATATAN PERKEMBANGAN SISWA', centerX, 25, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Periode: ${format(start, 'dd MMMM yyyy', { locale: id })} - ${format(end, 'dd MMMM yyyy', { locale: id })}`, centerX, 33, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(99, 102, 241); // Indigo-500
+  doc.line(20, 36, pageWidth - 20, 36);
+
+  const tableData = dataToPrint.map(item => [
+    format(item.tgl_catatan.toDate(), 'dd/MM/yyyy HH:mm', { locale: id }),
+    item.nama_siswa,
+    item.kelas,
+    item.isi_catatan,
+    item.author_name,
+    item.is_acknowledged ? 'DITEERIMA' : 'PENDING'
+  ]);
+
+  autoTable(doc, {
+    startY: 42,
+    head: [['Waktu', 'Siswa', 'Kelas', 'Isi Catatan', 'Penulis', 'Status']],
+    body: tableData,
+    theme: 'grid',
+    styles: { 
+      overflow: 'linebreak', 
+      cellPadding: 2, 
+      fontSize: 8, 
+      valign: 'top',
+      font: 'helvetica',
+      textColor: [50, 50, 50]
+    },
+    headStyles: { 
+      fillColor: [99, 102, 241], 
+      textColor: [255, 255, 255], 
+      fontSize: 8, 
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { cellWidth: 25 }, // Waktu
+      1: { cellWidth: 35 }, // Siswa
+      2: { cellWidth: 15 }, // Kelas
+      3: { cellWidth: 'auto', halign: 'justify' }, // Isi Catatan
+      4: { cellWidth: 30 }, // Penulis
+      5: { cellWidth: 22 }  // Status
+    },
+    margin: { left: 15, right: 15 }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, Math.min(finalY, pageHeight - 10));
+  
+  const signatureX = pageWidth - 60;
+  const sigY = Math.min(finalY, pageHeight - 60);
+
+  doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+  doc.text('Petugas', signatureX, sigY + 5, { align: 'center' });
+  
+  try {
+    const qrDataUrl = await QRCode.toDataURL(userName);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
+  } catch (e) {
+    console.error("QR Error", e);
+  }
+  
+  doc.setFontSize(10);
+  doc.text(userName, signatureX, sigY + 40, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
+
+  const fileName = `Rekap_Perkembangan_Siswa_${period}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Rekap Perkembangan Siswa',
         url: savedFile.uri
       });
     } catch (error) {

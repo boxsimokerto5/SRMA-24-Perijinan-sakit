@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ClipboardList, Search, Activity, User, Calendar, CheckCircle2, Clock, ChevronRight, MessageSquare, ShieldCheck, Check, Download, X, Printer, FileText, Plus, Send, Loader2 } from 'lucide-react';
 import { notifyAllRoles } from '../services/fcmService';
 
-import { generateProgressRecordPDF } from '../pdfUtils';
+import { generateProgressRecordPDF, generateProgressRecordReportPDF } from '../pdfUtils';
+import { id } from 'date-fns/locale';
 
 interface ProgressRecordsViewProps {
   user: AppUser;
@@ -163,7 +164,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Detail Modal */}
       <AnimatePresence>
         {selectedRecord && (
@@ -181,7 +182,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[3rem] shadow-2xl overflow-hidden"
             >
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-white relative">
+              <div className="bg-[#3e2723] p-8 text-white relative">
                 <button 
                   onClick={() => setSelectedRecord(null)}
                   className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
@@ -189,64 +190,68 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                   <X className="w-6 h-6" />
                 </button>
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                    <FileText className="w-8 h-8" />
+                  <div className="w-16 h-16 bg-[#d7ccc8] rounded-2xl flex items-center justify-center shadow-lg">
+                    <FileText className="w-8 h-8 text-[#3e2723]" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black italic tracking-tight">Detail Catatan</h2>
-                    <p className="text-indigo-100 text-sm font-bold uppercase tracking-widest">{selectedRecord.nama_siswa}</p>
+                    <h2 className="text-2xl font-black italic tracking-tight uppercase">Detail Catatan</h2>
+                    <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.2em]">{selectedRecord.nama_siswa}</p>
                   </div>
                 </div>
               </div>
 
               <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Siswa / Kelas</p>
-                    <p className="text-sm font-black text-slate-700">{selectedRecord.nama_siswa} (Kelas {selectedRecord.kelas})</p>
+                  <div className="p-4 bg-[#f8f3ed] rounded-2xl border border-[#d7ccc8]/30">
+                    <p className="text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-1 italic">Siswa / Kelas</p>
+                    <p className="text-sm font-black text-[#3e2723]">{selectedRecord.nama_siswa} (Kelas {selectedRecord.kelas})</p>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Tanggal</p>
-                    <p className="text-sm font-black text-slate-700">
+                  <div className="p-4 bg-[#f8f3ed] rounded-2xl border border-[#d7ccc8]/30">
+                    <p className="text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-1 italic">Tanggal</p>
+                    <p className="text-sm font-black text-[#3e2723]">
                       {selectedRecord.tgl_catatan?.toDate ? format(selectedRecord.tgl_catatan.toDate(), 'dd MMM yyyy HH:mm') : '-'}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-6 bg-indigo-50/30 rounded-3xl border border-indigo-100/50">
-                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 italic">Isi Catatan</p>
-                  <p className="text-slate-600 font-medium leading-relaxed italic whitespace-pre-wrap">
+                <div className="p-6 bg-white rounded-3xl border border-[#d7ccc8]/50 shadow-inner">
+                  <p className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-3 italic">Isi Catatan</p>
+                  <p className="text-[#3e2723] font-medium leading-relaxed italic whitespace-pre-wrap">
                     "{selectedRecord.isi_catatan}"
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center justify-between p-4 bg-[#f8f3ed]/50 rounded-2xl border border-[#d7ccc8]/20">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                      <User className="w-5 h-5 text-slate-400" />
+                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-[#d7ccc8]/30">
+                      <User className="w-6 h-6 text-[#3e2723]/40" />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Dibuat Oleh</p>
-                      <p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{selectedRecord.author_name}</p>
+                      <p className="text-[9px] font-black text-[#3e2723]/40 uppercase tracking-widest leading-none">Dibuat Oleh</p>
+                      <p className="text-xs font-black text-[#3e2723] uppercase tracking-tighter">{selectedRecord.author_name}</p>
                     </div>
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${selectedRecord.is_acknowledged ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                    selectedRecord.is_acknowledged 
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                    : 'bg-amber-50 text-amber-600 border-amber-100'
+                  }`}>
                     {selectedRecord.is_acknowledged ? 'Diterima' : 'Menunggu'}
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+              <div className="p-8 bg-[#f8f3ed] border-t border-[#d7ccc8]/30 flex gap-4">
                 <button 
                   onClick={() => downloadPDF(selectedRecord)}
-                  className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#3e2723] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center justify-center gap-2 italic"
                 >
                   <Download className="w-4 h-4" />
                   Unduh PDF
                 </button>
                 <button 
                   onClick={() => setSelectedRecord(null)}
-                  className="px-8 bg-white text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-100 transition-all"
+                  className="px-8 bg-white text-[#3e2723]/40 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-[#d7ccc8]/30 hover:bg-[#f8f3ed] transition-all italic"
                 >
                   Tutup
                 </button>
@@ -256,7 +261,70 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
         )}
       </AnimatePresence>
 
-      {/* Add Record Modal */}
+      {/* Header Style matching Pinjam HP / Catatan Kejadian */}
+      <div className="bg-[#3e2723] rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-[#5d4037] relative">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-lg shadow-black/20 shrink-0">
+              <ClipboardList className="w-5 h-5 text-[#3e2723]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Catatan Perkembangan</h1>
+                <span className="bg-[#d7ccc8]/20 text-[#d7ccc8] px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-[#d7ccc8]/20">
+                  MONITORING
+                </span>
+              </div>
+              <p className="text-stone-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
+                Log Perkembangan & Aktivitas Siswa
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className="flex bg-[#5d4037] p-1 rounded-2xl border border-[#3e2723] mr-2">
+              <button 
+                onClick={() => generateProgressRecordReportPDF(records, 'minggu', user.name)}
+                className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+              >
+                <div className="flex items-center gap-1.5 px-1">
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="text-[8px] font-black uppercase tracking-tighter italic">Minggu</span>
+                </div>
+              </button>
+              <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+              <button 
+                onClick={() => generateProgressRecordReportPDF(records, 'bulan', user.name)}
+                className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+              >
+                <div className="flex items-center gap-1.5 px-1">
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="text-[8px] font-black uppercase tracking-tighter italic">Bulan</span>
+                </div>
+              </button>
+            </div>
+
+            {user.role !== 'wali_asuh' && (
+              <button
+                onClick={() => setIsAdding(!isAdding)}
+                className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                  isAdding 
+                  ? 'bg-[#5d4037] text-stone-300 hover:bg-[#3e2723]' 
+                  : 'bg-[#3e2723] text-white hover:bg-black shadow-black/20 border border-[#d7ccc8]/20'
+                }`}
+              >
+                {isAdding ? 'Batal' : (
+                  <>
+                    <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
+                    Catat Baru
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <AnimatePresence>
         {isAdding && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -397,137 +465,103 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="px-1">
-          <h2 className="text-2xl font-black text-[#5d4037] font-display tracking-tight italic flex items-center gap-3">
-             <ClipboardList className="w-8 h-8 text-indigo-500" />
-             Catatan Perkembangan Siswa
-          </h2>
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1 italic">History & Perkembangan Siswa</p>
+      <div className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/20 shadow-sm space-y-6">
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+          <input
+            type="text"
+            placeholder="Cari nama siswa atau isi catatan..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-[#f8f3ed]/30 border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#3e2723]/5 focus:border-[#3e2723] transition-all outline-none text-sm font-bold text-[#3e2723] placeholder:text-stone-300"
+          />
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          {user.role !== 'wali_asuh' && (
-            <button
-              onClick={() => setIsAdding(true)}
-              className="w-full sm:w-auto px-6 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              <Plus className="w-5 h-5" />
-              Tambah Catatan
-            </button>
-          )}
-
-          <div className="relative group min-w-[280px] w-full sm:w-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-            <input
-              type="text"
-              placeholder="Cari nama siswa..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none text-sm font-bold text-slate-700 placeholder:text-slate-300"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-        {filteredRecords.length === 0 ? (
-          <div className="text-center py-32 bg-white rounded-[3rem] border border-dashed border-slate-200">
-            <ClipboardList className="w-16 h-16 text-slate-100 mx-auto mb-4" />
-            <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] italic">Belum ada catatan perkembangan</p>
-          </div>
-        ) : (
-          filteredRecords.map((record) => (
-            <motion.div
-              key={record.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`bg-white rounded-[2.5rem] border ${record.is_acknowledged ? 'border-emerald-100' : 'border-indigo-100'} p-8 shadow-sm hover:shadow-xl transition-all duration-500 relative overflow-hidden group cursor-pointer`}
-              onClick={() => setSelectedRecord(record)}
-            >
-              {record.is_acknowledged && (
-                <div className="absolute top-0 right-0 bg-emerald-500 text-white px-6 py-2 rounded-bl-3xl flex items-center gap-2 shadow-lg">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Diterima</span>
-                </div>
-              )}
-
-              <div className="flex flex-col md:flex-row gap-8">
-                <div className="shrink-0">
-                  <div className={`w-20 h-20 ${record.is_acknowledged ? 'bg-emerald-50' : 'bg-indigo-50'} rounded-[2rem] flex items-center justify-center relative group-hover:scale-110 transition-transform duration-500`}>
-                    <User className={`w-10 h-10 ${record.is_acknowledged ? 'text-emerald-500' : 'text-indigo-500'}`} />
-                  </div>
-                </div>
-
-                <div className="flex-1 space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center gap-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-black text-slate-800 tracking-tight italic mb-1 uppercase tracking-tight">
-                        {record.nama_siswa}
-                      </h3>
-                      <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-sm shadow-indigo-100">
-                          Kelas {record.kelas}
-                        </span>
-                        <div className="w-1 h-1 bg-slate-200 rounded-full" />
-                        <div className="flex items-center gap-2 text-slate-400">
-                           <Calendar className="w-3.5 h-3.5" />
-                           <span className="text-[10px] font-black uppercase tracking-widest leading-none">
-                             {record.tgl_catatan?.toDate ? format(record.tgl_catatan.toDate(), 'dd MMM yyyy') : '-'}
-                           </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadPDF(record);
-                        }}
-                        className="p-3 bg-white text-indigo-600 border border-indigo-100 rounded-2xl hover:bg-indigo-50 transition-all shadow-sm"
-                        title="Unduh PDF"
-                      >
-                        <Download className="w-5 h-5" />
-                      </button>
-                      <div className="flex flex-col md:items-end text-slate-400 gap-1 italic text-right">
-                        <p className="text-[10px] font-black uppercase tracking-widest leading-none italic">Oleh:</p>
-                        <span className="text-xs font-black text-slate-600 italic">{record.author_name}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 relative group-hover:bg-white transition-colors duration-500">
-                    <p className="text-slate-600 font-medium leading-relaxed line-clamp-2 italic">
-                      "{record.isi_catatan}"
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-[10px] font-black text-indigo-400 uppercase tracking-widest italic">
-                      <ChevronRight className="w-3 h-3" /> Klik untuk detail
-                    </div>
-
-                    {user.role === 'wali_asuh' && !record.is_acknowledged && (
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAcknowledge(record.id!);
-                        }}
-                        className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all"
-                      >
-                        <Check className="w-3 h-3" />
-                        Terima
-                      </motion.button>
-                    )}
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filteredRecords.length === 0 ? (
+              <div className="text-center py-20 bg-[#f8f3ed]/30 rounded-[3rem] border-2 border-dashed border-[#d7ccc8]/30">
+                <ClipboardList className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                <p className="text-[#3e2723]/40 font-bold uppercase tracking-widest text-xs italic">Belum ada catatan perkembangan</p>
               </div>
-            </motion.div>
-          ))
-        )}
+            ) : (
+              filteredRecords.map((record, idx) => (
+                <motion.div
+                  key={record.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: idx * 0.03 }}
+                  onClick={() => setSelectedRecord(record)}
+                  className={`group relative bg-white rounded-[2rem] p-4 border transition-all hover:shadow-xl hover:shadow-[#3e2723]/5 cursor-pointer ${
+                    !record.is_acknowledged ? 'border-[#3e2723]/20 bg-[#fefdfc]' : 'border-stone-100/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Compact Date Box */}
+                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center border shrink-0 transition-all ${
+                      !record.is_acknowledged 
+                        ? 'bg-[#3e2723] border-[#3e2723] text-white shadow-lg shadow-[#3e2723]/10' 
+                        : 'bg-stone-50 border-stone-100 text-stone-300'
+                    }`}>
+                      <div className="text-[14px] font-black leading-none mb-0.5 italic">
+                        {record.tgl_catatan?.toDate ? format(record.tgl_catatan.toDate(), 'dd') : '-'}
+                      </div>
+                      <div className="text-[7px] font-black uppercase tracking-widest opacity-60">
+                        {record.tgl_catatan?.toDate ? format(record.tgl_catatan.toDate(), 'MMM') : '-'}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h4 className="text-[15px] font-black text-[#3e2723] font-display italic group-hover:text-black transition-colors truncate uppercase">
+                          {record.nama_siswa}
+                        </h4>
+                        <span className="px-1.5 py-0.5 bg-[#f8f3ed] text-[#3e2723] text-[7px] font-black uppercase tracking-widest rounded-md border border-[#d7ccc8]/30">
+                          {record.kelas}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 px-1 border-l border-stone-100 ml-1">
+                        <p className="text-[10px] font-semibold text-stone-400 italic truncate tracking-tight">
+                          {record.isi_catatan}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 flex items-center gap-3 pr-2">
+                       <div className="text-right hidden sm:block">
+                          <p className="text-[8px] font-black text-stone-300 uppercase tracking-widest leading-none">Oleh</p>
+                          <p className="text-[9px] font-black text-[#3e2723] italic uppercase truncate max-w-[80px]">{record.author_name}</p>
+                       </div>
+                       
+                       {!record.is_acknowledged && user.role === 'wali_asuh' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAcknowledge(record.id!);
+                            }}
+                            className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+                          >
+                            <Check className="w-5 h-5" />
+                          </button>
+                       ) : (
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${
+                            record.is_acknowledged 
+                            ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
+                            : 'bg-stone-50 border-stone-100 text-stone-300'
+                          }`}>
+                            <CheckCircle2 className="w-4 h-4 opacity-70" />
+                          </div>
+                       )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

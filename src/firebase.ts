@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, browserLocalPersistence, browserSessionPersistence, indexedDBLocalPersistence } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { initializeFirestore, enableIndexedDbPersistence, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import { getStorage } from 'firebase/storage';
@@ -59,6 +59,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 const app = initializeApp(firebaseConfig);
 
+export const auth = getAuth(app);
+
 // Messaging instance (lazy initialized and safe)
 export const getFCM = async () => {
   try {
@@ -115,8 +117,3 @@ if (typeof window !== 'undefined') {
     }
   });
 }
-
-// Use initializeAuth with a list of persistence options for better reliability across different browser environments
-export const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
-});

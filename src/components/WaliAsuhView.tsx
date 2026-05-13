@@ -17,7 +17,8 @@ import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, 
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
+import { id } from 'date-fns/locale';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF, generateSarprasReportPDF, generateSarprasSummaryPDF, generatePinjamHPReportPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
@@ -168,6 +169,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
   const [hpRequests, setHpRequests] = useState<HPRequest[]>([]);
   const [hpRequestPdfLoading, setHpRequestPdfLoading] = useState<string | null>(null);
+  const [submittingProposal, setSubmittingProposal] = useState(false);
 
   const currentSelectedPermit = permits.find(p => p.id === selectedPermit?.id) || selectedPermit;
 
@@ -2094,143 +2096,277 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         )}
 
         {viewMode === 'pinjam_hp' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex items-center justify-between px-1">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">Pinjam Handphone</h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Monitoring Penggunaan Gadget</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setTimeFilter('hari_ini');
-                  }}
-                  className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-widest hover:bg-slate-200 transition-all"
-                >
-                  Reset
-                </button>
-                <button 
-                  onClick={() => setShowPinjamForm(true)}
-                  className="p-4 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Filters & Search */}
-            <div className="space-y-6">
-              {/* Horizontal Time Categories */}
-              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {[ 
-                { id: 'hari_ini', label: 'Hari Ini' },
-                { id: 'kemarin', label: 'Kemarin' },
-                { id: 'minggu_ini', label: 'Minggu Ini' },
-                { id: 'bulan_ini', label: 'Bulan Ini' },
-                { id: 'semua', label: 'Semua' }
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setTimeFilter(cat.id as any)}
-                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                    timeFilter === cat.id
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                      : 'bg-white text-slate-500 border border-slate-200/60 hover:border-slate-300'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-300">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama siswa..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            {filteredPinjamHP.map((item) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                onClick={() => setSelectedPinjam(item)}
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative overflow-hidden group cursor-pointer hover:border-indigo-300 transition-all"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-2xl ${item.status === 'dipinjam' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                      <Smartphone className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900 font-display">{item.nama_siswa}</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas {item.kelas}</p>
-                    </div>
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header Style similar to Catatan Kejadian */}
+            <div className="bg-[#3e2723] rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-[#5d4037] relative">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-lg shadow-black/20 shrink-0">
+                    <Smartphone className="w-5 h-5 text-[#3e2723]" />
                   </div>
-                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    item.status === 'dipinjam' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Keperluan</p>
-                  <p className="text-sm font-medium text-slate-700 leading-relaxed">{item.keperluan}</p>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                      Pinjam: {item.tgl_pinjam && typeof item.tgl_pinjam.toDate === 'function' ? format(item.tgl_pinjam.toDate(), 'dd MMM, HH:mm') : '-'}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Pinjam Smartphone</h1>
+                      <span className="bg-[#d7ccc8]/20 text-[#d7ccc8] px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-[#d7ccc8]/20">
+                        MONITORING
+                      </span>
                     </div>
-                    {item.status === 'dikembalikan' && item.tgl_kembali && (
-                      <div className="flex items-center gap-1.5 text-emerald-600">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Kembali: {typeof item.tgl_kembali.toDate === 'function' ? format(item.tgl_kembali.toDate(), 'dd MMM, HH:mm') : '-'}
-                      </div>
-                    )}
+                    <p className="text-stone-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
+                      Log Penggunaan Gadget Siswa
+                    </p>
                   </div>
-                  {item.status === 'dipinjam' ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKembalikanHP(item.id!);
-                      }}
-                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-black transition-all active:scale-95"
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-[#5d4037] p-1 rounded-2xl border border-[#3e2723] mr-2">
+                    <button 
+                      onClick={() => generatePinjamHPReportPDF(pinjamHPList, 'minggu', user?.name || '')}
+                      className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
                     >
-                      Kembalikan
+                      <div className="flex items-center gap-1.5 px-1">
+                        <Printer className="w-3.5 h-3.5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter italic">Minggu</span>
+                      </div>
                     </button>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-emerald-600">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Kembali: {item.tgl_kembali && typeof item.tgl_kembali.toDate === 'function' ? format(item.tgl_kembali.toDate(), 'HH:mm') : '-'}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                    <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+                    <button 
+                      onClick={() => generatePinjamHPReportPDF(pinjamHPList, 'bulan', user?.name || '')}
+                      className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+                    >
+                      <div className="flex items-center gap-1.5 px-1">
+                        <Printer className="w-3.5 h-3.5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter italic">Bulan</span>
+                      </div>
+                    </button>
+                  </div>
 
-            {pinjamHPList.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Smartphone className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada catatan peminjaman</p>
+                  <button
+                    onClick={() => setShowPinjamForm(!showPinjamForm)}
+                    className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                      showPinjamForm 
+                      ? 'bg-[#5d4037] text-stone-300 hover:bg-[#3e2723]' 
+                      : 'bg-[#3e2723] text-white hover:bg-black shadow-black/20 border border-[#d7ccc8]/20'
+                    }`}
+                  >
+                    {showPinjamForm ? 'Batal' : (
+                      <>
+                        <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
+                        Input Pinjaman
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
+
+            <AnimatePresence>
+              {showPinjamForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: -20 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -20 }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-[#f8f3ed] rounded-[2rem] p-6 lg:p-8 shadow-xl border border-[#d7ccc8]/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="relative">
+                        <label className="block text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-2 ml-1 italic">Nama Siswa</label>
+                        <div className="relative">
+                           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#3e2723]/40" />
+                           <input 
+                             type="text" 
+                             value={phNamaSiswa}
+                             onChange={(e) => handlePhNamaSiswaChange(e.target.value)}
+                             onFocus={() => phNamaSiswa.length > 1 && setPhShowSuggestions(true)}
+                             placeholder="Masukkan nama siswa..."
+                             className="w-full bg-white border-2 border-[#d7ccc8]/30 rounded-2xl pl-12 pr-4 py-3.5 focus:border-[#3e2723] focus:ring-4 focus:ring-[#3e2723]/5 outline-none transition-all font-bold text-[#3e2723] text-sm"
+                           />
+                        </div>
+                        {phShowSuggestions && phFilteredStudentsList.length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-[#d7ccc8]/30 overflow-hidden">
+                            {phFilteredStudentsList.slice(0, 5).map((s) => (
+                              <button
+                                key={s.id}
+                                onClick={() => selectPhStudent(s)}
+                                className="w-full px-4 py-3 text-left hover:bg-[#f8f3ed] transition-colors border-b border-[#d7ccc8]/10 last:border-0 flex items-center justify-between group"
+                              >
+                                <div>
+                                  <p className="text-sm font-black text-[#3e2723] italic">{s.nama_lengkap}</p>
+                                  <p className="text-[10px] font-bold text-[#3e2723]/40 uppercase tracking-widest">{s.kelas}</p>
+                                </div>
+                                <Plus className="w-4 h-4 text-[#3e2723]/20 group-hover:text-[#3e2723] transition-colors" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-2 ml-1 italic">Kelas</label>
+                        <input 
+                          type="text" 
+                          value={phKelas}
+                          readOnly
+                          className="w-full bg-[#f8f3ed] border-2 border-[#d7ccc8]/30 rounded-2xl px-5 py-3.5 focus:border-[#3e2723] outline-none transition-all font-bold text-[#3e2723] text-sm"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-2 ml-1 italic">Keperluan Peminjaman</label>
+                        <textarea 
+                          value={phKeperluan}
+                          onChange={(e) => setPhKeperluan(e.target.value)}
+                          placeholder="Misal: Menghubungi orang tua, Pekerjaan rumah, dsb..."
+                          className="w-full bg-white border-2 border-[#d7ccc8]/30 rounded-2xl px-5 py-4 focus:border-[#3e2723] focus:ring-4 focus:ring-[#3e2723]/5 outline-none transition-all font-bold text-[#3e2723] min-h-[100px] placeholder:text-stone-300 text-sm"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <button
+                          onClick={handleSubmitPinjamHP}
+                          disabled={submittingProposal}
+                          className="w-full bg-[#3e2723] text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-black/10 hover:bg-black transition-all active:scale-95 disabled:opacity-50 text-xs italic"
+                        >
+                          Simpan Peminjaman
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#f8f3ed] rounded-2xl flex items-center justify-center border border-[#d7ccc8]/40 shadow-sm">
+                    <History className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-[#3e2723] font-display tracking-tight italic">Riwayat Pinjaman</h3>
+                    <p className="text-[10px] font-bold text-[#3e2723]/40 uppercase tracking-[0.2em] italic">REVIEW KEAMANAN & KETERTIBAN</p>
+                  </div>
+                </div>
+                
+                <div className="flex bg-[#f8f3ed] p-1 rounded-2xl border border-[#d7ccc8]/30 gap-1 overflow-x-auto no-scrollbar">
+                  {[ 
+                    { id: 'semua', label: 'SEMUA' },
+                    { id: 'hari_ini', label: 'HARI INI' },
+                    { id: 'kemarin', label: 'KEMARIN' },
+                    { id: 'minggu_ini', label: 'MINGGU INI' }
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setTimeFilter(cat.id as any)}
+                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all italic ${
+                        timeFilter === cat.id
+                          ? 'bg-[#3e2723] text-white shadow-lg'
+                          : 'text-[#3e2723]/40 hover:text-[#3e2723]'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#d7ccc8]/10 animate-in slide-in-from-top-4 duration-300">
+                <div className="relative group mb-6">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama siswa..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-[#f8f3ed]/30 border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#3e2723]/5 focus:border-[#3e2723] outline-none transition-all font-bold text-sm text-[#3e2723]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <AnimatePresence mode="popLayout">
+                    {filteredPinjamHP.length === 0 ? (
+                       <div className="text-center py-20 bg-[#f8f3ed]/30 rounded-[3rem] border-2 border-dashed border-[#d7ccc8]/30">
+                        <Smartphone className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                        <p className="text-[#3e2723]/40 font-bold uppercase tracking-widest text-xs italic">Belum ada riwayat aktivitas</p>
+                      </div>
+                    ) : (
+                      filteredPinjamHP.map((item, idx) => (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ delay: idx * 0.03 }}
+                          onClick={() => setSelectedPinjam(item)}
+                          className={`group relative bg-white rounded-[2rem] p-4 border transition-all hover:shadow-xl hover:shadow-[#3e2723]/5 cursor-pointer ${
+                            item.status === 'dipinjam' ? 'border-[#3e2723]/20 bg-[#fefdfc]' : 'border-stone-100/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            {/* Compact Date Box */}
+                            <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center border shrink-0 transition-all ${
+                              item.status === 'dipinjam' 
+                                ? 'bg-[#3e2723] border-[#3e2723] text-white shadow-lg shadow-[#3e2723]/10' 
+                                : 'bg-stone-50 border-stone-100 text-stone-300'
+                            }`}>
+                              <div className="text-[13px] font-black leading-none mb-0.5 italic">
+                                {item.tgl_pinjam && typeof item.tgl_pinjam.toDate === 'function' ? format(item.tgl_pinjam.toDate(), 'HH:mm') : '--:--'}
+                              </div>
+                              <div className="text-[6px] font-black uppercase tracking-widest opacity-50">
+                                {item.tgl_pinjam && typeof item.tgl_pinjam.toDate === 'function' ? format(item.tgl_pinjam.toDate(), 'dd MMM') : '-'}
+                              </div>
+                            </div>
+  
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <h4 className="text-[15px] font-black text-[#3e2723] font-display italic group-hover:text-black transition-colors truncate uppercase">
+                                  {item.nama_siswa}
+                                </h4>
+                                <span className="px-1.5 py-0.5 bg-[#f8f3ed] text-[#3e2723] text-[7px] font-black uppercase tracking-widest rounded-md border border-[#d7ccc8]/30">
+                                 {item.kelas}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 px-1 border-l border-stone-100 ml-1">
+                                <p className="text-[10px] font-semibold text-stone-400 italic truncate tracking-tight">
+                                  {item.keperluan}
+                                </p>
+                              </div>
+                            </div>
+  
+                            <div className="shrink-0 flex items-center gap-3 pr-2">
+                               <div className="text-right hidden sm:block">
+                                  <p className="text-[8px] font-black text-stone-300 uppercase tracking-widest leading-none">Oleh</p>
+                                  <p className="text-[9px] font-black text-[#3e2723] italic uppercase truncate max-w-[80px]">{item.wali_asuh_name}</p>
+                               </div>
+                               
+                               {item.status === 'dipinjam' ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleKembalikanHP(item.id!);
+                                    }}
+                                    className="w-10 h-10 bg-[#3e2723] text-white rounded-xl flex items-center justify-center hover:bg-black transition-all shadow-md shadow-black/10 active:scale-95"
+                                    title="Tandai Kembali"
+                                  >
+                                    <CheckCircle2 className="w-5 h-5" />
+                                  </button>
+                               ) : (
+                                  <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center border border-emerald-100 text-emerald-600">
+                                    <CheckCircle2 className="w-4 h-4 opacity-70" />
+                                  </div>
+                               )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {viewMode === 'kartu_siswa' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -2798,67 +2934,75 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       {selectedPinjam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="p-6 border-b border-[#f8f3ed] bg-[#3e2723] flex items-center justify-between text-white">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-xl">
-                  <Smartphone className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-[#d7ccc8] rounded-xl">
+                  <Smartphone className="w-5 h-5 text-[#3e2723]" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900">Detail Peminjaman HP</h3>
-                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Status: {selectedPinjam.status}</p>
+                  <h3 className="font-black italic uppercase tracking-tight text-sm">Detail Peminjaman</h3>
+                  <p className="text-[9px] text-[#d7ccc8] font-black uppercase tracking-[0.2em]">{selectedPinjam.nama_siswa}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedPinjam(null)}
-                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-[#d7ccc8]"
               >
-                <Plus className="w-6 h-6 rotate-45" />
+                <X className="w-5 h-5" />
               </button>
             </div>
             
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="text-center pb-6 border-b border-slate-100">
-                <h2 className="text-2xl font-black text-slate-900 font-display">{selectedPinjam.nama_siswa}</h2>
-                <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mt-1">Kelas {selectedPinjam.kelas}</p>
-              </div>
-
               <div className="space-y-4">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Keperluan</label>
-                  <p className="text-sm font-medium text-slate-700">{selectedPinjam.keperluan}</p>
+                <div className="bg-[#f8f3ed] p-5 rounded-2xl border border-[#d7ccc8]/30">
+                  <label className="text-[9px] font-black text-[#5d4037]/40 uppercase tracking-widest block mb-2 italic">Keperluan Penggunaan</label>
+                  <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed">"{selectedPinjam.keperluan}"</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
-                    <label className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">Waktu Pinjam</label>
-                    <p className="text-xs font-black text-slate-900">{selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'dd MMM, HH:mm') : '-'}</p>
-                    <p className="text-[9px] text-slate-500 mt-1">Oleh: {selectedPinjam.wali_asuh_name}</p>
+                  <div className="bg-white p-4 rounded-2xl border border-[#d7ccc8]/30 shadow-sm">
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Pinjam</label>
+                    <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
+                      {selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'HH:mm - dd MMM') : '-'}
+                    </p>
+                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.wali_asuh_name}</p>
                   </div>
-                  <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                    <label className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest block mb-1">Waktu Kembali</label>
-                    <p className="text-xs font-black text-slate-900">{selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'dd MMM, HH:mm') : '-'}</p>
-                    <p className="text-[9px] text-slate-500 mt-1">Oleh: {selectedPinjam.penerima_kembali_name || '-'}</p>
+                  <div className={`p-4 rounded-2xl border transition-all ${selectedPinjam.status === 'dikembalikan' ? 'bg-[#fdfcf0] border-emerald-100' : 'bg-stone-50 border-stone-100 opacity-60'}`}>
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Kembali</label>
+                    <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
+                      {selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'HH:mm - dd MMM') : '--:--'}
+                    </p>
+                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.penerima_kembali_name || '-'}</p>
                   </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
+                  <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest">Status Saat Ini:</span>
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+                    selectedPinjam.status === 'dipinjam' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    {selectedPinjam.status === 'dipinjam' ? 'SEDANG DIPINJAM' : 'TELAH KEMBALI'}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/30 flex gap-3">
               <button
                 onClick={() => setSelectedPinjam(null)}
-                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                className="flex-1 py-3 bg-white border border-[#d7ccc8]/30 text-[#3e2723]/60 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#ede8dd] transition-all shadow-sm"
               >
-                Tutup
+                Tutup Jendela
               </button>
               {selectedPinjam.status === 'dipinjam' && (
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
                     handleKembalikanHP(selectedPinjam.id!);
                     setSelectedPinjam(null);
                   }}
-                  className="flex-1 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all"
+                  className="flex-1 py-3 bg-[#3e2723] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-black shadow-xl shadow-black/10 transition-all italic"
                 >
-                  Kembalikan
+                  Confirm Kembali
                 </button>
               )}
             </div>

@@ -15,6 +15,8 @@ import {
   Search, 
   Menu, 
   ChevronRight, 
+  Smartphone,
+  History,
   Tablet,
   Check,
   Building,
@@ -38,10 +40,11 @@ import {
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport, Announcement } from '../types';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport, Announcement, PinjamHP } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
+import { id } from 'date-fns/locale';
+import { generatePermitPDF, generateHealthCheckProposalPDF, generateSarprasReportPDF, generateSarprasSummaryPDF, generatePinjamHPReportPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
@@ -146,10 +149,20 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
-  // Sarpras states
+  // Pinjam HP States
+  const [pinjamHPList, setPinjamHPList] = useState<PinjamHP[]>([]);
+  const [showPinjamForm, setShowPinjamForm] = useState(false);
+  const [phNamaSiswa, setPhNamaSiswa] = useState('');
+  const [phKelas, setPhKelas] = useState('');
+  const [phKeperluan, setPhKeperluan] = useState('');
+  const [phShowSuggestions, setPhShowSuggestions] = useState(false);
+  const [phFilteredStudentsList, setPhFilteredStudentsList] = useState<Siswa[]>([]);
+  const [selectedPinjam, setSelectedPinjam] = useState<PinjamHP | null>(null);
+
+  // ... (keep Sarpras states as they are)
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
   const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('minggu_ini');
   const [isAddingSarpras, setIsAddingSarpras] = useState(false);
@@ -260,6 +273,85 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const q = query(collection(db, 'pinjam_hp'), orderBy('tgl_pinjam', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PinjamHP));
+      setPinjamHPList(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'pinjam_hp');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handlePhNamaSiswaChange = (val: string) => {
+    setPhNamaSiswa(val);
+    if (val.length > 1) {
+      const filtered = students.filter(s => 
+        (s.nama_lengkap || '').toLowerCase().includes(val.toLowerCase())
+      );
+      setPhFilteredStudentsList(filtered);
+      setPhShowSuggestions(true);
+    } else {
+      setPhShowSuggestions(false);
+    }
+  };
+
+  const selectPhStudent = (student: Siswa) => {
+    setPhNamaSiswa(student.nama_lengkap);
+    setPhKelas(student.kelas);
+    setPhShowSuggestions(false);
+  };
+
+  const handleSubmitPinjamHP = async () => {
+    if (!phNamaSiswa || !phKelas || !phKeperluan) {
+      alert('Mohon lengkapi data peminjaman');
+      return;
+    }
+
+    setSubmittingProposal(true);
+    try {
+      await addDoc(collection(db, 'pinjam_hp'), {
+        nama_siswa: phNamaSiswa,
+        kelas: phKelas,
+        keperluan: phKeperluan,
+        tgl_pinjam: serverTimestamp(),
+        status: 'dipinjam',
+        wali_asuh_name: user.name,
+        wali_asuh_uid: user.uid
+      });
+
+      setPhNamaSiswa('');
+      setPhKelas('');
+      setPhKeperluan('');
+      setShowPinjamForm(false);
+      alert('Peminjaman berhasil dicatat');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'pinjam_hp');
+    } finally {
+      setSubmittingProposal(false);
+    }
+  };
+
+  const handleKembalikanHP = async (id: string) => {
+    if (!confirm('Apakah HP sudah benar-benar dikembalikan?')) return;
+    
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'pinjam_hp', id), {
+        status: 'dikembalikan',
+        tgl_kembali: serverTimestamp(),
+        penerima_kembali_name: user.name,
+        penerima_kembali_uid: user.uid
+      });
+      alert('HP telah berhasil dikembalikan');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `pinjam_hp/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredPermits = permits.filter(p => {
     const permitDate = p.tgl_surat?.toDate();
     if (!permitDate) return false;
@@ -276,6 +368,31 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     
     return matchesSearch && matchesTime;
   });
+
+  const filteredPinjamHP = pinjamHPList
+    .filter(item => {
+      const pinjamDate = item.tgl_pinjam?.toDate();
+      
+      let matchesTime = item.status === 'dipinjam' || timeFilter === 'semua';
+      
+      if (!matchesTime && pinjamDate) {
+        if (timeFilter === 'hari_ini') matchesTime = isToday(pinjamDate);
+        else if (timeFilter === 'kemarin') matchesTime = isYesterday(pinjamDate);
+        else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(pinjamDate, { weekStartsOn: 1 });
+        else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(pinjamDate);
+      }
+
+      const matchesSearch = !searchTerm || item.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch && matchesTime;
+    })
+    .sort((a, b) => {
+      if (a.status === 'dipinjam' && b.status !== 'dipinjam') return -1;
+      if (a.status !== 'dipinjam' && b.status === 'dipinjam') return 1;
+      const dateA = a.tgl_pinjam?.toDate()?.getTime() || 0;
+      const dateB = b.tgl_pinjam?.toDate()?.getTime() || 0;
+      return dateB - dateA;
+    });
 
   const handleSubmitProposal = async () => {
     if (selectedStudents.length === 0) {
@@ -363,6 +480,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     agenda: 'Agenda Kegiatan',
     dinding: 'Dinding Wali Asrama',
     sarpras: 'Sarana & Prasarana',
+    pinjam_hp: 'Pinjam Smartphone',
     catatan_evaluasi: 'Catatan Evaluasi',
     catatan_kejadian: 'Catatan Kejadian di Asrama'
   };
@@ -441,6 +559,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                           { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
+                          { id: 'pinjam_hp', label: 'Pinjam Smartphone', icon: Tablet },
                           { id: 'sarpras', label: 'Sarana & Prasarana', icon: Wrench },
                           { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
@@ -563,6 +682,210 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         {viewMode === 'dinding' && <WallView user={user} wallType="asrama" title="Dinding Wali Asrama" />}
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'catatan_kejadian' && <DormitoryIncidentsView user={user} />}
+
+        {viewMode === 'pinjam_hp' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header Style similar to Catatan Kejadian */}
+            <div className="bg-[#3e2723] rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-[#5d4037] relative">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-lg shadow-black/20 shrink-0">
+                    <Tablet className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic">Pinjam Smartphone</h1>
+                      <span className="bg-[#d7ccc8]/20 text-[#d7ccc8] px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-[#d7ccc8]/20">
+                        MONITORING
+                      </span>
+                    </div>
+                    <p className="text-stone-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
+                      Log Penggunaan Gadget Siswa
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-[#5d4037] p-1 rounded-2xl border border-[#3e2723] mr-2">
+                    <button 
+                      onClick={() => generatePinjamHPReportPDF(pinjamHPList, 'minggu', user.name)}
+                      className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+                    >
+                      <div className="flex items-center gap-1.5 px-1">
+                        <Printer className="w-3.5 h-3.5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter italic">Minggu</span>
+                      </div>
+                    </button>
+                    <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+                    <button 
+                      onClick={() => generatePinjamHPReportPDF(pinjamHPList, 'bulan', user.name)}
+                      className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+                    >
+                      <div className="flex items-center gap-1.5 px-1">
+                        <Printer className="w-3.5 h-3.5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter italic">Bulan</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setShowPinjamForm(!showPinjamForm)}
+                    className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                      showPinjamForm 
+                      ? 'bg-[#5d4037] text-stone-300 hover:bg-[#3e2723]' 
+                      : 'bg-[#3e2723] text-white hover:bg-black shadow-black/20 border border-[#d7ccc8]/20'
+                    }`}
+                  >
+                    {showPinjamForm ? 'Batal' : (
+                      <>
+                        <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
+                        Pinjam Baru
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {showPinjamForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: -20 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -20 }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-[#f8f3ed] rounded-[2rem] p-6 lg:p-8 shadow-xl border border-[#d7ccc8]/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="relative">
+                        <label className="block text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-2 ml-1 italic">Nama Siswa</label>
+                        <div className="relative">
+                           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#3e2723]/40" />
+                           <input 
+                             type="text" 
+                             value={phNamaSiswa}
+                             onChange={(e) => handlePhNamaSiswaChange(e.target.value)}
+                             onFocus={() => phNamaSiswa.length > 1 && setPhShowSuggestions(true)}
+                             placeholder="Masukkan nama siswa..."
+                             className="w-full bg-white border-2 border-[#d7ccc8]/30 rounded-2xl pl-12 pr-4 py-3.5 focus:border-[#3e2723] focus:ring-4 focus:ring-[#3e2723]/5 outline-none transition-all font-bold text-[#3e2723] text-sm"
+                           />
+                        </div>
+                        {phShowSuggestions && phFilteredStudentsList.length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-[#d7ccc8]/30 overflow-hidden">
+                            {phFilteredStudentsList.slice(0, 5).map((s) => (
+                              <button
+                                key={s.id}
+                                onClick={() => selectPhStudent(s)}
+                                className="w-full px-4 py-3 text-left hover:bg-[#f8f3ed] transition-colors border-b border-[#d7ccc8]/10 last:border-0 flex items-center justify-between group"
+                              >
+                                <div>
+                                  <p className="text-sm font-black text-[#3e2723] italic">{s.nama_lengkap}</p>
+                                  <p className="text-[10px] font-bold text-[#3e2723]/40 uppercase tracking-widest">{s.kelas}</p>
+                                </div>
+                                <Plus className="w-4 h-4 text-[#3e2723]/20 group-hover:text-[#3e2723] transition-colors" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-2 ml-1 italic">Kelas</label>
+                        <input 
+                          type="text" 
+                          value={phKelas}
+                          readOnly
+                          className="w-full bg-[#f8f3ed] border-2 border-[#d7ccc8]/30 rounded-2xl px-5 py-3.5 focus:border-[#3e2723] outline-none transition-all font-bold text-[#3e2723] text-sm"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-2 ml-1 italic">Keperluan Peminjaman</label>
+                        <textarea 
+                          value={phKeperluan}
+                          onChange={(e) => setPhKeperluan(e.target.value)}
+                          placeholder="Misal: Menghubungi orang tua, Pekerjaan rumah, dsb..."
+                          className="w-full bg-white border-2 border-[#d7ccc8]/30 rounded-2xl px-5 py-4 focus:border-[#3e2723] focus:ring-4 focus:ring-[#3e2723]/5 outline-none transition-all font-bold text-[#3e2723] min-h-[100px] placeholder:text-stone-300 text-sm"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <button
+                          onClick={handleSubmitPinjamHP}
+                          disabled={loading}
+                          className="w-full bg-[#3e2723] text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-black/10 hover:bg-black transition-all active:scale-95 disabled:opacity-50 text-xs italic"
+                        >
+                          Simpan Peminjaman
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-[#3e2723] uppercase tracking-widest px-2 italic">Riwayat Peminjaman</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {pinjamHPList.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      className={`bg-white rounded-3xl p-5 shadow-sm border border-[#d7ccc8]/20 hover:shadow-md transition-all group relative cursor-pointer ${
+                        item.status === 'dipinjam' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-emerald-500'
+                      }`}
+                      onClick={() => setSelectedPinjam(item)}
+                    >
+                      <div className="flex gap-4">
+                        {/* Date Block */}
+                        <div className="w-20 shrink-0 flex flex-col gap-2">
+                          <div className="bg-[#f8f3ed] rounded-2xl p-2 border border-[#d7ccc8]/30 text-center">
+                            <div className="text-[16px] font-black text-[#3e2723] leading-none mb-0.5">
+                              {format(item.tgl_pinjam.toDate(), 'dd', { locale: id })}
+                            </div>
+                            <div className="text-[8px] font-black text-[#3e2723]/40 uppercase tracking-tighter italic">
+                              {format(item.tgl_pinjam.toDate(), 'MMM yy', { locale: id })}
+                            </div>
+                          </div>
+                          <div className="bg-[#3e2723]/5 rounded-2xl p-2 border border-[#3e2723]/10 text-center">
+                            <Clock className="w-3 h-3 text-[#3e2723]/40 mx-auto mb-0.5" />
+                            <div className="text-[9px] font-black text-[#3e2723] uppercase tracking-tighter">
+                              {format(item.tgl_pinjam.toDate(), 'HH:mm')}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <h4 className="text-sm font-black text-[#3e2723] italic tracking-tight">{item.nama_siswa}</h4>
+                              <p className="text-[10px] font-bold text-[#3e2723]/40 uppercase tracking-widest">{item.kelas}</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              item.status === 'dipinjam' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
+                            }`}>
+                              {item.status}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-[#3e2723]/70 italic line-clamp-2">{item.keperluan}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {pinjamHPList.length === 0 && (
+                  <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-[#d7ccc8]">
+                    <Tablet className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                    <p className="text-[#3e2723]/40 font-bold uppercase tracking-widest text-xs">Belum ada riwayat peminjaman</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {viewMode === 'perizinan' && (
           <div className="space-y-6">
@@ -1044,6 +1367,85 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
       )}
     </main>
 
+      {selectedPinjam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-[#f8f3ed] bg-[#3e2723] flex items-center justify-between text-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#d7ccc8] rounded-xl">
+                  <Smartphone className="w-5 h-5 text-[#3e2723]" />
+                </div>
+                <div>
+                  <h3 className="font-black italic uppercase tracking-tight text-sm">Detail Peminjaman</h3>
+                  <p className="text-[9px] text-[#d7ccc8] font-black uppercase tracking-[0.2em]">{selectedPinjam.nama_siswa}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPinjam(null)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-[#d7ccc8]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="space-y-4">
+                <div className="bg-[#f8f3ed] p-5 rounded-2xl border border-[#d7ccc8]/30">
+                  <label className="text-[9px] font-black text-[#5d4037]/40 uppercase tracking-widest block mb-2 italic">Keperluan Penggunaan</label>
+                  <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed">"{selectedPinjam.keperluan}"</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-[#d7ccc8]/30 shadow-sm">
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Pinjam</label>
+                    <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
+                      {selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'HH:mm - dd MMM') : '-'}
+                    </p>
+                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.wali_asuh_name}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl border transition-all ${selectedPinjam.status === 'dikembalikan' ? 'bg-[#fdfcf0] border-emerald-100' : 'bg-stone-50 border-stone-100 opacity-60'}`}>
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Kembali</label>
+                    <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
+                      {selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'HH:mm - dd MMM') : '--:--'}
+                    </p>
+                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.penerima_kembali_name || '-'}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
+                  <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest">Status Saat Ini:</span>
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+                    selectedPinjam.status === 'dipinjam' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    {selectedPinjam.status === 'dipinjam' ? 'SEDANG DIPINJAM' : 'TELAH KEMBALI'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/30 flex gap-3">
+              <button
+                onClick={() => setSelectedPinjam(null)}
+                className="flex-1 py-3 bg-white border border-[#d7ccc8]/30 text-[#3e2723]/60 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#ede8dd] transition-all shadow-sm"
+              >
+                Tutup Jendela
+              </button>
+              {selectedPinjam.status === 'dipinjam' && (
+                <button
+                  onClick={(e) => {
+                    handleKembalikanHP(selectedPinjam.id!);
+                    setSelectedPinjam(null);
+                  }}
+                  className="flex-1 py-3 bg-[#3e2723] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-black shadow-xl shadow-black/10 transition-all italic"
+                >
+                  Confirm Kembali
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Detail Izin (View Only) */}
       <AnimatePresence>
         {selectedPermit && (
@@ -1214,6 +1616,103 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                 >
                   Selesai Membaca
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Detail Pinjam HP */}
+      <AnimatePresence>
+        {selectedPinjam && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-[#d7ccc8]/30"
+            >
+              <div className="p-6 border-b border-[#d7ccc8]/20 bg-[#f8f3ed] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#3e2723] rounded-xl">
+                    <Tablet className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-[#3e2723] uppercase tracking-tight italic">Detail Peminjaman</h3>
+                    <p className="text-[9px] text-[#3e2723]/40 font-bold uppercase">Log Aktivitas Gadget</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedPinjam(null)} className="p-2 hover:bg-[#d7ccc8]/20 rounded-full transition-colors text-[#3e2723]/40">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-1 italic">Siswa</label>
+                    <p className="font-black text-[#3e2723] text-lg">{selectedPinjam.nama_siswa}</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-1 italic">Kelas</label>
+                    <p className="font-black text-[#3e2723] text-lg">{selectedPinjam.kelas}</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#f8f3ed] p-5 rounded-2xl border border-[#d7ccc8]/30">
+                  <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-2 block italic">Keperluan Peminjaman:</label>
+                  <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed">
+                    {selectedPinjam.keperluan}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-[#d7ccc8]/10">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-1 italic">Waktu Pinjam</label>
+                    <p className="text-xs font-black text-stone-600">
+                      {format(selectedPinjam.tgl_pinjam.toDate(), 'dd MMM yyyy, HH:mm')}
+                    </p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-1 italic">Waktu Kembali</label>
+                    <p className="text-xs font-black text-stone-600">
+                      {selectedPinjam.tgl_kembali 
+                        ? format(selectedPinjam.tgl_kembali.toDate(), 'dd MMM yyyy, HH:mm') 
+                        : 'Belum dikembalikan'}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedPinjam.status === 'dikembalikan' && (
+                  <div className="pt-4 border-t border-[#d7ccc8]/10">
+                    <div className="flex items-center gap-2">
+                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                       <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest italic">
+                         Diterima Oleh: {selectedPinjam.penerima_kembali_name}
+                       </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/20 flex gap-3">
+                <button
+                  onClick={() => setSelectedPinjam(null)}
+                  className="flex-1 py-4 bg-white border border-[#d7ccc8]/30 text-[#3e2723] font-black rounded-2xl hover:bg-[#d7ccc8]/10 transition-all uppercase tracking-widest text-[10px] italic shadow-sm"
+                >
+                  Tutup
+                </button>
+                {selectedPinjam.status === 'dipinjam' && (
+                  <button
+                    onClick={() => {
+                      handleKembalikanHP(selectedPinjam.id!);
+                      setSelectedPinjam(null);
+                    }}
+                    className="flex-1 py-4 bg-[#3e2723] text-white font-black rounded-2xl hover:bg-black shadow-xl shadow-black/10 transition-all uppercase tracking-widest text-[10px] italic"
+                  >
+                    Konfirmasi Kembali
+                  </button>
+                )}
               </div>
             </motion.div>
           </div>

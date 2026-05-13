@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth, db } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, getAuth } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
 import { Home, CheckSquare, Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, Loader2, ClipboardList, CheckCircle, Stethoscope, Building, Eye, EyeOff } from 'lucide-react';
@@ -73,14 +73,26 @@ export default function Auth() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // App.tsx handles state change, and Auth handles profile completion if needed
+      const authInstance = getAuth();
+      if (!authInstance) {
+        throw new Error('Firebase Auth failed to initialize. Please refresh.');
+      }
+      const provider = new GoogleAuthProvider();
+      // Ensure cross-origin setup by recommending popup
+      await signInWithPopup(authInstance, provider);
     } catch (err: any) {
       console.error('Google Auth Error:', err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setError('Gagal masuk dengan Google: ' + (err.message || 'Terjadi kesalahan.'));
+      if (err.code === 'auth/argument-error') {
+         setError('Terjadi kesalahan parameter login (auth/argument-error). Pastikan konfigurasi Firebase sudah benar atau muat ulang halaman.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Popup terblokir oleh browser. Harap aktifkan popup di pengaturan browser Anda (biasanya di samping alamat URL) untuk dapat masuk.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Metode login Google belum diaktifkan di Firebase Console.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Domain ini belum diizinkan untuk Google Login di Firebase Console.');
+      } else if (err.code !== 'auth/popup-closed-by-user') {
+        setError('Gagal masuk dengan Google: ' + (err.message || 'Terjadi kesalahan sistem.'));
         triggerShake();
       }
     } finally {
