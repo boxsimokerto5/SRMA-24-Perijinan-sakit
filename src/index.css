@@ -1,11 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    --font-display: 'Plus Jakarta Sans', sans-serif;
-  }
+@theme {
+  --font-display: 'Plus Jakarta Sans', sans-serif;
 }
 
 body {

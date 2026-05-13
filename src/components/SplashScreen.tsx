@@ -1,10 +1,21 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { motion } from 'motion/react';
 import { ShieldAlert } from 'lucide-react';
 
-const SplashScreen: React.FC = () => {
+interface SplashScreenProps {
+  onComplete?: () => void;
+}
+
+const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
   return (
-    <div className="fixed inset-0 bg-[#3e2723] flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 bg-[#3e2723] flex flex-col items-center justify-center overflow-hidden z-[9999]">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
       
       <motion.div
@@ -13,7 +24,7 @@ const SplashScreen: React.FC = () => {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 flex flex-col items-center"
       >
-        <div className="w-24 h-24 bg-amber-400 rounded-3xl flex items-center justify-center shadow-2xl mb-8 animate-float">
+        <div className="w-24 h-24 bg-amber-400 rounded-3xl flex items-center justify-center shadow-2xl mb-8">
           <ShieldAlert className="w-12 h-12 text-[#3e2723]" />
         </div>
         
