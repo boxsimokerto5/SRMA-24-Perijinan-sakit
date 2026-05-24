@@ -104,21 +104,21 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       id: 'def-1',
       title: "Informasi Kesehatan",
       content: "Jaga kebersihan diri dan lingkungan asrama agar tetap sehat dan produktif.",
-      color: "from-[#5d4037] to-[#8b5e3c]",
+      color: "from-slate-900 to-slate-950",
       icon: Info
     },
     {
       id: 'def-2',
       title: "Sistem Terpadu",
       content: "Data siswa kini terhubung dengan pangkalan data asrama secara real-time.",
-      color: "from-[#8b5e3c] to-[#c0b298]",
+      color: "from-emerald-600 to-teal-700",
       icon: BarChart3
     },
     {
       id: 'def-3',
       title: "Update Keamanan",
       content: "Selalu verifikasi izin keluar masuk siswa melalui panel konfirmasi resmi.",
-      color: "from-[#075e6e] to-[#085a6a]",
+      color: "from-slate-800 to-emerald-900",
       icon: Bell
     }
   ];
@@ -355,11 +355,19 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   }, []);
 
   React.useEffect(() => {
-    const q = query(
-      collection(db, 'pinjam_hp'),
-      orderBy('tgl_pinjam', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // Only fetch records for the current user if they are wali_asuh, unless they are admin/kepsek
+    const pinjamQuery = user.role === 'wali_asuh' 
+      ? query(
+          collection(db, 'pinjam_hp'),
+          where('wali_asuh_uid', '==', user.uid),
+          orderBy('tgl_pinjam', 'desc')
+        )
+      : query(
+          collection(db, 'pinjam_hp'),
+          orderBy('tgl_pinjam', 'desc')
+        );
+
+    const unsubscribe = onSnapshot(pinjamQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => {
         const rawData = doc.data() as PinjamHP;
         return { 
@@ -375,6 +383,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
     // Auto-cleanup: Delete records older than 2 days
     const cleanupOldRecords = async () => {
+      // Only wali_asuh should perform this specific cleanup
+      if (user.role !== 'wali_asuh' || !user.uid) return;
+      
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
+      const cleanupPath = 'pinjam_hp_cleanup';
       try {
         const twoDaysAgo = new Date();
         twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
@@ -383,23 +398,40 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         const qCleanup = query(
           collection(db, 'pinjam_hp'), 
           where('tgl_pinjam', '<', twoDaysAgoTimestamp),
-          where('wali_asuh_uid', '==', user.uid)
+          where('wali_asuh_uid', '==', userId)
         );
         
-        const snapshot = await getDocs(qCleanup);
-        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
-        await Promise.all(deletePromises);
+        let snapshot;
+        try {
+          snapshot = await getDocs(qCleanup);
+        } catch (listErr) {
+          console.warn('Auto-cleanup list failed:', listErr);
+          // Don't throw for auto-cleanup list, just stop
+          return;
+        }
+
         if (snapshot.docs.length > 0) {
+          const deletePromises = snapshot.docs.map(async (doc) => {
+            try {
+              await deleteDoc(doc.ref);
+            } catch (delErr) {
+              console.error(`Failed to delete record ${doc.id}:`, delErr);
+              // Handle individual delete error
+              handleFirestoreError(delErr, OperationType.DELETE, `pinjam_hp/${doc.id}`);
+            }
+          });
+          await Promise.all(deletePromises);
           console.log(`Auto-cleanup: Deleted ${snapshot.docs.length} old Pinjam HP records.`);
         }
       } catch (err) {
-        console.error('Auto-cleanup failed:', err);
+        console.error('Fatal auto-cleanup error:', err);
+        // Only report fatal errors that aren't already handled
       }
     };
 
     cleanupOldRecords();
     return () => unsubscribe();
-  }, []);
+  }, [user.uid, user.role]);
 
   React.useEffect(() => {
     // Remove orderBy to ensure docments without nama_lengkap field are also fetched
@@ -667,7 +699,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     if (!selectedStudent) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'siswa', selectedStudent.id), editStudentData);
+      if (!selectedStudent?.id) return;
+      await updateDoc(doc(db, 'siswa', selectedStudent.id!), editStudentData);
       
       // Update local state is handled by onSnapshot
       setIsEditingStudent(false);
@@ -962,7 +995,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   ];
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#1a0f0d]' : 'bg-[#fcf8f5] text-[#2d1e1a]'} font-sans antialiased selection:bg-[#8b5e3c]/20`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} font-sans antialiased selection:bg-emerald-500/20`}>
       {/* Sidebar Navigation */}
       <AnimatePresence>
         {showSidebar && (
@@ -972,31 +1005,31 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSidebar(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
             />
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`fixed inset-y-0 left-0 w-[280px] z-[70] shadow-2xl flex flex-col ${isDarkMode ? 'bg-[#2d1e1a] border-white/5' : 'bg-[#3e2723]'} text-white`}
+              className={`fixed inset-y-0 left-0 w-[280px] z-[70] shadow-2xl flex flex-col bg-slate-900 text-white border-r border-white/10`}
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-6">
-                  <div className={`rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group ${isDarkMode ? 'bg-white/5' : 'bg-black/20'}`}>
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
-                    <div className="flex items-center gap-4 relative z-10">
+                  <div className={`rounded-[2.5rem] p-5 mb-8 border border-white/5 relative overflow-hidden group bg-slate-950`}>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10 font-display">
                       <Logo size="sm" showText={false} className="shadow-xl" />
                       <div className="flex flex-col">
-                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 opacity-70 ${isDarkMode ? 'text-amber-200' : 'text-[#d7ccc8]'}`}>SEKOLAH RAKYAT</span>
+                        <span className="font-black text-white text-base leading-tight tracking-tight uppercase italic text-white/90">SRMA 24</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 italic text-emerald-500`}>Guardian Portal</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div>
-                      <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 ${isDarkMode ? 'text-amber-200/40' : 'text-[#d7ccc8]/40'}`}>HOME</p>
+                      <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 italic text-slate-500`}>MENU UTAMA</p>
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
@@ -1005,7 +1038,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
                           { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
-                          { id: 'catatan_evaluasi', label: 'Evaluasi Santri', icon: FileText },
+                          { id: 'catatan_evaluasi', label: 'Evaluasi Asrama', icon: FileText },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
                           { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
@@ -1023,13 +1056,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                               setViewMode(item.id);
                               setShowSidebar(false);
                             }}
-                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 italic ${
                               viewMode === item.id 
-                                ? 'bg-white text-[#3e2723] shadow-xl shadow-black/10' 
-                                : `bg-transparent text-white/70 hover:bg-white/10 hover:text-white`
+                                ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-900/40' 
+                                : 'bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#3e2723]' : 'text-white/40'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-white' : 'text-slate-600 group-hover:text-emerald-400'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -1040,13 +1073,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </div>
 
               <div className="p-6 border-t border-white/10">
-                <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 ${isDarkMode ? 'text-amber-200/40' : 'text-[#d7ccc8]/40'}`}>TOKO & AKUN</p>
+                <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 italic text-slate-500`}>TOKO & AKUN</p>
                 <button 
                   onClick={() => auth.signOut()}
-                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all shadow-lg border border-white/5 active:scale-95 ${isDarkMode ? 'bg-white/5 text-rose-400 hover:bg-white/10' : 'bg-black/20 text-rose-300 hover:bg-black/30'}`}
+                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all shadow-lg border border-white/5 active:scale-95 bg-slate-800 text-rose-400 hover:bg-rose-600 hover:text-white italic uppercase tracking-wider`}
                 >
                   <LogOut className="w-5 h-5" />
-                  Keluar Akun
+                  Sign Out Session
                 </button>
               </div>
             </motion.div>
@@ -1055,25 +1088,25 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       </AnimatePresence>
 
       {/* Top Header Navigation */}
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-[#2d1e1a]/90 border-white/5' : 'bg-[#f8f3ed]/90 border-[#d7ccc8]/40'} backdrop-blur-xl border-b shadow-sm`}>
-        <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between relative">
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl border-b shadow-sm`}>
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between relative">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
-              className={`p-3 rounded-2xl transition-all duration-300 ${
+              className={`p-3 rounded-xl transition-all duration-300 ${
                 isDarkMode 
-                  ? 'bg-white/5 text-amber-200 hover:bg-white/10 shadow-lg shadow-black/20' 
-                  : 'bg-[#8b5e3c]/10 text-[#5d4037] hover:bg-[#8b5e3c]/20 shadow-sm'
-              } active:scale-95`}
+                  ? 'bg-slate-900 text-emerald-400 shadow-lg shadow-black/20' 
+                  : 'bg-slate-100 text-slate-600 shadow-sm'
+              } active:scale-95 border border-slate-200/50`}
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-6 h-6" />
             </button>
             <div className="flex flex-col">
-              <h1 className={`text-sm font-black uppercase tracking-widest leading-none mb-0.5 ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
-                {viewTitles[viewMode] || 'SRMA 24'}
+              <h1 className={`text-sm font-black uppercase tracking-widest font-display italic ${isDarkMode ? 'text-emerald-400' : 'text-slate-900'}`}>
+                {viewTitles[viewMode] || 'Dashboard'}
               </h1>
-              <p className={`text-[9px] font-bold uppercase tracking-tighter opacity-50 ${isDarkMode ? 'text-amber-200/50' : 'text-[#8b5e3c]'}`}>
-                Digital Health System
+              <p className={`text-[9px] font-bold uppercase tracking-widest opacity-50 italic ${isDarkMode ? 'text-emerald-200' : 'text-slate-500'}`}>
+                Pusat Informasi Pengasuhan
               </p>
             </div>
           </div>
@@ -1380,33 +1413,31 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         )}
 
         {viewMode === 'home' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-gradient-to-br from-[#075e6e] to-[#0a8ea4] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
-              <div className="relative z-10">
-                <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic text-white flex items-center gap-3">
-                   Hallo, {user.name.split(' ')[0]} 👋
-                </h1>
-                <p className="text-lg font-black text-cyan-50 flex items-center gap-2 mb-6 italic opacity-80">
-                  <ShieldCheck className="w-5 h-5 text-cyan-300" />
-                  Pusat Informasi Wali Asuh
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-slate-950">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+              <div className="relative z-10 text-white/90">
+                <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Hallo, {user.name || user.email}</h1>
+                <p className="text-sm font-bold text-emerald-200 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  {getRoleLabel(user.role || 'wali_asuh')}
                 </p>
                 
-                <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/10 shadow-inner">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-cyan-50 mb-4 flex items-center gap-2 italic">
-                    <LayoutDashboard className="w-4 h-4 text-cyan-300" />
-                    Daftar Akses Fitur:
+                <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-200/60 mb-4 flex items-center gap-2">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Daftar Fitur Akun:
                   </h3>
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-emerald-50/70">
                     {features.map((f, i) => (
                       <motion.li 
                         key={i} 
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="flex items-center gap-3 text-xs font-black text-cyan-50 italic"
+                        className="flex items-center gap-3 text-xs font-black italic"
                       >
-                        <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
                         {f}
                       </motion.li>
                     ))}
@@ -1415,29 +1446,29 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </div>
             </div>
 
-            <div>
-              <h2 className="text-xl font-black text-[#075e6e] font-display italic">Klik Menu Cepat:</h2>
+            <div className="space-y-4">
+              <h2 className="text-xl font-black text-slate-900 font-display italic">Akses Menu Cepat:</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="py-4 px-6 bg-[#075e6e] text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
+                  className="py-5 px-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-xl hover:bg-slate-950 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-slate-950"
                 >
-                  <Activity size={20} className="text-amber-200" />
-                  Lihat Perizinan
+                  <Activity size={24} className="text-emerald-400" />
+                  Verifikasi Izin
                 </button>
                 <button
                   onClick={() => setViewMode('kartu_siswa')}
-                  className="py-4 px-6 bg-[#085a6a] text-white font-black rounded-2xl shadow-xl hover:bg-[#075e6e] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
+                  className="py-5 px-6 bg-emerald-600 text-white font-black rounded-[2rem] shadow-xl hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-emerald-800"
                 >
-                   <User size={20} className="text-amber-200" />
-                  Lihat Siswa
+                   <User size={24} className="text-white" />
+                  Database Siswa
                 </button>
                 <button
                   onClick={() => setViewMode('laporan_bulanan')}
-                  className="py-4 px-6 bg-[#8b5e3c] text-white font-black rounded-2xl shadow-xl hover:bg-[#5d4037] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-2"
+                  className="py-5 px-6 bg-slate-800 text-white font-black rounded-[2rem] shadow-xl hover:bg-slate-900 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-slate-950"
                 >
-                  <FileText size={20} className="text-amber-200" />
-                  Laporan Bulanan
+                  <FileText size={24} className="text-indigo-400" />
+                  Monthly Report
                 </button>
               </div>
             </div>
@@ -2606,142 +2637,146 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
             
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</label>
-                  <p className="font-black text-slate-900 font-display">{currentSelectedPermit.nama_siswa}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</label>
-                  <p className="font-black text-slate-900 font-display">{currentSelectedPermit.kelas}</p>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{currentSelectedPermit.tipe === 'umum' ? 'Alasan Izin' : 'Diagnosa Medis'}</label>
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{currentSelectedPermit.tipe === 'umum' ? currentSelectedPermit.alasan : currentSelectedPermit.diagnosa}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Masa Izin</label>
-                  <p className="text-sm font-black text-slate-900 font-display">{currentSelectedPermit.jumlah_hari} Hari</p>
-                  <p className="text-[10px] font-bold text-slate-500">
-                    {currentSelectedPermit.tgl_mulai && typeof currentSelectedPermit.tgl_mulai.toDate === 'function' ? format(currentSelectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {currentSelectedPermit.tgl_selesai && typeof currentSelectedPermit.tgl_selesai.toDate === 'function' ? format(currentSelectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
-                  <div>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                      currentSelectedPermit.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                      currentSelectedPermit.status === 'pending_kelas' ? 'bg-amber-100 text-amber-700' :
-                      'bg-indigo-100 text-indigo-700'
-                    }`}>
-                      {(currentSelectedPermit.status || '').replace('_', ' ')}
-                    </span>
+              {currentSelectedPermit && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</label>
+                      <p className="font-black text-slate-900 font-display">{currentSelectedPermit.nama_siswa}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</label>
+                      <p className="font-black text-slate-900 font-display">{currentSelectedPermit.kelas}</p>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas</label>
-                  <p className="text-xs font-bold text-slate-700">{currentSelectedPermit.nama_wali_kelas}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Asuh</label>
-                  <p className="text-xs font-bold text-slate-700">{currentSelectedPermit.nama_wali_asuh || '-'}</p>
-                </div>
-              </div>
-
-              {currentSelectedPermit.catatan_kamar && (
-                <div className="space-y-1 pt-4 border-t border-slate-100">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
-                  <div className="flex items-center gap-2 text-indigo-600 font-black">
-                    <MapPin className="w-4 h-4" />
-                    {currentSelectedPermit.catatan_kamar}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{currentSelectedPermit.tipe === 'umum' ? 'Alasan Izin' : 'Diagnosa Medis'}</label>
+                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-sm text-slate-700 leading-relaxed font-medium">{currentSelectedPermit.tipe === 'umum' ? currentSelectedPermit.alasan : currentSelectedPermit.diagnosa}</p>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {currentSelectedPermit.status === 'pending_ack' && (
-                <div className="pt-4 border-t border-slate-100">
-                  <button
-                    onClick={() => handleAcknowledgeCatatan(currentSelectedPermit.id!)}
-                    disabled={loading}
-                    className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Setujui & Tandatangani Catatan
-                  </button>
-                </div>
-              )}
-
-              {currentSelectedPermit.status === 'pending_asuh' && (
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Konfirmasi & Catatan Kamar</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                    <textarea
-                      value={catatanKamar[currentSelectedPermit.id!] || ''}
-                      onChange={(e) => setCatatanKamar({ ...catatanKamar, [currentSelectedPermit.id!]: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[80px] font-medium"
-                      placeholder="Contoh: Kamar 302, Kondisi stabil"
-                    />
-                  </div>
-                  <button
-                    onClick={() => handleUpdateStatus(currentSelectedPermit.id!)}
-                    disabled={loading}
-                    className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Konfirmasi & Kirim ke Wali Kelas
-                  </button>
-                </div>
-              )}
-
-              {/* Log Tindakan Section */}
-              <div className="space-y-3 pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <ClipboardList className="w-3 h-3" /> Log Tindakan & Perkembangan
-                </label>
-                
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                  {currentSelectedPermit.tindakan && currentSelectedPermit.tindakan.length > 0 ? (
-                    currentSelectedPermit.tindakan.map((t, idx) => (
-                      <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">{t.peran}: {t.oleh}</span>
-                          <span className="text-[9px] font-bold text-slate-400">{t.waktu && typeof t.waktu.toDate === 'function' ? format(t.waktu.toDate(), 'HH:mm, dd MMM') : '-'}</span>
-                        </div>
-                        <p className="text-xs text-slate-700 leading-relaxed font-medium">{t.pesan}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Masa Izin</label>
+                      <p className="text-sm font-black text-slate-900 font-display">{currentSelectedPermit.jumlah_hari} Hari</p>
+                      <p className="text-[10px] font-bold text-slate-500">
+                        {currentSelectedPermit.tgl_mulai && typeof currentSelectedPermit.tgl_mulai.toDate === 'function' ? format(currentSelectedPermit.tgl_mulai.toDate(), 'dd MMM yyyy') : '?'} - {currentSelectedPermit.tgl_selesai && typeof currentSelectedPermit.tgl_selesai.toDate === 'function' ? format(currentSelectedPermit.tgl_selesai.toDate(), 'dd MMM yyyy') : '?'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Saat Ini</label>
+                      <div>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                          currentSelectedPermit.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                          currentSelectedPermit.status === 'pending_kelas' ? 'bg-amber-100 text-amber-700' :
+                          'bg-indigo-100 text-indigo-700'
+                        }`}>
+                          {(currentSelectedPermit.status || '').replace('_', ' ')}
+                        </span>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Belum ada catatan tindakan</p>
-                  )}
-                </div>
+                    </div>
+                  </div>
 
-                <div className="flex gap-2 mt-2">
-                  <input
-                    type="text"
-                    placeholder="Tambah catatan tindakan..."
-                    value={newTindakan}
-                    onChange={(e) => setNewTindakan(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-                  />
-                  <button
-                    onClick={() => handleAddTindakan(currentSelectedPermit.id!)}
-                    disabled={loading || !newTindakan.trim()}
-                    className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Kelas</label>
+                      <p className="text-xs font-bold text-slate-700">{currentSelectedPermit.nama_wali_kelas}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wali Asuh</label>
+                      <p className="text-xs font-bold text-slate-700">{currentSelectedPermit.nama_wali_asuh || '-'}</p>
+                    </div>
+                  </div>
+
+                  {currentSelectedPermit.catatan_kamar && (
+                    <div className="space-y-1 pt-4 border-t border-slate-100">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
+                      <div className="flex items-center gap-2 text-indigo-600 font-black">
+                        <MapPin className="w-4 h-4" />
+                        {currentSelectedPermit.catatan_kamar}
+                      </div>
+                    </div>
+                  )}
+
+                  {currentSelectedPermit.status === 'pending_ack' && (
+                    <div className="pt-4 border-t border-slate-100">
+                      <button
+                        onClick={() => handleAcknowledgeCatatan(currentSelectedPermit.id!)}
+                        disabled={loading}
+                        className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Setujui & Tandatangani Catatan
+                      </button>
+                    </div>
+                  )}
+
+                  {currentSelectedPermit.status === 'pending_asuh' && (
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Konfirmasi & Catatan Kamar</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                        <textarea
+                          value={catatanKamar[currentSelectedPermit.id!] || ''}
+                          onChange={(e) => setCatatanKamar({ ...catatanKamar, [currentSelectedPermit.id!]: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[80px] font-medium"
+                          placeholder="Contoh: Kamar 302, Kondisi stabil"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleUpdateStatus(currentSelectedPermit.id!)}
+                        disabled={loading}
+                        className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Konfirmasi & Kirim ke Wali Kelas
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Log Tindakan Section */}
+                  <div className="space-y-3 pt-4 border-t border-slate-100">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <ClipboardList className="w-3 h-3" /> Log Tindakan & Perkembangan
+                    </label>
+                    
+                    <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                      {currentSelectedPermit.tindakan && currentSelectedPermit.tindakan.length > 0 ? (
+                        currentSelectedPermit.tindakan.map((t, idx) => (
+                          <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">{t.peran}: {t.oleh}</span>
+                              <span className="text-[9px] font-bold text-slate-400">{t.waktu && typeof t.waktu.toDate === 'function' ? format(t.waktu.toDate(), 'HH:mm, dd MMM') : '-'}</span>
+                            </div>
+                            <p className="text-xs text-slate-700 leading-relaxed font-medium">{t.pesan}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Belum ada catatan tindakan</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        placeholder="Tambah catatan tindakan..."
+                        value={newTindakan}
+                        onChange={(e) => setNewTindakan(e.target.value)}
+                        className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                      />
+                      <button
+                        onClick={() => handleAddTindakan(currentSelectedPermit.id!)}
+                        disabled={loading || !newTindakan.trim()}
+                        className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">

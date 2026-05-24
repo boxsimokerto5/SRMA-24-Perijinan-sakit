@@ -182,7 +182,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[3rem] shadow-2xl overflow-hidden"
             >
-              <div className="bg-[#3e2723] p-8 text-white relative">
+              <div className="bg-slate-900 p-8 text-white relative">
                 <button 
                   onClick={() => setSelectedRecord(null)}
                   className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
@@ -190,45 +190,45 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                   <X className="w-6 h-6" />
                 </button>
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-[#d7ccc8] rounded-2xl flex items-center justify-center shadow-lg">
-                    <FileText className="w-8 h-8 text-[#3e2723]" />
+                  <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg border border-white/5">
+                    <FileText className="w-8 h-8 text-blue-400" />
                   </div>
                   <div>
                     <h2 className="text-2xl font-black italic tracking-tight uppercase">Detail Catatan</h2>
-                    <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.2em]">{selectedRecord.nama_siswa}</p>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] italic">{selectedRecord.nama_siswa}</p>
                   </div>
                 </div>
               </div>
 
               <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-[#f8f3ed] rounded-2xl border border-[#d7ccc8]/30">
-                    <p className="text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-1 italic">Siswa / Kelas</p>
-                    <p className="text-sm font-black text-[#3e2723]">{selectedRecord.nama_siswa} (Kelas {selectedRecord.kelas})</p>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Siswa / Kelas</p>
+                    <p className="text-sm font-black text-slate-900">{selectedRecord.nama_siswa} (Kelas {selectedRecord.kelas})</p>
                   </div>
-                  <div className="p-4 bg-[#f8f3ed] rounded-2xl border border-[#d7ccc8]/30">
-                    <p className="text-[10px] font-black text-[#3e2723]/60 uppercase tracking-widest mb-1 italic">Tanggal</p>
-                    <p className="text-sm font-black text-[#3e2723]">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Tanggal</p>
+                    <p className="text-sm font-black text-slate-900">
                       {selectedRecord.tgl_catatan?.toDate ? format(selectedRecord.tgl_catatan.toDate(), 'dd MMM yyyy HH:mm') : '-'}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-6 bg-white rounded-3xl border border-[#d7ccc8]/50 shadow-inner">
-                  <p className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-3 italic">Isi Catatan</p>
-                  <p className="text-[#3e2723] font-medium leading-relaxed italic whitespace-pre-wrap">
+                <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-inner">
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-3 italic">Isi Catatan</p>
+                  <p className="text-slate-600 font-medium leading-relaxed italic whitespace-pre-wrap">
                     "{selectedRecord.isi_catatan}"
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-[#f8f3ed]/50 rounded-2xl border border-[#d7ccc8]/20">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-[#d7ccc8]/30">
-                      <User className="w-6 h-6 text-[#3e2723]/40" />
+                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-slate-100">
+                      <User className="w-6 h-6 text-slate-400" />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black text-[#3e2723]/40 uppercase tracking-widest leading-none">Dibuat Oleh</p>
-                      <p className="text-xs font-black text-[#3e2723] uppercase tracking-tighter">{selectedRecord.author_name}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Dibuat Oleh</p>
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-tighter">{selectedRecord.author_name}</p>
                     </div>
                   </div>
                   <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
@@ -241,17 +241,17 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                 </div>
               </div>
 
-              <div className="p-8 bg-[#f8f3ed] border-t border-[#d7ccc8]/30 flex gap-4">
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
                 <button 
                   onClick={() => downloadPDF(selectedRecord)}
-                  className="flex-1 bg-[#3e2723] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center justify-center gap-2 italic"
+                  className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center justify-center gap-2 italic"
                 >
                   <Download className="w-4 h-4" />
                   Unduh PDF
                 </button>
                 <button 
                   onClick={() => setSelectedRecord(null)}
-                  className="px-8 bg-white text-[#3e2723]/40 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-[#d7ccc8]/30 hover:bg-[#f8f3ed] transition-all italic"
+                  className="px-8 bg-white text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all italic"
                 >
                   Tutup
                 </button>
@@ -261,41 +261,42 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
         )}
       </AnimatePresence>
 
-      {/* Header Style matching Pinjam HP / Catatan Kejadian */}
-      <div className="bg-[#3e2723] rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-[#5d4037] relative">
+      {/* Header Style matching Slate Theme */}
+      <div className="bg-slate-900 rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-slate-950 relative">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-lg shadow-black/20 shrink-0">
-              <ClipboardList className="w-5 h-5 text-[#3e2723]" />
+            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg border border-white/5 shrink-0">
+              <ClipboardList className="w-5 h-5 text-blue-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Catatan Perkembangan</h1>
-                <span className="bg-[#d7ccc8]/20 text-[#d7ccc8] px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-[#d7ccc8]/20">
+                <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-blue-500/20">
                   MONITORING
                 </span>
               </div>
-              <p className="text-stone-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
+              <p className="text-slate-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
                 Log Perkembangan & Aktivitas Siswa
               </p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
-            <div className="flex bg-[#5d4037] p-1 rounded-2xl border border-[#3e2723] mr-2">
+            <div className="flex bg-slate-800 p-1 rounded-2xl border border-slate-700 mr-2">
               <button 
                 onClick={() => generateProgressRecordReportPDF(records, 'minggu', user.name)}
-                className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-all"
               >
                 <div className="flex items-center gap-1.5 px-1">
                   <Printer className="w-3.5 h-3.5" />
                   <span className="text-[8px] font-black uppercase tracking-tighter italic">Minggu</span>
                 </div>
               </button>
-              <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+              <div className="w-[1px] bg-slate-700 mx-1 self-stretch" />
               <button 
                 onClick={() => generateProgressRecordReportPDF(records, 'bulan', user.name)}
-                className="p-2 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all"
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-all"
               >
                 <div className="flex items-center gap-1.5 px-1">
                   <Printer className="w-3.5 h-3.5" />
@@ -307,10 +308,10 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
             {user.role !== 'wali_asuh' && (
               <button
                 onClick={() => setIsAdding(!isAdding)}
-                className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-black/20 ${
                   isAdding 
-                  ? 'bg-[#5d4037] text-stone-300 hover:bg-[#3e2723]' 
-                  : 'bg-[#3e2723] text-white hover:bg-black shadow-black/20 border border-[#d7ccc8]/20'
+                  ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700 border-b-4 border-blue-800 italic'
                 }`}
               >
                 {isAdding ? 'Batal' : (
@@ -344,31 +345,31 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden"
             >
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-white relative">
+              <div className="bg-slate-900 p-10 text-white relative">
                 <button 
                   onClick={() => {
                     setIsAdding(false);
                     onCloseAdd?.();
                   }}
-                  className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                  className="absolute top-8 right-8 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                    <Plus className="w-8 h-8" />
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 bg-slate-800 rounded-[1.5rem] flex items-center justify-center shadow-2xl border border-white/5">
+                    <Plus className="w-8 h-8 text-blue-400" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black italic tracking-tight">Tambah Catatan</h2>
-                    <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest">Catatan Perkembangan Baru</p>
+                    <h2 className="text-2xl font-black italic tracking-tight uppercase leading-none">Tambah Catatan</h2>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2 italic">Perkembangan Baru</p>
                   </div>
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="p-10 space-y-6">
                 <div className="space-y-4">
                   <div className="relative">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-2 italic">Nama Siswa</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2 italic">Nama Siswa</label>
                     <input
                       type="text"
                       required
@@ -378,7 +379,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                         if (newRecord.nama_siswa.length > 1) setShowSuggestions(true);
                       }}
                       placeholder="Masukkan nama lengkap siswa..."
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
+                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-bold text-slate-700 italic placeholder:text-slate-300"
                     />
                     
                     <AnimatePresence>
@@ -387,17 +388,17 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-[110] left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
+                          className="absolute z-[110] left-0 right-0 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
                         >
                           {studentSuggestions.map((student) => (
                             <button
                               key={student.id}
                               type="button"
                               onClick={() => selectStudent(student)}
-                              className="w-full px-6 py-3 text-left hover:bg-indigo-50 flex flex-col transition-colors border-b border-slate-50 last:border-0"
+                              className="w-full px-8 py-4 text-left hover:bg-slate-50 flex flex-col transition-colors border-b border-slate-50 last:border-0"
                             >
-                              <span className="text-sm font-bold text-slate-700">{student.nama_lengkap}</span>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase">Kelas {student.kelas}</span>
+                              <span className="text-sm font-black text-slate-900 italic">{student.nama_lengkap}</span>
+                              <span className="text-[10px] font-black text-slate-400 uppercase italic">Kelas {student.kelas}</span>
                             </button>
                           ))}
                         </motion.div>
@@ -412,39 +413,39 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                     )}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-2 italic">Kelas</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2 italic">Kelas</label>
                     <input
                       type="text"
                       required
                       value={newRecord.kelas}
                       onChange={(e) => setNewRecord({...newRecord, kelas: e.target.value})}
                       placeholder="Contoh: X-1, XI-IPA..."
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
+                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-bold text-slate-700 italic placeholder:text-slate-300"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-2 italic">Isi Catatan</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2 italic">Isi Catatan</label>
                     <textarea
                       required
                       value={newRecord.isi_catatan}
                       onChange={(e) => setNewRecord({...newRecord, isi_catatan: e.target.value})}
                       placeholder="Tuliskan catatan perkembangan di sini..."
-                      rows={4}
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium text-slate-600 leading-relaxed italic resize-none"
+                      rows={6}
+                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-600 leading-relaxed italic resize-none placeholder:text-slate-300"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-4 pt-2">
+                <div className="flex gap-4 pt-4">
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 bg-blue-600 text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50 border-b-4 border-blue-800 italic"
                   >
                     {submitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      <Send className="w-4 h-4" />
+                      <Send className="w-5 h-5" />
                     )}
                     Simpan Catatan
                   </button>
@@ -454,7 +455,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                       setIsAdding(false);
                       onCloseAdd?.();
                     }}
-                    className="px-8 bg-white text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-100 transition-all font-display"
+                    className="px-10 bg-white text-slate-400 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest border-2 border-slate-100 hover:bg-slate-50 transition-all italic"
                   >
                     Batal
                   </button>
@@ -465,75 +466,75 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
         )}
       </AnimatePresence>
 
-      <div className="bg-white p-6 rounded-[2.5rem] border border-[#d7ccc8]/20 shadow-sm space-y-6">
+      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
           <input
             type="text"
             placeholder="Cari nama siswa atau isi catatan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-[#f8f3ed]/30 border border-[#d7ccc8]/30 rounded-2xl focus:ring-4 focus:ring-[#3e2723]/5 focus:border-[#3e2723] transition-all outline-none text-sm font-bold text-[#3e2723] placeholder:text-stone-300"
+            className="w-full pl-16 pr-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 transition-all outline-none text-sm font-bold text-slate-900 italic placeholder:text-slate-300"
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-6">
           <AnimatePresence mode="popLayout">
             {filteredRecords.length === 0 ? (
-              <div className="text-center py-20 bg-[#f8f3ed]/30 rounded-[3rem] border-2 border-dashed border-[#d7ccc8]/30">
-                <ClipboardList className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
-                <p className="text-[#3e2723]/40 font-bold uppercase tracking-widest text-xs italic">Belum ada catatan perkembangan</p>
+              <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                <ClipboardList className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Belum ada catatan perkembangan</p>
               </div>
             ) : (
               filteredRecords.map((record, idx) => (
                 <motion.div
                   key={record.id}
                   layout
-                  initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: idx * 0.03 }}
                   onClick={() => setSelectedRecord(record)}
-                  className={`group relative bg-white rounded-[2rem] p-4 border transition-all hover:shadow-xl hover:shadow-[#3e2723]/5 cursor-pointer ${
-                    !record.is_acknowledged ? 'border-[#3e2723]/20 bg-[#fefdfc]' : 'border-stone-100/50'
+                  className={`group relative bg-white rounded-[2.5rem] p-5 border transition-all hover:shadow-2xl hover:shadow-slate-900/5 cursor-pointer ${
+                    !record.is_acknowledged ? 'border-blue-100 bg-blue-50/20' : 'border-slate-50 hover:border-slate-200'
                   }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-5">
                     {/* Compact Date Box */}
-                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center border shrink-0 transition-all ${
+                    <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border shrink-0 transition-all ${
                       !record.is_acknowledged 
-                        ? 'bg-[#3e2723] border-[#3e2723] text-white shadow-lg shadow-[#3e2723]/10' 
-                        : 'bg-stone-50 border-stone-100 text-stone-300'
+                        ? 'bg-slate-900 border-slate-900 text-white shadow-xl' 
+                        : 'bg-slate-50 border-slate-100 text-slate-400'
                     }`}>
-                      <div className="text-[14px] font-black leading-none mb-0.5 italic">
+                      <div className="text-[18px] font-black leading-none mb-1 italic">
                         {record.tgl_catatan?.toDate ? format(record.tgl_catatan.toDate(), 'dd') : '-'}
                       </div>
-                      <div className="text-[7px] font-black uppercase tracking-widest opacity-60">
+                      <div className="text-[8px] font-black uppercase tracking-widest opacity-60">
                         {record.tgl_catatan?.toDate ? format(record.tgl_catatan.toDate(), 'MMM') : '-'}
                       </div>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h4 className="text-[15px] font-black text-[#3e2723] font-display italic group-hover:text-black transition-colors truncate uppercase">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h4 className="text-[16px] font-black text-slate-900 font-display italic transition-colors truncate uppercase tracking-tight">
                           {record.nama_siswa}
                         </h4>
-                        <span className="px-1.5 py-0.5 bg-[#f8f3ed] text-[#3e2723] text-[7px] font-black uppercase tracking-widest rounded-md border border-[#d7ccc8]/30">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-lg border border-slate-200">
                           {record.kelas}
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-2 px-1 border-l border-stone-100 ml-1">
-                        <p className="text-[10px] font-semibold text-stone-400 italic truncate tracking-tight">
+                      <div className="flex items-center gap-2 px-1 border-l-2 border-slate-100 ml-1">
+                        <p className="text-[11px] font-semibold text-slate-400 italic truncate tracking-tight">
                           {record.isi_catatan}
                         </p>
                       </div>
                     </div>
 
-                    <div className="shrink-0 flex items-center gap-3 pr-2">
+                    <div className="shrink-0 flex items-center gap-5 pr-2">
                        <div className="text-right hidden sm:block">
-                          <p className="text-[8px] font-black text-stone-300 uppercase tracking-widest leading-none">Oleh</p>
-                          <p className="text-[9px] font-black text-[#3e2723] italic uppercase truncate max-w-[80px]">{record.author_name}</p>
+                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none italic">Pengirim</p>
+                          <p className="text-[10px] font-black text-slate-900 italic uppercase truncate max-w-[100px] mt-1">{record.author_name}</p>
                        </div>
                        
                        {!record.is_acknowledged && user.role === 'wali_asuh' ? (
@@ -542,17 +543,17 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                               e.stopPropagation();
                               handleAcknowledge(record.id!);
                             }}
-                            className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+                            className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-90 border-b-4 border-emerald-700"
                           >
-                            <Check className="w-5 h-5" />
+                            <Check className="w-6 h-6" />
                           </button>
                        ) : (
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all ${
                             record.is_acknowledged 
-                            ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
-                            : 'bg-stone-50 border-stone-100 text-stone-300'
+                            ? 'bg-emerald-50 border-emerald-100 text-emerald-500' 
+                            : 'bg-slate-50 border-slate-100 text-slate-300'
                           }`}>
-                            <CheckCircle2 className="w-4 h-4 opacity-70" />
+                            <CheckCircle2 className="w-5 h-5" />
                           </div>
                        )}
                     </div>

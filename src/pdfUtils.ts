@@ -396,6 +396,119 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
   }
 };
 
+export const generateHealthCheckSummaryReportPDF = async (proposals: HealthCheckProposal[], rangeLabel: string, userName: string = 'SRMA 24 KEDIRI') => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- DESIGN: Border & Header ---
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287);
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(219, 39, 119); // Pink/Rose color for health
+  doc.text('LAPORAN REKAPITULASI USULAN CEK KESEHATAN', 105, 32, { align: 'center' });
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(20, 45, 190, 45);
+
+  // --- REPORT INFO ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Periode Laporan : ${rangeLabel}`, 20, 55);
+  doc.text(`Tanggal Cetak   : ${format(new Date(), 'dd MMMM yyyy, HH:mm')}`, 20, 60);
+  doc.text(`Total Data      : ${proposals.length} Usulan`, 20, 65);
+
+  // --- TABLE ---
+  const tableData = proposals.map((p, index) => [
+    (index + 1).toString(),
+    p.proposer_name || '',
+    p.asrama || '-',
+    p.daftar_siswa.join(', '),
+    p.tgl_usulan && typeof p.tgl_usulan.toDate === 'function' ? format(p.tgl_usulan.toDate(), 'dd/MM/yy') : '-',
+    p.status.toUpperCase()
+  ]);
+
+  autoTable(doc, {
+    startY: 75,
+    head: [['NO', 'PENGUSUL', 'ASRAMA', 'DAFTAR SISWA', 'TANGGAL', 'STATUS']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      overflow: 'linebreak',
+      cellPadding: 2,
+      fontSize: 8,
+      valign: 'top',
+      font: 'helvetica'
+    },
+    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontSize: 8, fontStyle: 'bold' },
+    bodyStyles: { textColor: [40, 40, 40] },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 'auto', halign: 'left' },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 20 }
+    },
+    margin: { left: 20, right: 20 }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY;
+
+  // --- SIGNATURE ---
+  const footerY = Math.min(finalY + 15, 230);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kediri, ' + format(new Date(), 'dd MMMM yyyy'), 150, footerY, { align: 'center' });
+  doc.text('Petugas Kesehatan,', 150, footerY + 5, { align: 'center' });
+  
+  // QR Signature
+  const qrData = `HEALTH_SUMMARY_VERIFIED_BY_${userName}_${format(new Date(), 'yyyyMMddHHmm')}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+  doc.addImage(qrUrl, 'PNG', 137, footerY + 10, 25, 25);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(userName, 150, footerY + 45, { align: 'center' });
+  doc.line(125, footerY + 46, 175, footerY + 46);
+
+  // --- OUTPUT ---
+  const fileName = `Rekap_Usulan_Kesehatan_${rangeLabel.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Rekapitulasi Usulan Kesehatan',
+        text: `Rekapitulasi Usulan Kesehatan - ${rangeLabel}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Laporan'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
 export const generateLaptopRequestPDF = async (request: LaptopRequest) => {
   const doc = new jsPDF({
     orientation: 'portrait',

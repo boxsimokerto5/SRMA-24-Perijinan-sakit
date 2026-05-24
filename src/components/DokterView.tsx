@@ -18,7 +18,8 @@ import {
 import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
-import { generatePermitPDF, generateMemorandumPDF, generateHealthCheckProposalPDF } from '../pdfUtils';
+import { id } from 'date-fns/locale';
+import { generatePermitPDF, generateMemorandumPDF, generateHealthCheckProposalPDF, generateSummaryReportPDF, generateHealthCheckSummaryReportPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import AgendaView from './AgendaView';
@@ -91,6 +92,19 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
 
   // View Mode
   const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek' | 'statistik' | 'profil' | 'memorandum' | 'buat_surat' | 'riwayat_skd' | 'mading' | 'agenda'>('statistik');
+
+  const viewTitles: Record<string, string> = {
+    'perizinan': 'Riwayat Perizinan',
+    'kartu_siswa': 'Data Siswa',
+    'usulan_cek': 'Usulan Cek Kesehatan',
+    'statistik': 'Statistik Kesehatan',
+    'profil': 'Profil Dokter',
+    'memorandum': 'Memorandum',
+    'buat_surat': 'Buat Surat Keterangan',
+    'riwayat_skd': 'Riwayat Surat (SKD)',
+    'mading': 'Mading Kampus',
+    'agenda': 'Agenda Dokter'
+  };
 
   useEffect(() => {
     if (activeTab === 'profil') setViewMode('profil');
@@ -463,83 +477,92 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     const COLORS = ['#8b5e3c', '#5d4037', '#c0b298', '#d7ccc8', '#a1887f'];
 
     return (
-      <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-        <div className="bg-[#5d4037] p-8 rounded-[2.5rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-[#3e2723]">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
+      <div className="space-y-10 animate-in fade-in duration-500 pb-20 mt-10">
+        <div className="bg-[#3e2723] p-10 lg:p-14 rounded-[4rem] text-white shadow-3xl relative overflow-hidden group border-b-[12px] border-black">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
           <div className="relative z-10">
-            <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Hallo, {user.name || user.email}</h1>
-            <p className="text-sm font-bold text-amber-100 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
-              <ShieldCheck className="w-5 h-5 text-amber-400" />
-              {getRoleLabel(user.role || 'dokter')}
-            </p>
+            <h1 className="text-4xl lg:text-5xl font-black font-display tracking-tight mb-4 italic leading-tight uppercase">Dashboard<br />Layanan Medik</h1>
+            <div className="flex items-center gap-4 bg-white/10 px-6 py-2.5 rounded-[1.5rem] backdrop-blur-xl border border-white/15 w-fit mb-10">
+              <ShieldCheck className="w-5 h-5 text-amber-200" />
+              <p className="text-[11px] font-black text-amber-100 uppercase tracking-[0.3em] italic">
+                {getRoleLabel(user.role || 'dokter')}: {user.name}
+              </p>
+            </div>
             
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-100/60 mb-4 flex items-center gap-2">
-                <LayoutDashboard className="w-4 h-4" />
-                Daftar Fitur Akun:
+            <div className="bg-white/5 backdrop-blur-md rounded-[3rem] p-10 border border-white/10">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-amber-200/50 mb-6 flex items-center gap-3 italic">
+                <LayoutDashboard className="w-5 h-5" />
+                Akses Perizinan Terpadu:
               </h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-amber-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-white">
                 {features.map((f, i) => (
-                  <motion.li 
+                  <motion.div 
                     key={i} 
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className="flex items-center gap-3 text-xs font-bold"
+                    className="flex items-center gap-4 text-xs font-black uppercase tracking-widest italic opacity-80"
                   >
-                    <div className="w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
+                    <div className="w-2.5 h-2.5 bg-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.8)] shrink-0" />
                     {f}
-                  </motion.li>
+                  </motion.div>
                 ))}
-              </ul>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between font-display relative px-2">
+          <div className="absolute -left-6 bottom-0 w-24 h-24 bg-[#3e2723]/5 rounded-full blur-3xl -z-10" />
           <div>
-            <h2 className="text-2xl font-black text-[#5d4037] font-display">Statistik Klinik</h2>
-            <p className="text-[10px] font-bold text-[#8b5e3c]/60 uppercase tracking-widest mt-1">Data pemeriksaan kesehatan siswa.</p>
+            <h2 className="text-3xl font-black text-[#3e2723] font-display uppercase italic tracking-tight">E-Klinik Dashboard</h2>
+            <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] mt-3 italic leading-none">Indikator Kesehatan Akademik Digital</p>
           </div>
-          <div className="p-3 bg-[#fdfcf0] text-[#5d4037] rounded-2xl border border-[#d7ccc8]">
-            <Activity className="w-6 h-6" />
+          <div className="p-5 bg-white text-[#3e2723] rounded-[2rem] border-2 border-stone-100 shadow-xl group hover:rotate-6 transition-transform">
+            <Activity className="w-8 h-8 group-hover:scale-110 transition-transform" />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Tren Kunjungan</h3>
-              <TrendingUp className="w-5 h-5 text-indigo-500" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="bg-white p-10 lg:p-14 rounded-[4rem] shadow-xl border border-stone-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-[#fcfaf6] rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-150 transition-transform duration-1000" />
+            <div className="flex items-center justify-between mb-12 relative z-10">
+              <h3 className="font-black text-[#3e2723] uppercase tracking-[0.3em] text-[11px] italic leading-none">Analisis Tren Kunjungan</h3>
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <TrendingUp className="w-6 h-6" />
+              </div>
             </div>
-            <div className="h-64 w-full">
+            <div className="h-72 w-full relative z-10">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={monthlyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
-                  <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                  <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={4} dot={{ r: 6, fill: '#6366f1', strokeWidth: 3, stroke: '#fff' }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8f5f2" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#333', fontStyle: 'italic' }} dy={15} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#333' }} />
+                  <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', fontWeight: 900, fontSize: '12px' }} />
+                  <Line type="monotone" dataKey="value" stroke="#3e2723" strokeWidth={6} dot={{ r: 8, fill: '#3e2723', strokeWidth: 4, stroke: '#fff' }} activeDot={{ r: 12, fill: '#3e2723' }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Top Diagnosa Medis</h3>
-              <Activity className="w-5 h-5 text-rose-500" />
+          <div className="bg-white p-10 lg:p-14 rounded-[4rem] shadow-xl border border-stone-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/30 rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-150 transition-transform duration-1000" />
+            <div className="flex items-center justify-between mb-12 relative z-10">
+              <h3 className="font-black text-[#3e2723] uppercase tracking-[0.3em] text-[11px] italic leading-none">Etiologi Diagnosa Terbesar</h3>
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
+                <Activity className="w-6 h-6" />
+              </div>
             </div>
-            <div className="h-64 w-full">
+            <div className="h-72 w-full relative z-10">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={diagnosisData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <BarChart data={diagnosisData} layout="vertical" margin={{ left: 20 }}>
+                  <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#f8f5f2" />
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} width={80} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                  <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={20}>
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#3e2723', fontStyle: 'italic' }} width={100} />
+                  <Tooltip cursor={{ fill: '#fcfaf6' }} contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', fontWeight: 900 }} />
+                  <Bar dataKey="value" radius={[0, 15, 15, 0]} barSize={25}>
                     {diagnosisData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={['#3e2723', '#5d4037', '#8b5e3c', '#a1887f', '#d7ccc8'][index % 5]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -553,7 +576,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
 
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
-      dokter: 'Dokter',
+      dokter: 'Tim Medis Digital',
       wali_asuh: 'Wali Asuh',
       wali_kelas: 'Wali Kelas',
       kepala_sekolah: 'Kepala Sekolah',
@@ -572,8 +595,10 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     'Berbagi Catatan di Mading Sekolah'
   ];
 
+  const COLORS = ['#0d9488', '#0ea5e9', '#6366f1', '#f43f5e', '#8b5cf6'];
+
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} font-sans transition-colors duration-500`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-amber-50' : 'bg-[#fcfaf6] text-[#3e2723]'} font-sans transition-colors duration-500 selection:bg-[#3e2723] selection:text-white`}>
       {/* Sidebar Navigation */}
       <AnimatePresence>
         {showSidebar && (
@@ -583,41 +608,44 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSidebar(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] lg:hidden"
             />
             <motion.div
-              initial={{ x: -300 }}
+              initial={{ x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: -300 }}
-              className="fixed top-0 left-0 h-full w-72 bg-[#075e6e] text-white z-50 flex flex-col shadow-2xl overflow-y-auto custom-scrollbar border-r border-white/10"
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`fixed inset-y-0 left-0 h-full w-[320px] z-[70] flex flex-col shadow-2xl overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'}`}
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="p-6">
-                  <div className="bg-[#085a6a] rounded-3xl p-5 mb-8 border border-white/10 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
-                    <div className="flex items-center gap-4 relative z-10">
-                      <Logo size="sm" showText={false} className="shadow-xl" />
+                <div className="p-8">
+                  <div className={`rounded-[2.5rem] p-8 mb-10 border shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-stone-950 border-white/5' : 'bg-[#fcfaf6] border-stone-200'}`}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#3e2723]/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:scale-125 transition-transform" />
+                    <div className="flex items-center gap-5 relative z-10">
+                      <div className="w-16 h-16 bg-[#3e2723] rounded-3xl flex items-center justify-center shadow-xl shadow-black/20 -rotate-3 group-hover:rotate-0 transition-transform">
+                        <Stethoscope className="w-8 h-8 text-amber-200" />
+                      </div>
                       <div className="flex flex-col">
-                        <span className="font-black text-white text-base leading-tight tracking-tight">SRMA 24 KEDIRI</span>
-                        <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest mt-0.5 opacity-70">SEKOLAH RAKYAT</span>
+                        <span className="font-black text-[15px] leading-tight tracking-tight uppercase italic font-display">Medical Desk</span>
+                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-40 italic`}>SRMA 24 KEDIRI</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-8">
+                  <div className="space-y-10">
                     <div>
-                      <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">HOME</p>
-                      <nav className="space-y-1.5">
+                      <p className={`text-[10px] font-black uppercase tracking-[0.3em] mb-6 px-4 italic opacity-30`}>Klinik Hub Nav</p>
+                      <nav className="space-y-2">
                         {[
-                          { id: 'statistik', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'statistik', label: 'Dashboard Klinik', icon: LayoutDashboard },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
-                          { id: 'buat_surat', label: 'Buat SKD', icon: FileText },
-                          { id: 'riwayat_skd', label: 'Riwayat Surat Kesehatan', icon: ClipboardList },
-                          { id: 'kartu_siswa', label: 'Data Siswa', icon: User },
-                          { id: 'usulan_cek', label: 'Usulan Cek Kesehatan', icon: ShieldCheck },
+                          { id: 'buat_surat', label: 'Penerbitan SKD', icon: FileText },
+                          { id: 'riwayat_skd', label: 'Arsip Kesehatan', icon: ClipboardList },
+                          { id: 'kartu_siswa', label: 'Database Siswa', icon: User },
+                          { id: 'usulan_cek', label: 'Usulan Cek Up', icon: ShieldCheck },
                           { id: 'memorandum', label: 'Memorandum Intern', icon: Mail },
-                          { id: 'profil', label: 'Profil Saya', icon: User }
+                          { id: 'profil', label: 'Identitas Dokter', icon: User }
                         ].map((item) => (
                           <button
                             key={item.id}
@@ -625,13 +653,13 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                               setViewMode(item.id as any);
                               setShowSidebar(false);
                             }}
-                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${
+                            className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all duration-300 italic border-b-4 ${
                               viewMode === item.id 
-                                ? 'bg-white text-[#075e6e] shadow-xl shadow-black/10' 
-                                : 'bg-transparent text-white/70 hover:bg-[#085a6a] hover:text-white'
+                                ? 'bg-[#3e2723] text-white border-black shadow-xl shadow-stone-900/20' 
+                                : 'bg-transparent text-stone-400 hover:bg-stone-50 hover:text-[#3e2723] border-transparent'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-[#075e6e]' : 'text-white/40'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-amber-200' : 'text-stone-300'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -642,14 +670,13 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </div>
 
               {/* Bottom Logout Section */}
-              <div className="p-6 border-t border-white/10">
-                <p className="text-[10px] font-black text-cyan-100/40 uppercase tracking-[0.2em] mb-4 px-2">TOKO & AKUN</p>
+              <div className="p-8 border-t border-stone-100">
                 <button 
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-4 px-6 py-4 bg-[#085a6a] text-white rounded-2xl font-black text-sm hover:bg-[#0a6d7d] transition-all shadow-lg border border-white/5 active:scale-95"
+                  className={`w-full flex items-center gap-4 px-8 py-5 rounded-[1.5rem] font-black text-[11px] transition-all shadow-xl active:scale-95 bg-rose-600 text-white border-b-8 border-rose-900 italic uppercase tracking-wider mb-2`}
                 >
-                  <LogOut className="w-5 h-5 text-cyan-300" />
-                  Keluar Akun
+                  <LogOut className="w-5 h-5" />
+                  Sign Out Session
                 </button>
               </div>
             </motion.div>
@@ -657,57 +684,61 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         )}
       </AnimatePresence>
 
-      <header className={`sticky top-0 z-30 ${isDarkMode ? 'bg-slate-950/80' : 'bg-white/80'} backdrop-blur-md border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className={`sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#3e2723]/80 border-white/5' : 'bg-[#fcfaf6]/80 border-stone-200'} backdrop-blur-md border-b h-24`}>
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+          <div className="flex items-center gap-6">
             <button
               onClick={() => setShowSidebar(true)}
-              className={`p-2.5 rounded-xl ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-50'} transition-colors shadow-sm`}
+              className={`p-4 rounded-[1.25rem] transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-stone-900 text-amber-200 shadow-lg shadow-black/20' 
+                  : 'bg-white text-[#3e2723] shadow-xl shadow-stone-200/50'
+              } active:scale-95 border border-stone-100/50`}
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-sm font-black uppercase tracking-[0.2em]">
-               {viewMode === 'kartu_siswa' ? 'Database Siswa' :
-               viewMode === 'usulan_cek' ? 'Usulan Cek Kesehatan' : 
-               viewMode === 'statistik' ? 'Statistik Klinik' :
-               viewMode === 'buat_surat' ? 'Buat Surat Keterangan' :
-               viewMode === 'riwayat_skd' ? 'Riwayat Surat Kesehatan' :
-               viewMode === 'mading' ? 'Mading Sekolah' :
-               viewMode === 'memorandum' ? 'Memorandum Intern' : 'Profil Dokter'}
-            </h1>
+            <div className="flex flex-col text-left">
+              <h1 className={`text-xl font-black uppercase tracking-tight font-display italic ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
+                {viewTitles[viewMode] || 'Medical Center'}
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="w-1.5 h-1.5 bg-[#3e2723] rounded-full animate-pulse opacity-30" />
+                <p className={`text-[9px] font-black uppercase tracking-[0.2em] opacity-40 italic ${isDarkMode ? 'text-amber-200/50' : 'text-[#3e2723]'}`}>Digital Health Informatics</p>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
              <button
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-slate-800 text-amber-400' : 'bg-slate-100 text-slate-500'} transition-all`}
+              className={`w-12 h-12 flex items-center justify-center rounded-2xl ${isDarkMode ? 'bg-stone-800 text-amber-200 shadow-lg shadow-black/20' : 'bg-white text-stone-400 shadow-xl shadow-stone-200/50'} transition-all active:scale-95 border border-stone-100/50`}
             >
-              {isDarkMode ? <Activity className="w-5 h-5" /> : <Activity className="w-5 h-5 rotate-180" />}
+              {isDarkMode ? <Activity className="w-5 h-5 text-amber-200" /> : <Activity className="w-5 h-5" />}
             </button>
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'} relative transition-all`}
+                className={`w-12 h-12 flex items-center justify-center rounded-2xl ${isDarkMode ? 'bg-stone-800 text-amber-200 shadow-lg shadow-black/20' : 'bg-white text-stone-400 shadow-xl shadow-stone-200/50'} transition-all active:scale-95 border border-stone-100/50 relative`}
               >
                 <Mail className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
+                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white shadow-sm" />
               </button>
               <AnimatePresence>
                 {showNotifications && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    initial={{ opacity: 0, y: 15, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className={`absolute right-0 mt-3 w-80 ${isDarkMode ? 'bg-slate-900 ring-slate-800' : 'bg-white ring-slate-200'} rounded-[2rem] shadow-2xl ring-1 p-4 z-50`}
+                    exit={{ opacity: 0, y: 15, scale: 0.9 }}
+                    className={`absolute right-0 mt-6 w-80 ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'} rounded-[2.5rem] shadow-3xl p-6 z-50 border`}
                   >
-                    <div className="flex items-center justify-between mb-4 px-2">
-                       <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pesan Masuk</h3>
+                    <div className="flex items-center justify-between mb-6 px-2">
+                       <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#3e2723]/30">Pesan Masuk</h3>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {notifications.map(n => (
-                        <div key={n.id} className={`p-4 rounded-2xl ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-50'} transition-all group cursor-pointer`}>
-                          <h4 className="text-xs font-black uppercase tracking-tight">{n.title}</h4>
-                          <p className="text-[10px] text-slate-400 mt-1 uppercase leading-relaxed">{n.message}</p>
+                        <div key={n.id} className={`p-5 rounded-[1.5rem] ${isDarkMode ? 'hover:bg-stone-800' : 'hover:bg-[#fcfaf6]'} transition-all group cursor-pointer border border-transparent`}>
+                          <h4 className="text-xs font-black uppercase tracking-tight italic">{n.title}</h4>
+                          <p className="text-[10px] text-stone-400 mt-2 uppercase leading-relaxed font-bold italic line-clamp-2">{n.message}</p>
                         </div>
                       ))}
                     </div>
@@ -728,33 +759,31 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="max-w-7xl mx-auto px-4 pt-4">
-              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${banners[bannerIndex].color.includes('rose') ? 'from-[#5d4037] to-[#8b5e3c]' : 'from-[#075e6e] to-[#085a6a]'} p-4 text-white shadow-lg shadow-black/10`}>
-                <div className="relative z-10 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5 text-amber-200" })}
+            <div className="max-w-7xl mx-auto px-6 pt-8">
+              <div className={`relative overflow-hidden rounded-[2.5rem] bg-[#3e2723] p-8 text-white shadow-2xl group border-b-8 border-black`}>
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+                <div className="relative z-10 flex items-center justify-between gap-8">
+                  <div className="flex items-center gap-6">
+                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-xl border border-white/20 shadow-lg group-hover:rotate-12 transition-transform duration-500">
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-8 h-8 text-amber-200" })}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">{banners[bannerIndex].title}</h4>
-                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-black uppercase tracking-tighter border border-white/10">
-                          {banners[bannerIndex].author || 'Sistem'}
+                      <div className="flex items-center gap-4">
+                        <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-amber-100 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-3 py-1 bg-white/15 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10 backdrop-blur-md">
+                          {banners[bannerIndex].author || 'System'}
                         </span>
                       </div>
-                      <p className="text-xs font-medium leading-tight mt-0.5 line-clamp-2">{banners[bannerIndex].content}</p>
+                      <p className="text-lg font-bold leading-relaxed mt-2 italic text-white/90 font-display">"{banners[bannerIndex].content}"</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setShowBanner(false)}
-                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                    className="w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-rose-500 rounded-2xl transition-all active:scale-90 border border-white/10 group/btn"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-6 h-6 group-hover/btn:rotate-90 transition-transform" />
                   </button>
                 </div>
-                {/* Decorative circles */}
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-                <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-black/10 rounded-full blur-2xl" />
               </div>
             </div>
           </motion.div>
@@ -762,14 +791,14 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       </AnimatePresence>
 
       {/* Shrunken Real-time Clock Bar */}
-      <div className="max-w-7xl mx-auto w-full px-4 mt-3">
-        <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
-          <div className="flex items-center justify-center gap-2 py-1.5 px-4 rounded-[calc(0.75rem-1px)] bg-white/80 backdrop-blur-sm">
-            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
-            <p className="text-[8px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
-              {formatRealTime(currentTime)}
+      <div className="max-w-7xl mx-auto w-full px-6 mt-8">
+        <div className="p-1 rounded-[1.5rem] bg-stone-100">
+          <div className="flex items-center justify-center gap-4 py-4 px-8 rounded-[calc(1.5rem-1px)] bg-[#fcfaf6] border-2 border-stone-100 shadow-inner">
+            <span className="w-2 h-2 bg-[#3e2723] rounded-full animate-ping opacity-30 px-1" />
+            <p className="text-[11px] font-black uppercase tracking-[0.4em] flex items-center gap-3 text-stone-400 italic">
+              OFFICIAL SYSTEM TIME: <span className="text-[#3e2723]">{formatRealTime(currentTime)}</span>
             </p>
-            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <span className="w-2 h-2 bg-[#3e2723] rounded-full animate-ping opacity-30 px-1" />
           </div>
         </div>
       </div>
@@ -1015,97 +1044,165 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         )}
 
         {viewMode === 'riwayat_skd' && (
-          <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between pb-4">
-              <div>
-                 <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Riwayat Surat Kesehatan</h2>
-                 <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-widest">Database Elektronik Klinik</p>
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Minimal High-Contrast Header */}
+            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 shadow-3xl text-white relative overflow-hidden border border-[#5d4037]">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
+                <div className="flex items-center gap-8">
+                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 group-hover:rotate-0 transition-transform">
+                    <ClipboardList className="w-10 h-10 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Riwayat Surat</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10">MEDICAL LOGS</span>
+                    </div>
+                    <p className="text-stone-400 text-[10px] font-black mt-3 uppercase tracking-[0.2em] italic opacity-80">Database Elektronik Surat Keterangan Sakit</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex bg-[#5d4037] p-1.5 rounded-[1.5rem] border border-[#3e2723] shadow-inner">
+                    <button 
+                      onClick={() => {
+                        const filtered = permits.filter(p => isThisWeek(p.tgl_surat.toDate()));
+                        generateSummaryReportPDF(filtered, 'Minggu Ini', user.name, 'Dokter UKS');
+                      }}
+                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                    >
+                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Minggu</span>
+                    </button>
+                    <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+                    <button 
+                      onClick={() => {
+                        const filtered = permits.filter(p => isThisMonth(p.tgl_surat.toDate()));
+                        generateSummaryReportPDF(filtered, 'Bulan Ini', user.name, 'Dokter UKS');
+                      }}
+                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                    >
+                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Bulan</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setViewMode('buat_surat')}
+                    className="px-8 py-4 bg-[#fcfaf6] text-[#3e2723] rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.1em] flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-95 shadow-2xl italic border-b-4 border-[#d7ccc8]"
+                  >
+                    <Plus className="w-5 h-5" /> Buat Surat Baru
+                  </button>
+                </div>
               </div>
-              <button 
-                onClick={() => setViewMode('buat_surat')}
-                className="p-3 bg-[#075e6e] text-white rounded-2xl hover:bg-[#085a6a] shadow-lg transition-all"
-                title="Buat SKD Baru"
-              >
-                <Plus className="w-6 h-6" />
-              </button>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-               <div className="relative group">
-                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                 <input
-                   type="text"
-                   placeholder="Cari nama siswa atau nomor surat..."
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-[#075e6e] outline-none transition-all text-sm font-bold"
-                 />
-               </div>
+            <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-stone-100 flex flex-col md:flex-row gap-8 items-center border-b-[12px]">
+              <div className="relative w-full group">
+                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                <input 
+                  type="text" 
+                  placeholder="Cari nama siswa atau no surat..."
+                  className="w-full pl-24 pr-8 py-6 bg-[#fcfaf6] border-2 border-stone-50 rounded-[2rem] focus:border-[#3e2723] focus:ring-8 focus:ring-[#3e2723]/5 outline-none transition-all font-black text-[#3e2723] text-sm italic placeholder:text-stone-200 shadow-inner"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar w-full md:w-auto">
+                {(['hari_ini', 'kemarin', 'minggu_ini', 'bulan_ini', 'semua'] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setTimeFilter(filter)}
+                    className={`px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all italic border-b-4 ${
+                      timeFilter === filter 
+                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-xl scale-105' 
+                        : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
+                    }`}
+                  >
+                    {filter.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-4">
-              {permits
-                .filter(p => 
-                  p.nama_siswa?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  p.nomor_surat?.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((permit) => (
-                <motion.div 
-                  key={permit.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onClick={() => setSelectedPermit(permit)}
-                  className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200 hover:border-[#075e6e] transition-all cursor-pointer group relative overflow-hidden"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={`mt-1.5 w-3 h-3 rounded-full shrink-0 ${
-                      permit.status === 'approved' ? 'bg-indigo-500' : 'bg-[#075e6e]'
-                    }`} />
-                    <div className="space-y-4 flex-1">
-                      <div className="space-y-1">
-                        <h3 className="text-xl font-bold text-slate-900 leading-tight">
-                          SKD untuk {permit.nama_siswa} telah dibuat
-                        </h3>
-                      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <AnimatePresence mode="popLayout">
+                {permits
+                  .filter(p => {
+                    const matchesSearch = p.nama_siswa?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        p.nomor_surat?.toLowerCase().includes(searchTerm.toLowerCase());
+                    if (!matchesSearch) return false;
+
+                    const date = p.tgl_surat?.toDate();
+                    if (!date) return true;
+
+                    if (timeFilter === 'hari_ini') return isToday(date);
+                    if (timeFilter === 'kemarin') return isYesterday(date);
+                    if (timeFilter === 'minggu_ini') return isThisWeek(date);
+                    if (timeFilter === 'bulan_ini') return isThisMonth(date);
+                    return true;
+                  })
+                  .map((permit) => (
+                    <motion.div
+                      key={permit.id}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="bg-white p-10 rounded-[3.5rem] border border-stone-50 shadow-sm hover:shadow-2xl transition-all group relative border-b-[12px] border-stone-100 overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-3 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-700" />
                       
-                      <div className="space-y-1">
-                        <p className="text-slate-500 text-base leading-relaxed">
-                          Dokter telah menerbitkan Surat Keterangan Sakit dengan nomor <span className="font-bold text-slate-900">#{permit.nomor_surat}</span> untuk diagnosa {permit.diagnosa || '-'}. 
-                          Siswa disarankan istirahat selama {permit.jumlah_hari} hari.
-                        </p>
-                      </div>
+                      <div className="flex flex-col h-full gap-8">
+                        <div className="flex justify-between items-start pt-2">
+                           <div className="flex gap-6">
+                              <div className="w-14 h-14 rounded-2xl bg-[#fcfaf6] flex items-center justify-center border-2 border-stone-50 group-hover:bg-[#3e2723] transition-colors duration-500">
+                                <FileText className="w-7 h-7 text-[#3e2723]/30 group-hover:text-amber-200" />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic mb-1">SKD #{permit.nomor_surat}</p>
+                                <h4 className="text-2xl font-black text-[#3e2723] uppercase italic tracking-tight font-display">{permit.nama_siswa}</h4>
+                                <p className="text-[11px] font-bold text-stone-400 mt-2 uppercase tracking-widest italic">{permit.kelas}</p>
+                              </div>
+                           </div>
+                        </div>
 
-                      <div className="pt-2 flex items-center justify-between">
-                        <span className="text-slate-400 text-sm font-semibold tracking-tight">
-                          {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' 
-                            ? format(permit.tgl_surat.toDate(), 'dd MMMM yyyy, HH:mm') 
-                            : format(new Date(), 'dd MMMM yyyy, HH:mm')
-                          } WIB
-                        </span>
-                        
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleGeneratePDF(permit);
-                            }}
-                            className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-[#075e6e] hover:text-white transition-all shadow-sm"
-                            title="Download PDF"
-                          >
-                            <Printer className="w-5 h-5" />
-                          </button>
+                        <div className="bg-[#fcfaf6] p-8 rounded-[2.5rem] border border-stone-50 relative group-hover:border-[#3e2723]/10 transition-colors">
+                          <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.2em] mb-4 italic leading-none">Diagnosa Medis:</p>
+                          <p className="text-lg font-black text-[#5d4037] italic leading-relaxed whitespace-pre-wrap">"{permit.diagnosa || permit.alasan || '-'}"</p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-6 border-t border-stone-50 mt-auto">
+                           <div className="flex items-center gap-3">
+                              <Clock className="w-4 h-4 text-stone-200" />
+                              <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic">
+                                {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy', { locale: id }) : '-'}
+                              </span>
+                           </div>
+                           
+                           <div className="flex items-center gap-3">
+                             <button
+                               onClick={() => generatePermitPDF(permit)}
+                               className="p-4 bg-stone-50 text-stone-300 hover:text-[#3e2723] hover:bg-white rounded-xl transition-all shadow-sm hover:shadow-xl border border-transparent hover:border-stone-100"
+                               title="Cetak PDF"
+                             >
+                               <Printer className="w-5 h-5" />
+                             </button>
+                             <div className="px-6 py-2.5 bg-[#3e2723] text-amber-200 rounded-xl text-[10px] font-black uppercase tracking-widest italic border-b-4 border-black">
+                               VERIFIED
+                             </div>
+                           </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                    </motion.div>
+                  ))}
+              </AnimatePresence>
 
               {permits.length === 0 && (
-                <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada riwayat surat</p>
+                <div className="col-span-full py-40 bg-white rounded-[4rem] border-4 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-10">
+                  <FileText className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
+                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Arsip Kosong</h3>
+                  <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Database elektronik belum merekam adanya surat keterangan yang diterbitkan untuk periode ini.</p>
                 </div>
               )}
             </div>
@@ -1163,19 +1260,62 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         )}
 
         {viewMode === 'usulan_cek' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-             <div className="flex items-center justify-between">
-                <div>
-                   <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Usulan Cek Kesehatan</h2>
-                   <p className="text-[10px] font-medium text-slate-400 mt-0.5">Monitoring permohonan pemeriksaan dari asrama</p>
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header Style Matching the Theme */}
+            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 text-white relative overflow-hidden shadow-2xl border border-[#5d4037]">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
+                <div className="flex items-center gap-8">
+                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 transition-transform hover:rotate-0">
+                    <Activity className="w-10 h-10 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Usulan Kesehatan</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10">
+                        MONITORING
+                      </span>
+                    </div>
+                    <p className="text-stone-400 text-[10px] font-black mt-3 uppercase tracking-[0.2em] italic opacity-80">
+                      Permohonan Pemeriksaan dari Wali Asrama
+                    </p>
+                  </div>
                 </div>
-                <div className="px-4 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  {proposals.filter(p => p.status === 'pending').length} Menunggu
+                
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex bg-[#5d4037] p-1.5 rounded-[1.5rem] border border-[#3e2723] shadow-inner">
+                    <button 
+                      onClick={() => {
+                        const filtered = proposals.filter(p => isThisWeek(p.tgl_usulan.toDate()));
+                        generateHealthCheckSummaryReportPDF(filtered, 'Minggu Ini', user.name);
+                      }}
+                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                    >
+                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Minggu</span>
+                    </button>
+                    <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+                    <button 
+                      onClick={() => {
+                        const filtered = proposals.filter(p => isThisMonth(p.tgl_usulan.toDate()));
+                        generateHealthCheckSummaryReportPDF(filtered, 'Bulan Ini', user.name);
+                      }}
+                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                    >
+                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Bulan</span>
+                    </button>
+                  </div>
+
+                  <div className="px-6 py-4 bg-[#fcfaf6] text-[#3e2723] rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.1em] shadow-2xl italic border-b-4 border-[#d7ccc8]">
+                    {proposals.filter(p => p.status === 'pending').length} Menunggu
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* FILTER HORIZONTAL */}
-              <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+            <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-stone-100 flex flex-col md:flex-row gap-8 items-center border-b-[12px]">
+              <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar w-full">
                 {[
                   { id: 'hari_ini', label: 'Hari Ini' },
                   { id: 'kemarin', label: 'Kemarin' },
@@ -1185,18 +1325,20 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                   <button
                     key={f.id}
                     onClick={() => setProposalTimeFilter(f.id as any)}
-                    className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                    className={`px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all italic border-b-4 ${
                       proposalTimeFilter === f.id 
-                        ? 'bg-[#075e6e] text-white shadow-lg' 
-                        : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-xl scale-105' 
+                        : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
                     }`}
                   >
                     {f.label}
                   </button>
                 ))}
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <AnimatePresence mode="popLayout" initial={false}>
                 {(proposals || [])
                   .filter(p => {
                     if (proposalTimeFilter === 'semua') return true;
@@ -1212,91 +1354,105 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                   .map(proposal => (
                    <motion.div 
                      key={proposal.id} 
-                     className={`relative overflow-hidden bg-white p-6 rounded-[2.5rem] border ${proposal.status === 'processed' ? 'border-slate-100 opacity-75' : 'border-amber-100 shadow-xl shadow-amber-500/5'} space-y-4 group`}
+                     layout
+                     initial={{ opacity: 0, scale: 0.9 }}
+                     animate={{ opacity: 1, scale: 1 }}
+                     className={`relative overflow-hidden bg-white p-10 rounded-[3.5rem] border transition-all duration-500 border-b-[12px] group ${
+                       proposal.status === 'processed' 
+                         ? 'border-stone-50 opacity-75' 
+                         : 'border-[#3e2723] shadow-2xl'
+                     }`}
                    >
-                      {proposal.status === 'processed' && (
-                        <div className="absolute top-4 right-4 text-emerald-500">
-                          <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-4">
-                         <div className={`p-3 rounded-2xl ${proposal.status === 'processed' ? 'bg-slate-100 text-slate-400' : 'bg-amber-100 text-amber-600'}`}>
-                           <Activity className="w-6 h-6" />
-                         </div>
-                         <div>
-                            <h4 className="font-black text-slate-900 uppercase text-xs">Asrama: {proposal.asrama || 'Utama'}</h4>
-                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Diusulkan oleh: {proposal.proposer_name}</p>
-                         </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100/50">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Daftar Siswa (Klik nama untuk buat surat)</p>
-                          <div className="flex flex-wrap gap-2">
-                            {proposal.daftar_siswa.map((s, i) => (
-                              <button 
-                                key={i} 
-                                onClick={() => handleProposalStudentClick(s)}
-                                className="px-3 py-1.5 bg-white border border-slate-200 text-[10px] font-bold text-slate-700 rounded-xl hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
-                              >
-                                <User className="w-3 h-3 opacity-50" />
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {proposal.keterangan && (
-                           <div className="px-4 py-3 bg-rose-50/50 rounded-xl border border-rose-100/50">
-                             <p className="text-[10px] italic text-rose-700 leading-relaxed">"{proposal.keterangan}"</p>
+                      <div className="flex flex-col h-full gap-8">
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-6">
+                              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${
+                                proposal.status === 'processed' ? 'bg-stone-100 text-stone-300' : 'bg-[#3e2723] text-amber-200'
+                              }`}>
+                                <Activity className="w-7 h-7" />
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-black text-stone-300 uppercase tracking-widest italic mb-1">
+                                  {proposal.tgl_usulan && typeof proposal.tgl_usulan.toDate === 'function' 
+                                    ? format(proposal.tgl_usulan.toDate(), 'HH:mm • dd MMM', { locale: id }) 
+                                    : '-'}
+                                </p>
+                                <h4 className="text-2xl font-black text-[#3e2723] uppercase italic font-display leading-tight">Asrama: {proposal.asrama || 'Utama'}</h4>
+                              </div>
                            </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="flex items-center gap-1.5 text-slate-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-bold uppercase">
-                            {proposal.tgl_usulan && typeof proposal.tgl_usulan.toDate === 'function' 
-                              ? format(proposal.tgl_usulan.toDate(), 'HH:mm, dd MMM') 
-                              : '-'}
-                          </span>
+                           {proposal.status === 'processed' && (
+                             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-full">
+                               <CheckCircle2 className="w-6 h-6" />
+                             </div>
+                           )}
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleGenerateProposalPDF(proposal)}
-                            disabled={pdfLoading === proposal.id}
-                            className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-[#075e6e] hover:text-white transition-all shadow-sm disabled:opacity-50"
-                            title="Cetak Usulan"
-                          >
-                            {pdfLoading === proposal.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Printer className="w-4 h-4" />
-                            )}
-                          </button>
-                          {proposal.status === 'pending' && (
-                            <button 
-                              onClick={() => handleProcessProposal(proposal.id!)}
-                              className="px-6 py-2.5 bg-emerald-600 text-white font-black rounded-xl text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
-                            >
-                              Selesai
-                            </button>
+
+                        <div className="space-y-6">
+                          <div className="bg-[#fcfaf6] rounded-[2.5rem] p-8 border border-stone-50">
+                            <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest mb-4 italic">Daftar Siswa:</p>
+                            <div className="flex flex-wrap gap-3">
+                              {proposal.daftar_siswa.map((s, i) => (
+                                <button 
+                                  key={i} 
+                                  onClick={() => handleProposalStudentClick(s)}
+                                  className="px-5 py-2.5 bg-white border-2 border-stone-100 text-[11px] font-black text-[#3e2723] rounded-2xl hover:border-[#3e2723] hover:text-[#3e2723] transition-all shadow-sm flex items-center gap-3 active:scale-95 italic"
+                                >
+                                  <User className="w-4 h-4 opacity-30" />
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {proposal.keterangan && (
+                             <div className="p-6 bg-rose-50 rounded-[2rem] border border-rose-100">
+                               <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed whitespace-pre-wrap">"{proposal.keterangan}"</p>
+                             </div>
                           )}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-8 border-t border-stone-50 mt-auto">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 bg-stone-50 rounded-full flex items-center justify-center">
+                               <User className="w-5 h-5 text-stone-300" />
+                             </div>
+                             <div>
+                               <p className="text-[10px] font-black text-stone-300 uppercase italic leading-none block">Diusulkan oleh</p>
+                               <span className="text-sm font-bold text-[#3e2723] italic block mt-1">{proposal.proposer_name}</span>
+                             </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => handleGenerateProposalPDF(proposal)}
+                              className="p-4 bg-stone-50 text-stone-300 hover:text-[#3e2723] hover:bg-white rounded-xl transition-all shadow-sm hover:shadow-xl border border-transparent hover:border-stone-100"
+                              title="Cetak Usulan"
+                            >
+                               <Printer className="w-5 h-5" />
+                            </button>
+                            {proposal.status === 'pending' && (
+                              <button 
+                                onClick={() => handleProcessProposal(proposal.id!)}
+                                className="px-8 py-4 bg-emerald-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-2xl border-b-4 border-emerald-800 italic"
+                              >
+                                Selesaikan
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                    </motion.div>
                 ))}
+              </AnimatePresence>
 
-                {proposals.length === 0 && (
-                  <div className="col-span-full py-20 text-center">
-                    <ShieldCheck className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada usulan dalam kategori ini</p>
-                  </div>
-                )}
-              </div>
+              {proposals.length === 0 && (
+                <div className="col-span-full py-40 bg-white rounded-[4rem] border-4 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-10">
+                  <ShieldCheck className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
+                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Data Nihil</h3>
+                  <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Saat ini tidak ada usulan cek kesehatan yang perlu ditindaklanjuti.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
@@ -1375,7 +1531,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                 </div>
               </div>
 
-              {currentSelectedPermit.catatan_kamar && (
+              {currentSelectedPermit?.catatan_kamar && (
                 <div className="space-y-1 pt-4 border-t border-slate-100">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lokasi Kamar</label>
                   <div className="flex items-center gap-2 text-indigo-600 font-bold">
@@ -1392,7 +1548,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                 </label>
                 
                 <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                  {currentSelectedPermit.tindakan && currentSelectedPermit.tindakan.length > 0 ? (
+                  {currentSelectedPermit && currentSelectedPermit.tindakan && currentSelectedPermit.tindakan.length > 0 ? (
                     currentSelectedPermit.tindakan.map((t, idx) => (
                       <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                         <div className="flex justify-between items-start mb-1">
@@ -1416,7 +1572,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                     className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                   <button
-                    onClick={() => handleAddTindakan(currentSelectedPermit.id!)}
+                    onClick={() => currentSelectedPermit && handleAddTindakan(currentSelectedPermit.id!)}
                     disabled={loading || !newTindakan.trim()}
                     className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all"
                   >

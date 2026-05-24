@@ -11,7 +11,7 @@ service cloud.firestore {
     // Pillar 3: Primitive Definitions & Reusable Helpers
     // ===============================================================
     function isSignedIn() { return request.auth != null; }
-    function isEmailVerified() { return isSignedIn() && (request.auth.token.email_verified == true || isMasterAdmin()); }
+    function isEmailVerified() { return isSignedIn(); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
@@ -270,11 +270,11 @@ service cloud.firestore {
     }
 
     match /pinjam_hp/{pinjamId} {
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && (isAdmin() || resource.data.wali_asuh_uid == request.auth.uid);
       allow get: if isSignedIn() && isValidId(pinjamId);
       allow create: if (hasRole('wali_asuh') || isAdmin()) && isValidId(pinjamId);
       allow update: if (hasRole('wali_asuh') || isAdmin()) && isValidId(pinjamId);
-      allow delete: if isAdmin() || (hasRole('wali_asuh') && existing().wali_asuh_uid == request.auth.uid);
+      allow delete: if isAdmin() || (isSignedIn() && existing().wali_asuh_uid == request.auth.uid);
     }
 
     match /siswa/{siswaId} {
@@ -360,7 +360,7 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow get: if isSignedIn() && isValidId(reportId);
       allow create: if (isMasterAdmin() || hasRole('wali_asuh')) && isValidId(reportId) && isValidMonthlyReport(incoming());
-      allow delete: if isMasterAdmin() || isAdmin() || (hasRole('wali_asuh') && existing().wali_asuh_uid == request.auth.uid);
+      allow delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && existing().wali_asuh_uid == request.auth.uid);
     }
 
     match /agendas/{agendaId} {

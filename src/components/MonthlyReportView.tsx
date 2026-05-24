@@ -93,8 +93,11 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
   useEffect(() => {
     let isMounted = true;
     const performCleanup = async () => {
-      if (reports.length === 0) return;
+      if (reports.length === 0 || !user.uid) return;
       
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
       // 2 months in milliseconds (approx)
       const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
       const cutoffDate = new Date(Date.now() - TWO_MONTHS_MS);
@@ -103,7 +106,8 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
         const reportDate = report.createdAt instanceof Timestamp 
           ? report.createdAt.toDate() 
           : new Date();
-        return reportDate < cutoffDate;
+        // Ensure we only try to clean up our own reports unless we are admin
+        return reportDate < cutoffDate && (report.wali_asuh_uid === userId || user.role === 'kepala_sekolah');
       });
 
       if (oldReports.length > 0) {
@@ -111,22 +115,30 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
         for (const report of oldReports) {
           if (!isMounted) break;
           try {
-            // 1. Delete documentation images from Storage
-            for (const photoUrl of report.foto_kegiatan) {
-              try {
-                if (photoUrl.includes('firebasestorage')) {
-                  const photoRef = ref(storage, photoUrl);
-                  await deleteObject(photoRef);
+            // 1. Delete documentation images from Storage safely
+            if (report.foto_kegiatan && Array.isArray(report.foto_kegiatan)) {
+              for (const photoUrl of report.foto_kegiatan) {
+                try {
+                  if (photoUrl && photoUrl.includes('firebasestorage')) {
+                    const photoRef = ref(storage, photoUrl);
+                    await deleteObject(photoRef);
+                  }
+                } catch (e) {
+                  console.warn("Failed to delete storage object (already gone or error):", e);
                 }
-              } catch (e) {
-                console.warn("Failed to delete storage object (already gone or error):", e);
               }
             }
 
             // 2. Delete report from Firestore
             await deleteDoc(doc(db, 'monthly_reports', report.id!));
           } catch (error) {
-            console.error("Cleanup error for report", report.id, error);
+            console.error(`Cleanup failure for report ${report.id}:`, error);
+            // Handle individual delete error but don't crash the whole cleanup
+            try {
+              handleFirestoreError(error, OperationType.DELETE, `monthly_reports/${report.id}`);
+            } catch (innerErr) {
+              // Ignore inner throw to allow cleanup to continue
+            }
           }
         }
       }
@@ -137,11 +149,15 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
     }
 
     return () => { isMounted = false; };
-  }, [loading, user.role]); // Run once when loading completes
+  }, [loading, user.role, user.uid, reports]); // Added user.uid and reports to deps for safety
 
   useEffect(() => {
     const reportsPath = 'monthly_reports';
-    const q = query(collection(db, reportsPath), orderBy('createdAt', 'desc'));
+    // Filter reports if not admin to comply with secure rules
+    const q = user.role === 'wali_asuh'
+      ? query(collection(db, reportsPath), where('wali_asuh_uid', '==', user.uid), orderBy('createdAt', 'desc'))
+      : query(collection(db, reportsPath), orderBy('createdAt', 'desc'));
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlyReport));
       setReports(data);
@@ -162,7 +178,7 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
       unsubscribe();
       unsubStudents();
     };
-  }, []);
+  }, [user.uid, user.role]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,50 +310,70 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
   const ESKUL_OPTIONS = ['Pramuka', 'IPSI', 'Paduan Suara', 'Jurnalistik', 'PMR', 'Menari', 'Voly', 'PIK-R'];
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Laporan Bulanan Siswa</h2>
-          <p className="text-gray-500">Evaluasi tumbuh kembang bulanan santri</p>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+      <div className="bg-slate-900 rounded-3xl p-5 lg:p-6 text-white shadow-xl overflow-hidden border border-slate-950 relative">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg border border-white/5 shrink-0">
+              <FileText className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Laporan Bulanan</h1>
+                <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-emerald-500/20">
+                  REKAPITULASI
+                </span>
+              </div>
+              <p className="text-slate-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
+                Evaluasi Tumbuh Kembang Santri
+              </p>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => setShowForm(true)}
+            className="group px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xl shadow-emerald-500/20 border-b-4 border-emerald-800 italic"
+          >
+            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+            Buat Laporan
+          </button>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
-        >
-          <Plus size={20} />
-          <span>Buat Laporan</span>
-        </button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
+          <p className="text-slate-400 font-bold animate-pulse uppercase tracking-widest text-xs italic">Memuat Laporan...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reports.map((report) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {reports.map((report, idx) => (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: idx * 0.05 }}
               key={report.id}
-              className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative group"
+              className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-slate-900/5 transition-all relative group overflow-hidden"
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className="bg-teal-50 p-2 rounded-lg">
-                  <FileText className="text-teal-600" size={24} />
+              <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              
+              <div className="flex justify-between items-start mb-6">
+                <div className="w-12 h-12 bg-slate-50 rounded-[1.25rem] flex items-center justify-center border border-slate-100 group-hover:bg-emerald-50 group-hover:border-emerald-100 transition-colors">
+                  <FileText className="text-slate-400 group-hover:text-emerald-500 transition-colors" size={24} />
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2">
                   <button
                     onClick={() => generateMonthlyReportPDF(report)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors border border-blue-100"
+                    className="p-2.5 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl transition-all border border-slate-100"
+                    title="Unduh PDF"
                   >
-                    <Download size={14} />
-                    <span>Cetak PDF</span>
+                    <Download size={16} />
                   </button>
                   {user.uid === report.wali_asuh_uid && (
                     <button
                       onClick={() => handleDelete(report.id!)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-2.5 bg-slate-50 text-slate-400 hover:bg-rose-500 hover:text-white rounded-xl transition-all border border-slate-100"
                       title="Hapus"
                     >
                       <Trash2 size={16} />
@@ -346,29 +382,36 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
                 </div>
               </div>
 
-              <h4 className="font-bold text-gray-800 text-lg">{report.nama_siswa}</h4>
-              <p className="text-sm text-gray-500 mb-2">{report.kelas} · {report.asrama}</p>
+              <div className="space-y-1 mb-4">
+                <h4 className="font-black text-slate-900 text-lg uppercase tracking-tight italic font-display">{report.nama_siswa}</h4>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-lg border border-slate-200">
+                    {report.kelas}
+                  </span>
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">{report.asrama}</span>
+                </div>
+              </div>
               
-              <div className="flex items-center gap-2 mt-4 text-sm font-medium text-teal-700 bg-teal-50 px-3 py-1 rounded-full w-fit">
+              <div className="flex items-center gap-2 mb-6 text-[10px] font-black text-emerald-600 bg-emerald-50 px-4 py-2 rounded-2xl w-fit uppercase tracking-widest border border-emerald-100 italic">
                 {report.periode_bulan}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-gray-600">
-                <div className="flex flex-col">
-                  <span className="text-gray-400 capitalize">Kesehatan</span>
-                  <span className="font-semibold text-gray-700">{report.status_kesehatan}</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest block mb-1 italic">Kesehatan</span>
+                  <span className="text-[11px] font-black text-slate-700 uppercase italic leading-none">{report.status_kesehatan}</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-gray-400">Kemandirian</span>
-                  <span className="font-semibold text-gray-700">{report.kemandirian_score}/100</span>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest block mb-1 italic">Kemandirian</span>
+                  <span className="text-[11px] font-black text-slate-700 uppercase italic leading-none">{report.kemandirian_score}/100</span>
                 </div>
               </div>
             </motion.div>
           ))}
           {reports.length === 0 && (
-            <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <FileText size={48} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500">Belum ada laporan bulanan yang diterbitkan.</p>
+            <div className="col-span-full text-center py-20 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-100">
+              <FileText size={48} className="mx-auto text-slate-200 mb-4" />
+              <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] italic">Belum ada laporan bulanan diterbitkan</p>
             </div>
           )}
         </div>

@@ -48,23 +48,23 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#f8f3ed] flex items-center justify-center p-4 font-sans text-[#3e2723]">
-          <div className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border-b-8 border-[#5d4037] text-center">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans text-slate-900">
+          <div className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border-b-8 border-slate-900 text-center">
             <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-rose-500" />
             </div>
             <h2 className="text-2xl font-black mb-2 font-display italic">Oops! Terjadi Kesalahan</h2>
-            <p className="text-[#8b5e3c]/60 text-sm mb-8 font-medium">
+            <p className="text-slate-400 text-sm mb-8 font-medium italic">
               Aplikasi mengalami kendala teknis. Silakan muat ulang halaman.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] transition-all shadow-lg shadow-[#5d4037]/20 uppercase tracking-widest text-xs"
+              className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-black transition-all shadow-lg shadow-slate-900/20 uppercase tracking-widest text-[10px] italic"
             >
               Muat Ulang Sistem
             </button>
             {process.env.NODE_ENV === 'development' && (
-              <pre className="mt-8 p-6 bg-[#3e2723] text-amber-100/70 text-[10px] text-left overflow-auto rounded-3xl max-h-40 font-mono border border-white/5">
+              <pre className="mt-8 p-6 bg-slate-900 text-slate-100 text-[10px] text-left overflow-auto rounded-3xl max-h-40 font-mono border border-white/5">
                 {JSON.stringify(this.state.error, null, 2)}
               </pre>
             )}
@@ -148,10 +148,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8f3ed] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 text-[#5d4037] animate-spin mx-auto mb-4" />
-          <p className="text-[#8b5e3c] font-black uppercase tracking-widest text-[10px] animate-pulse italic">Memuat aplikasi...</p>
+          <Loader2 className="w-10 h-10 text-slate-900 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] animate-pulse italic">Memuat aplikasi...</p>
         </div>
       </div>
     );
@@ -159,25 +159,25 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f8f3ed] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border-b-8 border-rose-500 text-center">
           <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <AlertCircle className="w-10 h-10 text-rose-500" />
           </div>
-          <h2 className="text-2xl font-black text-[#3e2723] mb-2 font-display italic">Kesalahan Koneksi</h2>
-          <p className="text-[#8b5e3c]/60 text-sm mb-8 font-medium italic">{error}</p>
+          <h2 className="text-2xl font-black text-slate-900 mb-2 font-display italic uppercase tracking-tighter">Kesalahan Koneksi</h2>
+          <p className="text-slate-400 text-sm mb-8 font-medium italic">{error}</p>
           <div className="space-y-3">
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-4 bg-[#5d4037] text-white font-black rounded-2xl hover:bg-[#3e2723] transition-all shadow-xl shadow-[#5d4037]/20 uppercase tracking-widest text-xs"
+              className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-black transition-all shadow-lg shadow-black/20 uppercase tracking-widest text-[10px] italic"
             >
               Coba Lagi
             </button>
             <button
               onClick={() => auth.signOut()}
-              className="w-full py-4 bg-white border border-[#d7ccc8]/40 text-[#8b5e3c] font-black rounded-2xl hover:bg-[#f8f3ed] transition-all shadow-sm uppercase tracking-widest text-xs"
+              className="w-full py-4 bg-white border border-slate-200 text-slate-500 font-black rounded-2xl hover:bg-slate-50 transition-all shadow-sm uppercase tracking-widest text-[10px] italic"
             >
-              Keluar / Ganti Akun
+              Logout / Keluar Akun
             </button>
           </div>
         </div>

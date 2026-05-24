@@ -76,27 +76,26 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
   };
 
   return (
-    <div className="w-full h-full space-y-4 animate-in fade-in duration-700 pb-32 min-h-screen bg-[#dcd0c0] selection:bg-[#8b5e3c]/20">
-      {/* Vintage Leather-style Header */}
-      <div className="w-full">
-        <div className="relative bg-[#5d4037] px-6 py-8 shadow-2xl overflow-hidden border-b-4 border-[#3e2723]">
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-200/20 to-transparent" />
+    <div className="w-full h-full space-y-6 animate-in fade-in duration-700 pb-32 min-h-screen bg-[#fcfaf6] selection:bg-[#3e2723] selection:text-white">
+      {/* Modern Compact Header */}
+      <div className="w-full px-2 sm:px-4">
+        <div className="relative bg-[#3e2723] rounded-2xl px-4 py-5 md:py-6 shadow-xl overflow-hidden border border-[#5d4037] max-w-7xl mx-auto text-left">
+          <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+          <div className="absolute top-0 right-0 w-60 h-60 bg-white/5 rounded-full -mr-30 -mt-30 blur-2xl animate-pulse" />
           
-          <div className="relative z-10 flex items-center justify-between gap-4 max-w-7xl mx-auto">
+          <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-[#fdfcf0] rounded-2xl shadow-lg transform -rotate-3 border border-amber-100/50">
-                <BookOpen className="w-6 h-6 text-[#5d4037]" />
+              <div className="p-3 bg-white/10 rounded-xl shadow-lg backdrop-blur-md border border-white/10 -rotate-2 hover:rotate-0 transition-transform duration-500 shrink-0">
+                <BookOpen className="w-6 h-6 text-amber-200" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-[#fdfcf0] font-display tracking-tight leading-tight uppercase">
+                <h2 className="text-xl md:text-2xl font-black text-white font-display tracking-tight leading-none uppercase italic">
                   Mading Sekolah
                 </h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="h-0.5 w-8 bg-amber-400/50 rounded-full" />
-                  <p className="text-[9px] font-black text-amber-100/50 uppercase tracking-[0.4em]">
-                    Buku Diary Digital
+                <div className="flex items-center gap-2 mt-1.5 col-span-2">
+                  <span className="h-1 w-6 bg-amber-400 rounded-full" />
+                  <p className="text-[8px] font-black text-amber-100/60 uppercase tracking-[0.2em] italic">
+                    PAPAN INFORMASI DIGITAL TERPADU
                   </p>
                 </div>
               </div>
@@ -104,52 +103,41 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
             
             <button
               onClick={() => setShowInput(true)}
-              className="p-4 bg-[#fdfcf0] text-[#3e2723] rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all flex items-center gap-2 font-black border-2 border-[#d7ccc8]"
-              title="Tulis Catatan"
+              className="w-full sm:w-auto px-4 py-2 bg-[#fcfaf6] text-[#3e2723] rounded-xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-white transition-all shadow-md active:scale-95 border-b-2 border-stone-200 italic shrink-0"
             >
-              <Plus className="w-6 h-6" />
+              <Plus className="w-3.5 h-3.5" /> Tulis Catatan Baru
             </button>
           </div>
         </div>
       </div>
 
-      {/* Diary Entry Input Modal */}
+      {/* Modern Post Input Modal */}
       <AnimatePresence>
         {showInput && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               className="relative w-full max-w-xl"
             >
-               {/* Binder Rings Decor */}
-                <div className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-8">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="w-10 h-3 bg-gradient-to-r from-[#8b5e3c] to-[#d7ccc8] rounded-full shadow-xl border border-[#5d4037]/20" />
-                ))}
-              </div>
-
-              <div className="bg-[#fffdfa] rounded-r-3xl rounded-l-lg shadow-[20px_20px_60px_rgba(0,0,0,0.3)] p-8 sm:p-12 border-l-[50px] border-[#ede8dd] relative overflow-hidden">
-                {/* Paper Texture Overlay */}
-                <div className="absolute inset-0 opacity-[0.03] pointer-events-none select-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/felt.png")' }} />
-                
+              <div className="bg-white rounded-[3rem] shadow-2xl p-8 sm:p-12 relative overflow-hidden border border-slate-100">
                 <button 
                   onClick={() => {
                     setShowInput(false);
                     setContent('');
                   }}
-                  className="absolute top-6 right-6 p-2 hover:bg-[#ede8dd] rounded-full text-[#8b5e3c] transition-colors z-30"
+                  className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors z-30"
                 >
                   <X className="w-6 h-6" />
                 </button>
 
                 <div className="relative z-10 space-y-6">
                   <div className="space-y-1">
-                    <h3 className="text-3xl font-black text-[#3e2723] font-display italic tracking-tighter">
-                      Tinta untuk Hari Ini
+                    <h3 className="text-3xl font-black text-slate-900 font-display italic tracking-tighter">
+                      Informasi Baru
                     </h3>
-                    <div className="flex items-center gap-2 text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest bg-[#fdfcf0] w-fit px-3 py-1 rounded-full border border-[#d7ccc8]/40">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-indigo-600/60 uppercase tracking-widest bg-indigo-50 w-fit px-3 py-1 rounded-full border border-indigo-100">
                       <Clock className="w-3 h-3" />
                       {format(new Date(), 'EEEE, dd MMMM yyyy', { locale: id })}
                     </div>
@@ -157,38 +145,33 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
 
                   <form onSubmit={handleSubmit} className="space-y-8">
                     <div className="relative">
-                      <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#d7ccc8]/30" />
                       <textarea
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
-                        placeholder="Sayang diary, aku ingin bercerita..."
-                        className="w-full min-h-[300px] pl-8 pr-4 py-2 bg-transparent outline-none transition-all font-handwriting text-lg text-[#2d241e] resize-none leading-relaxed placeholder:text-[#d7ccc8]/30"
-                        style={{ 
-                          backgroundImage: 'linear-gradient(transparent, transparent 1.45rem, #ede8dd 1.45rem)',
-                          backgroundSize: '100% 1.5rem'
-                        }}
+                        placeholder="Ketik informasi yang ingin Anda bagikan..."
+                        className="w-full min-h-[250px] bg-slate-50 rounded-[2.5rem] p-8 outline-none border-2 border-slate-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-900 resize-none leading-relaxed placeholder:text-slate-300 italic"
                         disabled={loading}
                         autoFocus
                       />
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-4">
-                      <div className="flex-1 flex items-center gap-3 bg-[#fdfcf0]/80 p-4 rounded-2xl border border-[#d7ccc8]/40 w-full shadow-inner">
-                        <div className="w-10 h-10 bg-[#5d4037] rounded-xl flex items-center justify-center text-white shadow-lg">
-                          <User className="w-5 h-5" />
+                      <div className="flex-1 flex items-center gap-4 bg-slate-50 p-5 rounded-[2rem] border border-slate-100 w-full shadow-inner">
+                        <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl">
+                          <User className="w-6 h-6" />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-[#3e2723] leading-none">{user.name}</p>
-                          <p className="text-[10px] font-bold text-[#8b5e3c]/60 uppercase tracking-widest mt-1">{getRoleLabel(user.role)}</p>
+                          <p className="text-sm font-black text-slate-900 leading-none italic">{user.name}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{getRoleLabel(user.role)}</p>
                         </div>
                       </div>
                       
                       <button
                         type="submit"
                         disabled={loading || !content.trim()}
-                        className="w-full sm:w-auto px-10 py-5 bg-[#5d4037] text-white font-black rounded-2xl shadow-2xl hover:bg-[#3e2723] hover:translate-y-[-2px] active:translate-y-[1px] transition-all flex items-center justify-center gap-3 disabled:opacity-50 uppercase tracking-widest text-xs"
+                        className="w-full sm:w-auto px-10 py-5 bg-indigo-600 text-white font-black rounded-[2rem] shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 uppercase tracking-widest text-xs border-b-4 border-indigo-800 italic"
                       >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 rotate-45 text-amber-200" /> Simpan Catatan</>}
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 rotate-45" /> Bagikan</>}
                       </button>
                     </div>
                   </form>
@@ -199,11 +182,10 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
         )}
       </AnimatePresence>
 
-      {/* Diary List (Chat Style - Full Width) */}
-      <div className="flex flex-col space-y-4 w-full px-2 sm:px-6 py-4 max-w-7xl mx-auto">
+      <div className="flex flex-col space-y-6 w-full px-4 sm:px-6 py-8 max-w-7xl mx-auto">
         {posts.map((post, idx) => {
           const isMe = post.authorUid === user.uid;
-          const isAdminUser = user.role === 'kepala_sekolah'; // Only Kepsek is admin for mading edit/delete of others
+          const isAdminUser = user.role === 'kepala_sekolah';
 
           return (
             <motion.div
@@ -213,76 +195,49 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
               transition={{ delay: idx * 0.05 }}
               className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`relative max-w-[92%] sm:max-w-[85%] group ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
-                {/* Author Info Tab */}
-                {!isMe && (
-                  <div className="flex items-center gap-2 mb-1 ml-4 px-3 py-1 bg-[#8b5e3c]/10 rounded-t-xl border-x border-t border-[#8b5e3c]/20">
-                     <span className="text-[10px] font-black text-[#5d4037] uppercase tracking-widest font-display truncate max-w-[120px]">
-                       {post.authorName}
-                     </span>
-                     <span className="text-[8px] font-bold text-[#8b5e3c]/50 uppercase tracking-wider">
-                       • {getRoleLabel(post.authorRole)}
-                     </span>
-                  </div>
-                )}
-                {isMe && (
-                  <div className="flex items-center gap-2 mb-1 mr-4 px-3 py-1 bg-white/20 rounded-t-xl border-x border-t border-white/30">
-                     <span className="text-[8px] font-bold text-[#5d4037]/60 uppercase tracking-wider">
-                       Anda • {getRoleLabel(post.authorRole)}
-                     </span>
-                  </div>
-                )}
+              <div className={`relative max-w-[92%] sm:max-w-[85%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div className={`flex items-center gap-2 mb-2 px-6 py-2 rounded-full border shadow-sm ${
+                  isMe ? 'bg-[#3e2723] text-amber-100 border-black mr-2' : 'bg-white border-stone-200 ml-2'
+                }`}>
+                   <span className={`text-[10px] font-black uppercase tracking-widest italic ${isMe ? 'text-amber-200' : 'text-[#3e2723]'}`}>
+                     {isMe ? 'Anda' : post.authorName}
+                   </span>
+                   <span className={`text-[9px] font-bold uppercase tracking-wider italic ${isMe ? 'text-amber-100/50' : 'text-stone-300'}`}>
+                     • {getRoleLabel(post.authorRole)}
+                   </span>
+                </div>
 
                 <div className={`
-                  relative w-full overflow-hidden
+                  relative w-full overflow-hidden p-8 sm:p-10 shadow-2xl border-b-8
                   ${isMe 
-                    ? 'bg-[#fffef7] text-[#2d241e] rounded-2xl rounded-tr-none shadow-[2px_2px_15px_rgba(0,0,0,0.05)] border-r-4 border-[#8b5e3c]' 
-                    : 'bg-[#f8f1e5] text-[#3e2723] rounded-2xl rounded-tl-none shadow-[2px_2px_15px_rgba(0,0,0,0.05)] border-l-4 border-[#5d4037]'
+                    ? 'bg-white text-[#3e2723] rounded-[3.5rem] rounded-tr-none border-stone-100' 
+                    : 'bg-white text-[#3e2723] rounded-[3.5rem] rounded-tl-none border-[#3e2723]'
                   }
-                  p-5 sm:p-7 border-b-2 border-black/5
                 `}>
-                  {/* Paper Texture Overlay */}
-                  <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/felt.png")' }} />
-                  
-                  {/* Handwriting Content */}
                   <div className="relative z-10">
-                    <div className="flex justify-between items-start gap-4 mb-2">
+                    <div className="flex justify-between items-start gap-6 border-b pb-6 mb-6 border-stone-50">
                        <div className="flex-1">
-                        <div className={`font-handwriting ${isMe ? 'text-sm' : 'text-[13px]'} leading-snug whitespace-pre-wrap select-text`}>
-                          {post.content}
+                        <div className={`text-xl font-black leading-relaxed italic font-display whitespace-pre-wrap ${isMe ? 'text-[#5d4037]' : 'text-[#3e2723]'}`}>
+                          "{post.content}"
                         </div>
                        </div>
-                       
-                       <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
-                          <span className="text-[9px] font-black text-amber-900/30 uppercase tracking-tighter">
-                            {post.createdAt ? format(post.createdAt.toDate(), 'HH:mm • d MMM', { locale: id }) : '--:--'}
-                          </span>
-                       </div>
                     </div>
 
-                    {/* Actions Panel */}
-                    {(isMe || isAdminUser) && (
-                      <div className="flex items-center gap-3 pt-3 mt-3 border-t border-[#8b5e3c]/5">
-                        <div className="flex-1" />
-                        <button
-                          onClick={() => handleDelete(post.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest"
-                          title="Hapus Catatan"
-                        >
-                          <Trash2 className="w-3 h-3" /> Hapus
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Date Tag Overlay (Hidden by default, shows on hover or mobile) */}
-                  {post.updatedAt && (
-                    <div className="absolute bottom-1 left-4">
-                       <span className="text-[7px] font-bold text-[#8b5e3c]/40 uppercase tracking-widest italic">
-                         Disunting • {format(post.updatedAt.toDate(), 'd MMM HH:mm', { locale: id })}
+                    <div className="flex items-center justify-between">
+                       <span className="text-[10px] font-black uppercase tracking-[0.2em] italic text-stone-300">
+                         {post.createdAt ? format(post.createdAt.toDate(), 'HH:mm • d MMM yyyy', { locale: id }) : '--:--'}
                        </span>
+                       
+                       {(isMe || isAdminUser) && (
+                         <button
+                           onClick={() => handleDelete(post.id!)}
+                           className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95"
+                         >
+                           <Trash2 className="w-4 h-4" /> Hapus
+                         </button>
+                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -290,20 +245,19 @@ export default function MadingSekolahView({ user }: MadingSekolahViewProps) {
         })}
 
         {posts.length === 0 && (
-          <div className="py-32 text-center bg-white/20 rounded-[3rem] border-4 border-dashed border-[#8b5e3c]/20 mx-4">
-            <BookOpen className="w-16 h-16 text-[#8b5e3c]/20 mx-auto mb-4" />
-            <h3 className="text-xl font-black text-[#5d4037]/40 font-display uppercase tracking-widest mb-2">Belum Ada Goresan Pena</h3>
-            <p className="text-xs font-bold text-[#8b5e3c]/30 uppercase tracking-[0.2em]">Bagikan ceritamu dengan menekan tombol pena di atas.</p>
+          <div className="py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-stone-100 mx-4 flex flex-col items-center justify-center">
+            <BookOpen className="w-20 h-20 text-stone-100 mx-auto mb-8" />
+            <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest mb-4 italic font-display">Belum Ada Informasi</h3>
+            <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed">Papan mading digital masih kosong. Bagikan informasi pertama untuk seluruh civitas.</p>
           </div>
         )}
       </div>
 
-      {/* Floating Action Button for Mobile Access (Optional since we have header one) */}
       <motion.button
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
         onClick={() => setShowInput(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-[#5d4037] text-white rounded-full shadow-2xl flex items-center justify-center sm:hidden z-40 border-4 border-[#fffef7] active:scale-90 transition-transform"
+        className="fixed bottom-8 right-8 w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center sm:hidden z-40 active:scale-90 transition-all border-b-4 border-slate-950"
       >
         <Plus className="w-8 h-8" />
       </motion.button>
