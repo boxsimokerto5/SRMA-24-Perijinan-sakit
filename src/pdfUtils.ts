@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -1685,38 +1685,67 @@ export const generateProgressRecordPDF = async (record: ProgressRecord) => {
   const openingText = 'Menerangkan bahwa berdasarkan hasil pengamatan dan evaluasi belajar di SRMA 24 Kediri, terdapat catatan penting bagi siswa tersebut di bawah ini:';
   doc.text(openingText, 20, 116, { maxWidth: 170, align: 'left' });
 
-  // Student Data Table
-  const tableTop = 130;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Nama Lengkap', 30, tableTop + 5);
-  doc.text('Kelas / Jurusan', 30, tableTop + 13);
-  doc.text('Isi Catatan', 30, tableTop + 21);
+  // Student Data Table using autoTable to ensure perfect alignment, autowrapping, and justification
+  autoTable(doc, {
+    startY: 125,
+    margin: { left: 20, right: 20 },
+    theme: 'plain',
+    styles: {
+      fontSize: 10,
+      font: 'helvetica',
+      cellPadding: 3,
+      valign: 'top',
+      textColor: [0, 0, 0],
+    },
+    columnStyles: {
+      0: { cellWidth: 40, fontStyle: 'bold' },
+      1: { cellWidth: 5, fontStyle: 'bold' },
+      2: { cellWidth: 'auto', halign: 'justify', fontStyle: 'normal' }
+    },
+    body: [
+      ['Nama Lengkap', ':', record.nama_siswa.toUpperCase()],
+      ['Kelas / Jurusan', ':', record.kelas],
+      ['Isi Catatan', ':', record.isi_catatan]
+    ],
+    didDrawCell: (data) => {
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.1);
+      doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+    }
+  });
 
-  doc.setFont('helvetica', 'normal');
-  doc.text(`: ${record.nama_siswa.toUpperCase()}`, 70, tableTop + 5);
-  doc.text(`: ${record.kelas}`, 70, tableTop + 13);
-  
-  doc.text(':', 70, tableTop + 21);
-  doc.text(record.isi_catatan, 73, tableTop + 21, { maxWidth: 115, align: 'left' });
+  const tableBottom = (doc as any).lastAutoTable.finalY + 10;
 
-  doc.setDrawColor(220, 220, 220);
-  doc.line(30, tableTop + 8, 190, tableTop + 8);
-  doc.line(30, tableTop + 16, 190, tableTop + 16);
-  
-  const contentDimensions = doc.getTextDimensions(record.isi_catatan, { maxWidth: 115 });
-  const tableBottom = Math.max(tableTop + 24, tableTop + 18 + contentDimensions.h + 5);
-  doc.line(30, tableBottom, 190, tableBottom);
-
-  const closingY = tableBottom + 12;
-  doc.setFontSize(10);
+  // Closing Text inside another autoTable to guarantee clean justification & safe auto-pagination
   const closingText1 = 'Catatan ini diberikan sebagai bentuk perhatian dan koordinasi antara Wali Kelas dan Wali Asuh demi kebaikan proses belajar siswa yang bersangkutan. Mohon untuk dapat diperhatikan dan ditindaklanjuti sebagaimana mestinya.';
-  doc.text(closingText1, 20, closingY, { maxWidth: 170, align: 'left' });
-  
   const closingText2 = 'Demikian surat keterangan ini diberikan agar dapat dipergunakan sebagaimana mestinya. Atas perhatian Bapak/Ibu, kami sampaikan terima kasih.';
-  const closing2Y = closingY + doc.getTextDimensions(closingText1, { maxWidth: 170 }).h + 8;
-  doc.text(closingText2, 20, closing2Y, { maxWidth: 170, align: 'left' });
 
-  const sigY = closing2Y + 25;
+  autoTable(doc, {
+    startY: tableBottom,
+    margin: { left: 20, right: 20 },
+    theme: 'plain',
+    styles: {
+      fontSize: 10,
+      font: 'helvetica',
+      cellPadding: 2,
+      textColor: [0, 0, 0],
+      halign: 'justify'
+    },
+    body: [
+      [closingText1],
+      [''],
+      [closingText2]
+    ]
+  });
+
+  const afterClosingY = (doc as any).lastAutoTable.finalY + 15;
+  const signaturePageHeight = doc.internal.pageSize.getHeight();
+  
+  let sigY = afterClosingY;
+  if (sigY + 55 > signaturePageHeight) {
+    doc.addPage();
+    sigY = 30;
+  }
   doc.text(`Kediri, ${dateFormatted}`, 135, sigY);
   const authorRoleLabel = record.author_role === 'wali_kelas' ? 'Wali Kelas,' : 'Guru Mapel,';
   doc.text(authorRoleLabel, 135, sigY + 6);
@@ -2191,7 +2220,7 @@ export const generateProgressRecordReportPDF = async (data: ProgressRecord[], pe
       0: { cellWidth: 25, halign: 'center' }, // Waktu
       1: { cellWidth: 40 }, // Siswa
       2: { cellWidth: 15, halign: 'center' }, // Kelas
-      3: { cellWidth: 'auto' }, // Isi Catatan
+      3: { cellWidth: 'auto', halign: 'justify' }, // Isi Catatan
       4: { cellWidth: 35 }, // Penulis
       5: { cellWidth: 25, halign: 'center' }  // Status
     },
@@ -2243,4 +2272,280 @@ export const generateProgressRecordReportPDF = async (data: ProgressRecord[], pe
     doc.save(fileName);
   }
 };
+
+export const generateKetidakhadiranPDF = async (record: Ketidakhadiran) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Page Border & Decor
+  doc.setDrawColor(93, 64, 55); // Brown accent
+  doc.setLineWidth(0.3);
+  doc.rect(5, 5, 200, 287);
+
+  // --- HEADER ---
+  doc.setTextColor(62, 39, 35); // Dark brown
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text('PORTAL WALI ASUH & WALI ASRAMA (GUARDIANS)', 105, 32, { align: 'center' });
+
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 38, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 43, { align: 'center' });
+  doc.text('Email: srma24kediri@gmail.com   |   Kode Pos: 64152', 105, 48, { align: 'center' });
+
+  // Elegant double line
+  doc.setDrawColor(62, 39, 35);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+  doc.setLineWidth(0.2);
+  doc.line(20, 53.5, 190, 53.5);
+
+  // --- TITLE ---
+  doc.setTextColor(62, 39, 35);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LAPORAN CATATAN KETIDAKHADIRAN', 105, 65, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(55, 67, 155, 67);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Nomor Dokumen: ${record.nomor_surat || '-'}`, 105, 73, { align: 'center' });
+
+  // --- RECORD DETAILS ---
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('A. INFORMASI KEGIATAN ASRAMA', 20, 88);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  
+  const col1X = 20;
+  const colValX = 65;
+  
+  doc.text('Keterangan Kegiatan', col1X, 98);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${record.keterangan_kegiatan}`, colValX, 98);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kegiatan', col1X, 105);
+  doc.setFont('helvetica', 'bold');
+  doc.text(': Asrama', colValX, 105);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Tanggal & Waktu', col1X, 112);
+  const dateFormatted = record.tgl_absen?.toDate ? format(record.tgl_absen.toDate(), 'eeee, d MMMM yyyy • HH:mm', { locale: id }) : '-';
+  doc.text(`: ${dateFormatted} WIB`, colValX, 112);
+
+  // --- STUDENT LIST ---
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('B. DAFTAR SISWA YANG TIDAK HADIR', 20, 125);
+
+  const studentTableData = record.daftar_siswa.map((student, idx) => [
+    (idx + 1).toString(),
+    student,
+    record.kelas
+  ]);
+
+  autoTable(doc, {
+    startY: 130,
+    head: [['NO', 'NAMA SISWA', 'KELAS / ROMBEL']],
+    body: studentTableData,
+    theme: 'grid',
+    headStyles: { fillColor: [93, 64, 55], textColor: [255, 255, 255] },
+    styles: { fontSize: 9, font: 'helvetica' }
+  });
+
+  const nextY = (doc as any).lastAutoTable.finalY + 12;
+
+  // --- DESKRIPSI / KETERANGAN ---
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('C. KETERANGAN / PENJELASAN TAMBAHAN', 20, nextY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const splitText = doc.splitTextToSize(record.deskripsi || 'Tidak ada keterangan tambahan.', 170);
+  doc.text(splitText, 20, nextY + 7);
+
+  const finalY = nextY + 7 + (splitText.length * 5) + 15;
+
+  // Signatures
+  const signatureX = 150;
+  doc.text('Kediri, ' + format(new Date(), 'd MMMM yyyy'), signatureX, finalY, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  const roleText = record.author_role === 'wali_asuh' ? 'Wali Asuh' : 'Wali Asrama';
+  doc.text(roleText + ' Pem buat Catatan,', signatureX, finalY + 5, { align: 'center' });
+
+  // QR Code
+  try {
+    const qrDataUrl = await QRCode.toDataURL(`Catatan Ketidakhadiran - ID: ${record.id || 'N/A'}`);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, finalY + 10, 25, 25);
+  } catch (e) {
+    console.error(e);
+  }
+
+  doc.text(record.author_name, signatureX, finalY + 41, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text('Digital Signature Verified', signatureX, finalY + 45, { align: 'center' });
+
+  // Security note
+  doc.setFontSize(8);
+  doc.setTextColor(140, 140, 140);
+  doc.text('Dokumen ini digenerate secara otomatis melalui SRMA 24 Dorm Guardian System.', 105, 275, { align: 'center' });
+
+  const fileName = `Catatan_Ketidakhadiran_${(record.kelas || '').replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Ketidakhadiran',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateKetidakhadiranReportPDF = async (
+  records: Ketidakhadiran[],
+  period: string,
+  authorName: string = 'Wali Asuh / Wali Asrama',
+  roleTitle: string = 'Guardian Portal'
+) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Border
+  doc.setDrawColor(93, 64, 55);
+  doc.setLineWidth(0.3);
+  doc.rect(5, 5, 200, 287);
+
+  // --- HEADER ---
+  doc.setTextColor(62, 39, 35);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text('REKAPITULASI CATATAN KETIDAKHADIRAN SISWA', 105, 32, { align: 'center' });
+
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 38, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 43, { align: 'center' });
+  doc.text(`Email: srma24kediri@gmail.com   |   Jenis Kegiatan: Rekap ${period}`, 105, 48, { align: 'center' });
+
+  doc.setDrawColor(62, 39, 35);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+  doc.setLineWidth(0.2);
+  doc.line(20, 53.5, 190, 53.5);
+
+  // Info
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Periode Rekap : ${period}`, 20, 62);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Tanggal Cetak : ${format(new Date(), 'dd MMMM yyyy, HH:mm')} WIB`, 20, 67);
+  doc.text(`Total Catatan : ${records.length} Laporan`, 20, 72);
+
+  // Table Data
+  const tableData = records.map((rec, index) => [
+    (index + 1).toString(),
+    rec.tgl_absen?.toDate ? format(rec.tgl_absen.toDate(), 'dd/MM/yy HH:mm') : '-',
+    rec.keterangan_kegiatan || '-',
+    rec.kelas || '-',
+    rec.daftar_siswa.join(', '),
+    rec.deskripsi || '-'
+  ]);
+
+  autoTable(doc, {
+    startY: 78,
+    head: [['NO', 'TANGGAL & WAKTU', 'KEGIATAN', 'KELAS', 'DAFTAR SISWA', 'KETERANGAN']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [62, 39, 35], textColor: [255, 255, 255], fontSize: 8 },
+    styles: { fontSize: 7.5, font: 'helvetica', overflow: 'linebreak' },
+    columnStyles: {
+      0: { cellWidth: 8 },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 26 },
+      3: { cellWidth: 14 },
+      4: { cellWidth: 60 },
+      5: { cellWidth: 46 }
+    }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+  // Footer signature
+  const signatureX = 150;
+  if (finalY < 230) {
+    doc.setFontSize(9);
+    doc.text('Kediri, ' + format(new Date(), 'd MMMM yyyy'), signatureX, finalY, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(roleTitle + ',', signatureX, finalY + 5, { align: 'center' });
+    
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`Rekap Absensi - Oleh: ${authorName}`);
+      doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, finalY + 9, 23, 23);
+    } catch (e) {
+      console.error(e);
+    }
+
+    doc.text(authorName, signatureX, finalY + 39, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Digital Signature Verified', signatureX, finalY + 43, { align: 'center' });
+  }
+
+  const fileName = `Rekap_Ketidakhadiran_${period.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: `Rekap Ketidakhadiran ${period}`,
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
 

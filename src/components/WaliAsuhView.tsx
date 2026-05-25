@@ -11,14 +11,14 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF, generateSarprasReportPDF, generateSarprasSummaryPDF, generatePinjamHPReportPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateLaptopRequestPDF, generateHPRequestPDF, generateSarprasReportPDF, generateSarprasSummaryPDF, generatePinjamHPReportPDF, generateKetidakhadiranPDF, generateKetidakhadiranReportPDF } from '../pdfUtils';
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import Logo from './Logo';
@@ -50,7 +50,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -221,6 +221,112 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       const dateB = b.tgl_pinjam?.toDate()?.getTime() || 0;
       return dateB - dateA;
     });
+
+  const [laptopTimeFilter, setLaptopTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
+  const [hpTimeFilter, setHpTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
+
+  // Ketidakhadiran states
+  const [ketidakhadiranData, setKetidakhadiranData] = useState<Ketidakhadiran[]>([]);
+  const [khTimeFilter, setKhTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
+  const [showKetidakhadiranForm, setShowKetidakhadiranForm] = useState(false);
+  const [khKegiatan, setKhKegiatan] = useState('');
+  const [khKelas, setKhKelas] = useState('X-1');
+  const [khSelectedSiswa, setKhSelectedSiswa] = useState<string[]>([]);
+  const [khDeskripsi, setKhDeskripsi] = useState('');
+  const [khSearchSiswaFilter, setKhSearchSiswaFilter] = useState('');
+  const [khPdfLoading, setKhPdfLoading] = useState<string | null>(null);
+
+  const filteredKetidakhadiran = React.useMemo(() => {
+    return ketidakhadiranData.filter(rec => {
+      const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
+      if (!date) return true;
+
+      let matchesTime = true;
+      if (khTimeFilter === 'hari_ini') matchesTime = isToday(date);
+      else if (khTimeFilter === 'kemarin') matchesTime = isYesterday(date);
+      else if (khTimeFilter === 'minggu_ini') matchesTime = isThisWeek(date, { weekStartsOn: 1 });
+      else if (khTimeFilter === 'bulan_ini') matchesTime = isThisMonth(date);
+
+      const matchesSearch = !searchTerm || 
+        rec.keterangan_kegiatan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rec.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rec.daftar_siswa.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        rec.deskripsi.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rec.author_name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      return matchesTime && matchesSearch;
+    });
+  }, [ketidakhadiranData, khTimeFilter, searchTerm]);
+
+  const khStats = React.useMemo(() => {
+    return {
+      hariIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isToday(rec.tgl_absen.toDate())).length,
+      kemarin: ketidakhadiranData.filter(rec => rec.tgl_absen && isYesterday(rec.tgl_absen.toDate())).length,
+      mingguIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisWeek(rec.tgl_absen.toDate(), { weekStartsOn: 1 })).length,
+      bulanIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisMonth(rec.tgl_absen.toDate())).length,
+    };
+  }, [ketidakhadiranData]);
+
+
+  const filteredLaptopRequests = React.useMemo(() => {
+    return laptopRequests.filter(req => {
+      const date = req.tgl_request?.toDate ? req.tgl_request.toDate() : (req.tgl_request instanceof Date ? req.tgl_request : null);
+      if (!date) return true;
+
+      let matchesTime = true;
+      if (laptopTimeFilter === 'hari_ini') matchesTime = isToday(date);
+      else if (laptopTimeFilter === 'kemarin') matchesTime = isYesterday(date);
+      else if (laptopTimeFilter === 'minggu_ini') matchesTime = isThisWeek(date, { weekStartsOn: 1 });
+      else if (laptopTimeFilter === 'bulan_ini') matchesTime = isThisMonth(date);
+
+      const matchesSearch = !searchTerm || 
+        req.guru_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.mapel.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.daftar_siswa.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      return matchesTime && matchesSearch;
+    });
+  }, [laptopRequests, laptopTimeFilter, searchTerm]);
+
+  const filteredHPRequests = React.useMemo(() => {
+    return hpRequests.filter(req => {
+      const date = req.tgl_request?.toDate ? req.tgl_request.toDate() : (req.tgl_request instanceof Date ? req.tgl_request : null);
+      if (!date) return true;
+
+      let matchesTime = true;
+      if (hpTimeFilter === 'hari_ini') matchesTime = isToday(date);
+      else if (hpTimeFilter === 'kemarin') matchesTime = isYesterday(date);
+      else if (hpTimeFilter === 'minggu_ini') matchesTime = isThisWeek(date, { weekStartsOn: 1 });
+      else if (hpTimeFilter === 'bulan_ini') matchesTime = isThisMonth(date);
+
+      const matchesSearch = !searchTerm || 
+        req.guru_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.mapel.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.daftar_siswa.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      return matchesTime && matchesSearch;
+    });
+  }, [hpRequests, hpTimeFilter, searchTerm]);
+
+  const laptopStats = React.useMemo(() => {
+    return {
+      hariIni: laptopRequests.filter(req => req.tgl_request && isToday(req.tgl_request.toDate())).length,
+      kemarin: laptopRequests.filter(req => req.tgl_request && isYesterday(req.tgl_request.toDate())).length,
+      mingguIni: laptopRequests.filter(req => req.tgl_request && isThisWeek(req.tgl_request.toDate(), { weekStartsOn: 1 })).length,
+      bulanIni: laptopRequests.filter(req => req.tgl_request && isThisMonth(req.tgl_request.toDate())).length,
+    };
+  }, [laptopRequests]);
+
+  const hpStats = React.useMemo(() => {
+    return {
+      hariIni: hpRequests.filter(req => req.tgl_request && isToday(req.tgl_request.toDate())).length,
+      kemarin: hpRequests.filter(req => req.tgl_request && isYesterday(req.tgl_request.toDate())).length,
+      mingguIni: hpRequests.filter(req => req.tgl_request && isThisWeek(req.tgl_request.toDate(), { weekStartsOn: 1 })).length,
+      bulanIni: hpRequests.filter(req => req.tgl_request && isThisMonth(req.tgl_request.toDate())).length,
+    };
+  }, [hpRequests]);
 
   const filteredStudents = students.filter(s => {
     const name = s.nama_lengkap || '';
@@ -511,6 +617,21 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'ketidakhadiran'),
+      orderBy('tgl_absen', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ketidakhadiran));
+      setKetidakhadiranData(data);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'ketidakhadiran');
+    });
+    return () => unsubscribe();
+  }, []);
+
+
   const handleGeneratePDF = async (permit: IzinSakit) => {
     setPdfLoading(permit.id!);
     try {
@@ -522,6 +643,72 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       setPdfLoading(null);
     }
   };
+
+  const handlePrintSummaryPDF = async (periodType: 'Minggu Ini' | 'Bulan Ini') => {
+    setLoading(true);
+    try {
+      const filtered = ketidakhadiranData.filter(rec => {
+        const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
+        if (!date) return false;
+        if (periodType === 'Minggu Ini') return isThisWeek(date, { weekStartsOn: 1 });
+        if (periodType === 'Bulan Ini') return isThisMonth(date);
+        return true;
+      });
+
+      await generateKetidakhadiranReportPDF(filtered, periodType, user.name, 'Wali Asuh');
+      alert(`Berhasil membuat rekap PDF ${periodType}!`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat rekap PDF!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateKetidakhadiran = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!khKegiatan.trim()) {
+      alert('Nama kegiatan harus diisi!');
+      return;
+    }
+    if (khSelectedSiswa.length === 0) {
+      alert('Pilih minimal satu siswa!');
+      return;
+    }
+    setLoading(true);
+    try {
+      const nomorSurat = `KTH-WA-${Date.now().toString().slice(-6)}`;
+      await addDoc(collection(db, 'ketidakhadiran'), {
+        nomor_surat: nomorSurat,
+        tgl_absen: Timestamp.now(),
+        keterangan_kegiatan: khKegiatan,
+        kelas: khKelas,
+        daftar_siswa: khSelectedSiswa,
+        deskripsi: khDeskripsi || 'Tidak ada keterangan tambahan.',
+        author_name: user.name,
+        author_uid: user.uid,
+        author_role: user.role,
+        createdAt: serverTimestamp()
+      });
+
+      // Reset
+      setKhKegiatan('');
+      setKhSelectedSiswa([]);
+      setKhDeskripsi('');
+      setKhSearchSiswaFilter('');
+      setShowKetidakhadiranForm(false);
+
+      notifyAllRoles(['wali_kelas', 'kepala_sekolah', 'wali_asrama'], 'Catatan Ketidakhadiran Baru', `Wali Asuh ${user.name} membuat catatan ketidakhadiran untuk kelas ${khKelas} pada kegiatan ${khKegiatan}.`);
+      alert('Catatan ketidakhadiran berhasil disimpan.');
+    } catch (err) {
+      console.error('Error saving ketidakhadiran:', err);
+      alert('Gagal menyimpan catatan: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      handleFirestoreError(err, OperationType.WRITE, 'ketidakhadiran');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleUpdateSarprasStatus = async (id: string, status: 'pending' | 'on_progress' | 'fixed') => {
     setLoading(true);
@@ -845,6 +1032,30 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     }
   };
 
+  const handlePrintPeriodicReport = async (range: 'minggu_ini' | 'bulan_ini') => {
+    setReportLoading(true);
+    try {
+      const filteredForReport = permits.filter(p => {
+        const date = p.tgl_surat?.toDate();
+        if (!date) return false;
+        
+        if (range === 'minggu_ini') return isThisWeek(date, { weekStartsOn: 1 });
+        if (range === 'bulan_ini') return isThisMonth(date);
+        return false;
+      });
+
+      const rangeLabel = range === 'minggu_ini' ? 'Minggu Ini' : 'Bulan Ini';
+
+      const { generateSummaryReportPDF } = await import('../pdfUtils');
+      await generateSummaryReportPDF(filteredForReport, rangeLabel, user.name, 'Wali Asuh');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat laporan: ' + (err instanceof Error ? err.message : 'Error unknown'));
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status === 'pending_asuh').length,
@@ -962,6 +1173,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     permohonan_hp: 'Permohonan HP',
     pinjam_laptop: 'Pinjam Laptop',
     memos: 'Memorandum',
+    cek_ketidakhadiran: 'Cek Ketidakhadiran',
     siswa: 'Daftar Siswa',
     catatan_perkembangan: 'Catatan Perkembangan',
     catatan_kejadian: 'Catatan Kejadian di Asrama',
@@ -1046,6 +1258,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'memos', label: 'Memorandum', icon: Mail },
                           { id: 'sarpras_asrama', label: 'Sarpras Asrama', icon: Wrench },
+                          { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
                           { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone },
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop }
@@ -1300,6 +1513,370 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
+
+        {viewMode === 'cek_ketidakhadiran' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Banner header coklat */}
+            <div className="relative bg-[#3e2723] rounded-[2.5rem] p-6 sm:p-8 md:p-10 text-white overflow-hidden shadow-xl border-b-4 border-amber-950 flex flex-col justify-between min-h-[250px] md:aspect-[16/6] transition-all">
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_0)] bg-[size:16px_16px]" />
+              </div>
+              <div className="absolute -top-10 -right-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div className="space-y-2 text-left">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-200 text-[8px] font-black uppercase tracking-[0.2em] rounded-md border border-amber-500/20 w-fit">
+                    <ClipboardCheck className="w-3.5 h-3.5" />
+                    <span>ABSENCE VERIFICATION MODULE</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-display uppercase tracking-tight text-[#fdfcf0] italic leading-none">
+                    Cek Ketidak-hadiran
+                  </h2>
+                  <p className="text-[10px] sm:text-xs font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
+                    Evaluasi Harian & Pencatatan Ketidakhadiran Pembelajaran / Kegiatan
+                  </p>
+                </div>
+
+                <div className="bg-[#4e342e] border border-amber-500/10 rounded-3xl p-4 text-right self-start">
+                  <p className="text-[7.5px] font-black text-amber-200/50 uppercase tracking-widest mb-1">Live Clock</p>
+                  <p className="font-mono text-xs sm:text-sm font-bold text-amber-100 tracking-wider">
+                    {formatRealTime(currentTime)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={() => handlePrintSummaryPDF('Minggu Ini')}
+                  disabled={loading}
+                  className="bg-amber-950/40 hover:bg-amber-950/70 text-amber-200 text-[9px] font-black uppercase tracking-widest py-3 px-4 rounded-xl border border-amber-500/10 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  <span>Rekap Mingguan</span>
+                </button>
+                <button
+                  onClick={() => handlePrintSummaryPDF('Bulan Ini')}
+                  disabled={loading}
+                  className="bg-amber-950/40 hover:bg-amber-950/70 text-amber-200 text-[9px] font-black uppercase tracking-widest py-3 px-4 rounded-xl border border-amber-500/10 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  <span>Rekap Bulanan</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setKhKegiatan('');
+                    setKhSelectedSiswa([]);
+                    setKhDeskripsi('');
+                    setKhSearchSiswaFilter('');
+                    setShowKetidakhadiranForm(true);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-600 text-stone-950 text-[9.5px] font-black uppercase tracking-widest py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 border-b-2 border-amber-700 font-display"
+                >
+                  <Plus className="w-4 h-4 text-stone-900" />
+                  <span>Buat Catatan</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Kategori seleksi */}
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {[
+                { id: 'hari_ini', label: `Hari Ini (${khStats.hariIni})` },
+                { id: 'kemarin', label: `Kemarin (${khStats.kemarin})` },
+                { id: 'minggu_ini', label: `Minggu Ini (${khStats.mingguIni})` },
+                { id: 'bulan_ini', label: `Bulan Ini (${khStats.bulanIni})` },
+                { id: 'semua', label: `Semua (${ketidakhadiranData.length})` }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setKhTimeFilter(cat.id as any)}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                    khTimeFilter === cat.id
+                      ? 'bg-[#5d4037] text-amber-100 shadow-lg border-amber-950 translate-y-[-1px]'
+                      : 'bg-white text-[#8b5e3c] border-stone-200/50 hover:border-sharp hover:bg-[#faf6f0]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Riwayat / History */}
+            <div className="p-6 bg-[#fdfcf9] rounded-[2rem] border border-[#d7ccc8]/40 overflow-hidden shadow-sm text-left">
+              <h4 className="text-xs font-black text-[#8b5e3c] uppercase tracking-widest mb-4 italic font-display">Riwayat Ketidakhadiran</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredKetidakhadiran.length > 0 ? (
+                  filteredKetidakhadiran.map((rec) => {
+                    const recDate = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : new Date();
+                    const formattedDate = format(recDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                    return (
+                      <div 
+                        key={rec.id}
+                        className="bg-white rounded-2xl border border-[#ebdccb] hover:border-[#a1887f] p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4"
+                      >
+                        <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/40">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                              {rec.kelas?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="font-black text-xs text-[#3e2723] font-display uppercase italic tracking-tight leading-none truncate">
+                                  {rec.keterangan_kegiatan}
+                                </h4>
+                                <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                                  {rec.kelas}
+                                </span>
+                              </div>
+                              <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1 italic">
+                                Oleh: {rec.author_name} ({rec.author_role === 'wali_asuh' ? 'Wali Asuh' : 'Wali Asrama'})
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[8px] font-black text-[#8d6e63]/60 uppercase tracking-widest shrink-0 font-mono">
+                            {rec.nomor_surat ? rec.nomor_surat : ''}
+                          </span>
+                        </div>
+
+                        <div className="bg-[#fcfaf6] p-3 rounded-xl border border-[#ebdccb]/45 space-y-2">
+                          <div className="flex items-center gap-2 text-[7.5px] font-black text-[#8d6e63] uppercase tracking-wider">
+                            <ClipboardCheck className="w-3.5 h-3.5 text-[#5d4037] shrink-0" />
+                            <span>Siswa Tidak Hadir ({rec.daftar_siswa.length})</span>
+                          </div>
+                          <p className="text-[10px] font-semibold text-slate-600 leading-relaxed font-sans pl-1.5 break-words">
+                            {rec.daftar_siswa.join(', ')}
+                          </p>
+                        </div>
+
+                        {rec.deskripsi && (
+                          <div className="text-[10px] text-slate-500 pl-1">
+                            <span className="font-bold text-[#3e2723] block mb-0.5 uppercase text-[7.5px] tracking-wider">Keterangan:</span>
+                            <p className="leading-relaxed font-sans">{rec.deskripsi}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1.5 text-[7.5px] font-black uppercase text-[#8d6e63] tracking-wider pt-2 border-t border-[#ebdccb]/20">
+                          <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
+                          <span>Dicatat: {formattedDate} WIB</span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              setKhPdfLoading(rec.id!);
+                              try {
+                                await generateKetidakhadiranPDF(rec);
+                              } catch (err) {
+                                console.error(err);
+                              } finally {
+                                setKhPdfLoading(null);
+                              }
+                            }}
+                            disabled={khPdfLoading === rec.id}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#3e2723] hover:bg-black text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 shadow-sm"
+                          >
+                            {khPdfLoading === rec.id ? (
+                              <Loader2 className="w-3 animate-spin" />
+                            ) : (
+                              <Printer className="w-3 text-amber-200" />
+                            )}
+                            <span>Cetak Detail PDF</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-[#ebdccb]">
+                    <ClipboardCheck className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[#8d6e63] text-xs font-sans">Belum ada riwayat ketidakhadiran</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Buat Catatan Ketidakhadiran */}
+        {showKetidakhadiranForm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#fdfcf9] rounded-[2.5rem] border-2 border-[#ebdccb] max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="bg-[#3e2723] p-6 text-white flex items-center justify-between border-b-4 border-amber-950">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 text-amber-200 rounded-xl">
+                    <ClipboardCheck className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-black text-sm uppercase tracking-wider font-display text-amber-100">Buat Catatan Ketidakhadiran</h3>
+                    <p className="text-[8px] font-bold text-amber-200/60 uppercase tracking-widest">Database Sync Active</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowKetidakhadiranForm(false)}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5 text-amber-200" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleCreateKetidakhadiran} className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-left">
+                {/* Kegiatan */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-[#5d4037] uppercase tracking-widest block">Keterangan Kegiatan</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Shalat Berjamaah, KBM Kelas, Upacara, dll."
+                    value={khKegiatan}
+                    onChange={(e) => setKhKegiatan(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-white border border-[#ebdccb] rounded-2xl focus:ring-2 focus:ring-[#3e2723] outline-none transition-all text-xs font-bold text-[#3e2723]"
+                  />
+                </div>
+
+                {/* Kelas */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-[#5d4037] uppercase tracking-widest block">Pilih Kelas</label>
+                  <select
+                    value={khKelas}
+                    onChange={(e) => {
+                      setKhKelas(e.target.value);
+                      setKhSelectedSiswa([]); // Reset selected when class changes to keep clean selections
+                    }}
+                    className="w-full px-4 py-3 bg-white border border-[#ebdccb]/60 rounded-2xl focus:ring-2 focus:ring-[#3e2723] outline-none transition-all text-xs font-bold text-[#3e2723]"
+                  >
+                    {['X-1', 'X-2', 'X-3', 'X-4', 'XI-1', 'XI-2', 'XI-3', 'XI-4', 'XII-1', 'XII-2', 'XII-3', 'XII-4'].map(k => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Siswa Selector (Multi Select) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[9px] font-black text-[#5d4037] uppercase tracking-widest block">
+                      Siswa Tidak Hadir dari Kelas {khKelas} ({khSelectedSiswa.length} terpilih)
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const inClass = students.filter(s => s.kelas === khKelas).map(s => s.nama_lengkap || s.id || '');
+                          setKhSelectedSiswa(inClass);
+                        }}
+                        className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setKhSelectedSiswa([])}
+                        className="text-[8px] font-black text-rose-600 uppercase tracking-widest hover:underline"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Small search inside selection */}
+                  <input
+                    type="text"
+                    placeholder="Cari nama siswa di seluruh database..."
+                    value={khSearchSiswaFilter}
+                    onChange={(e) => setKhSearchSiswaFilter(e.target.value)}
+                    className="w-full px-4 py-2 bg-stone-50 border border-[#ebdccb]/60 rounded-xl text-[10px] font-bold text-[#3e2723] outline-none mb-2"
+                  />
+
+                  <div className="max-h-40 overflow-y-auto border border-[#ebdccb] rounded-2xl p-3 bg-white space-y-1.5 custom-scrollbar">
+                    {(() => {
+                      const filterVal = khSearchSiswaFilter.toLowerCase();
+                      const inClass = students.filter(s => {
+                        if (!filterVal) {
+                          return s.kelas === khKelas;
+                        }
+                        return (s.nama_lengkap || '').toLowerCase().includes(filterVal);
+                      });
+
+                      if (inClass.length === 0) {
+                        return <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider text-center py-4">Tidak ada data siswa ditemukan</p>;
+                      }
+
+                      return inClass.map(s => {
+                        const name = s.nama_lengkap || 'Siswa Tanpa Nama';
+                        const isChecked = khSelectedSiswa.includes(name);
+                        return (
+                          <label
+                            key={s.id}
+                            className={`flex items-center gap-3 p-2 rounded-xl border cursor-pointer transition-all ${
+                              isChecked 
+                                ? 'bg-[#f5ebe0] border-[#a1887f] text-[#3e2723]' 
+                                : 'bg-[#fafafa] border-[#ebdccb]/30 hover:border-[#ebdccb] text-slate-600'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setKhSelectedSiswa(khSelectedSiswa.filter(val => val !== name));
+                                } else {
+                                  setKhSelectedSiswa([...khSelectedSiswa, name]);
+                                }
+                              }}
+                              className="w-4 h-4 rounded text-[#3e2723] border-[#ebdccb] focus:ring-[#3e2723]"
+                            />
+                            <span className="text-xs font-bold uppercase tracking-tight text-stone-800">
+                              {name} <span className="text-[10px] text-amber-800 font-semibold ml-1.5">({s.kelas || '-'})</span>
+                            </span>
+                          </label>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* Deskripsi */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-[#5d4037] uppercase tracking-widest block">Keterangan Tambahan / Alasan</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Tuliskan keterangan detail, misalnya: Siswa ijin sakit berada di UKS, alfa tanpa keterangan, dll..."
+                    value={khDeskripsi}
+                    onChange={(e) => setKhDeskripsi(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-[#ebdccb]/60 rounded-2xl focus:ring-2 focus:ring-[#3e2723] outline-none transition-all text-xs font-medium text-slate-700 font-display"
+                  />
+                </div>
+
+                {/* Submit footer */}
+                <div className="pt-4 border-t border-[#ebdccb]/50 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowKetidakhadiranForm(false)}
+                    className="flex-1 py-3 bg-[#f5ebe0] hover:bg-[#e3d5ca] text-[#3e2723] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 bg-[#3e2723] hover:bg-[#271815] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-1.5"
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Simpan Catatan
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
         
         {viewMode === 'sarpras_asrama' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1539,446 +2116,683 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
           </div>
         )}
 
-        {viewMode === 'izin_umum' && (
+        {viewMode === 'izin_umum' && (() => {
+          const pinjamUmumList = permits.filter(p => p.tipe === 'umum');
+          const now = new Date();
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+          const weeklyPermitCount = pinjamUmumList.filter(p => {
+            const tgl = p.tgl_surat?.toDate ? p.tgl_surat.toDate() : new Date();
+            return tgl >= sevenDaysAgo;
+          }).length;
+
+          const monthlyPermitCount = pinjamUmumList.filter(p => {
+            const tgl = p.tgl_surat?.toDate ? p.tgl_surat.toDate() : new Date();
+            return tgl >= startOfMonth;
+          }).length;
+
+          return (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+              {/* Coklat Header with 16:8 scale theme banner (aspect ratio feel) */}
+              <div className="relative bg-[#3e2723] rounded-[2.5rem] p-6 sm:p-8 md:p-10 text-white overflow-hidden shadow-xl border-b-4 border-amber-950 flex flex-col justify-between min-h-[300px] md:aspect-[16/7.5] transition-all text-left">
+                {/* Decorative Elements */}
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                  <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_0)] bg-[size:16px_16px]" />
+                </div>
+                <div className="absolute -top-10 -right-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 left-12 w-48 h-48 bg-amber-100/5 rounded-full blur-2xl pointer-events-none" />
+
+                {/* Banner Content Details */}
+                <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                  <div className="space-y-2 md:max-w-xl">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-200 text-[8px] font-black uppercase tracking-[0.2em] rounded-md border border-amber-500/20 w-fit">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>LAYANAN SYSTEM</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-display uppercase tracking-tight text-[#fdfcf0] italic leading-tight">
+                      Layanan Izin Umum
+                    </h2>
+                    <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
+                      Pengajuan & Rekapitulasi Izin Umum Santri Non-Medis
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="shrink-0 flex items-center justify-center gap-2.5 px-6 py-3.5 bg-amber-100/90 text-[#3e2723] hover:bg-amber-100 font-black rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-95 group uppercase tracking-wider text-[10px] border border-amber-200"
+                  >
+                    <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform text-[#3e2723]" />
+                    <span>Buat Izin Baru</span>
+                  </button>
+                </div>
+
+                {/* Integrated summaries */}
+                <div className="relative z-10 mt-6 grid grid-cols-2 gap-4">
+                  <div className="bg-amber-950/40 backdrop-blur-sm p-4 rounded-2xl border border-amber-500/10 hover:border-amber-500/20 transition-all">
+                    <span className="text-[7.5px] font-black text-[#ebdccb]/60 uppercase tracking-widest block mb-1">REKAP MINGGUAN (7 HARI TERAKHIR)</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl sm:text-3xl font-black font-display text-amber-100">{weeklyPermitCount}</span>
+                      <span className="text-[8px] font-[#ebdccb] font-black uppercase tracking-wider opacity-60">Kunjungan/Izin</span>
+                    </div>
+                  </div>
+                  <div className="bg-amber-950/40 backdrop-blur-sm p-4 rounded-2xl border border-amber-500/10 hover:border-amber-500/20 transition-all">
+                    <span className="text-[7.5px] font-black text-[#ebdccb]/60 uppercase tracking-widest block mb-1">REKAP BULANAN (BULAN KALENDER INI)</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl sm:text-3xl font-black font-display text-amber-100">{monthlyPermitCount}</span>
+                      <span className="text-[8px] font-[#ebdccb] font-black uppercase tracking-wider opacity-60">Total Terdaftar</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature Cards / Bento Grid (Slightly smaller, auxiliary layout) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { title: 'Izin Pulang', desc: 'Keperluan keluarga atau mendesak', icon: Home, color: 'text-amber-800', bg: 'bg-amber-100' },
+                  { title: 'Izin Kegiatan', desc: 'Lomba atau acara luar sekolah', icon: Users, color: 'text-[#5d4037]', bg: 'bg-[#f8f3ed]' },
+                  { title: 'Izin Mendadak', desc: 'Keadaan darurat / force majeure', icon: Info, color: 'text-rose-800', bg: 'bg-rose-100' }
+                ].map((f, i) => (
+                  <div key={i} className="p-5 rounded-2xl bg-white border border-[#d7ccc8]/40 shadow-sm text-left flex items-start gap-4">
+                    <div className={`p-3 ${f.bg} ${f.color} rounded-xl shrink-0 border border-black/5`}>
+                      <f.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold uppercase tracking-wider text-[10px] mb-1 text-[#3e2723] italic">{f.title}</h3>
+                      <p className="text-[10px] font-bold leading-normal text-[#8b5e3c]/80 italic uppercase tracking-tight">{f.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Riwayat Izin Section */}
+              <div className="bg-white rounded-[2rem] border border-[#d7ccc8]/35 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-[#f8f3ed] flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#f8f3ed] text-[#5d4037] rounded-xl border border-[#d7ccc8]/20">
+                      <History className="w-4 h-4" />
+                    </div>
+                    <h3 className="font-black uppercase tracking-widest text-[9.5px] text-[#3e2723] italic">Riwayat Izin Umum Anda</h3>
+                  </div>
+                </div>
+                
+                <div className="p-6 space-y-4 bg-[#fdfcf9]">
+                  {pinjamUmumList.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {pinjamUmumList.map((permit) => {
+                        const tglSuratDate = permit.tgl_surat?.toDate ? permit.tgl_surat.toDate() : new Date();
+                        const formattedTglSurat = format(tglSuratDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                        
+                        const startPeriod = permit.tgl_mulai?.toDate 
+                          ? format(permit.tgl_mulai.toDate(), 'd MMM yyyy, HH:mm', { locale: id }) 
+                          : '-';
+                        const endPeriod = permit.tgl_selesai?.toDate 
+                          ? format(permit.tgl_selesai.toDate(), 'd MMM yyyy, HH:mm', { locale: id }) 
+                          : '-';
+
+                        return (
+                          <div 
+                            key={permit.id} 
+                            className="bg-white rounded-2xl border border-[#ebdccb] hover:border-[#a1887f] p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4 group text-left"
+                          >
+                            {/* Card Header: Student Metadata */}
+                            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/40">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                                  {permit.nama_siswa?.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <h4 className="font-black text-xs text-[#3e2723] font-display uppercase italic tracking-tight truncate leading-none">
+                                      {permit.nama_siswa}
+                                    </h4>
+                                    <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                                      {permit.kelas}
+                                    </span>
+                                  </div>
+                                  <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1 italic max-w-full truncate">
+                                    Alasan: "{permit.alasan}"
+                                  </p>
+                                </div>
+                              </div>
+
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded text-[7px] font-black uppercase tracking-wider border shadow-inner ${
+                                permit.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' :
+                                permit.status === 'rejected' ? 'bg-rose-50 text-rose-800 border-rose-100' :
+                                'bg-amber-100/60 text-amber-800 border-amber-200'
+                              }`}>
+                                {permit.status.replace('_', ' ')}
+                              </span>
+                            </div>
+
+                            {/* Card Body: Duration / Masa Izin */}
+                            <div className="bg-[#fcfaf6] p-3 rounded-xl border border-[#ebdccb]/45 space-y-2">
+                              <div className="flex items-center gap-2 text-[7.5px] font-black text-[#8d6e63] uppercase tracking-wider">
+                                <Calendar className="w-3.5 h-3.5 text-[#5d4037] shrink-0" />
+                                <span>Periode Penggunaan / Masa Izin</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-left font-sans pl-1.5">
+                                <div>
+                                  <span className="text-[6.5px] font-black text-[#8d6e63] uppercase block leading-none">Mulai Tanggal</span>
+                                  <span className="text-[9.5px] font-bold text-[#3e2723] block mt-0.5">{startPeriod}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[6.5px] font-black text-[#8d6e63] uppercase block leading-none">Hingga Tanggal</span>
+                                  <span className="text-[9.5px] font-bold text-[#3e2723] block mt-0.5">{endPeriod}</span>
+                                </div>
+                              </div>
+                              <div className="pl-1.5 pt-1 border-t border-[#ebdccb]/30 flex justify-between items-center text-[7.5px] font-bold">
+                                <span className="text-[#8d6e63] uppercase">Masa Berlaku:</span>
+                                <span className="bg-[#5d4037] text-white px-1.5 py-0.5 rounded font-black">{permit.jumlah_hari} Hari</span>
+                              </div>
+                            </div>
+
+                            {/* Clock and Logged creation Date */}
+                            <div className="flex items-center gap-1.5 text-[7.5px] font-black uppercase text-[#8d6e63] tracking-wider pt-2 border-t border-[#ebdccb]/20">
+                              <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
+                              <span>Diajukan: {formattedTglSurat} WIB</span>
+                            </div>
+
+                            {/* Card Footer Actions */}
+                            <div className="flex items-center gap-2 w-full pt-1">
+                              <button
+                                onClick={() => setSelectedPermit(permit)}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#f5ebe0] hover:bg-[#ebdccb] text-[#5d4037] hover:text-[#3e2723] text-[9px] font-black uppercase tracking-wider rounded-lg border border-[#ebdccb] transition-all active:scale-95 shadow-sm"
+                              >
+                                <Info className="w-3 h-3 text-[#5d4037]" />
+                                <span>Selengkapnya</span>
+                              </button>
+                              <button
+                                onClick={() => generatePermitPDF(permit)}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#3e2723] hover:bg-black text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 shadow-sm"
+                              >
+                                <Printer className="w-3 h-3 text-amber-200" />
+                                <span>Print PDF</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-20 text-center space-y-4 bg-white rounded-2xl border border-dashed border-[#ebdccb]">
+                      <div className="w-20 h-20 bg-[#f8f3ed] rounded-full flex items-center justify-center mx-auto border-2 border-dashed border-[#d7ccc8]/40">
+                        <ClipboardList className="w-8 h-8 text-[#d7ccc8]" />
+                      </div>
+                      <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest leading-relaxed">
+                        Belum ada riwayat izin umum<br/>yang Anda ajukan.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {viewMode === 'perizinan' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} font-display uppercase tracking-tight`}>Layanan Izin Umum</h2>
-                <p className={`text-sm font-bold opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.1em] mt-1`}>Pengajuan Izin Keluar & Kegiatan Non-Medis</p>
+            {/* Coklat Header with 16:7 scale theme banner (aspect ratio feel) */}
+            <div className="relative bg-[#3e2723] rounded-[2.5rem] p-6 sm:p-8 md:p-10 text-white overflow-hidden shadow-xl border-b-4 border-amber-950 flex flex-col justify-between min-h-[300px] md:aspect-[16/7] transition-all text-left">
+              {/* Decorative Elements */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_0)] bg-[size:16px_16px]" />
               </div>
-              <button
-                onClick={() => setShowForm(true)}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 text-white font-black rounded-3xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 group"
-              >
-                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                BUAT IZIN BARU
-              </button>
+              <div className="absolute -top-10 -right-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-12 w-48 h-48 bg-amber-100/5 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Banner Content Details */}
+              <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div className="space-y-2 md:max-w-xl">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-200 text-[8px] font-black uppercase tracking-[0.2em] rounded-md border border-amber-500/20 w-fit">
+                    <Activity className="w-3.5 h-3.5" />
+                    <span>HEALTH MONITORING SYSTEM</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-display uppercase tracking-tight text-[#fdfcf0] italic leading-tight">
+                    Layanan Perizinan Sakit
+                  </h2>
+                  <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
+                    Sistem Monitor Data Sakit & Rekapitulasi Kesehatan Santri
+                  </p>
+                </div>
+
+                {/* Print Buttons inside header */}
+                <div className="shrink-0 flex items-center flex-wrap gap-2.5">
+                  <button
+                    onClick={() => handlePrintPeriodicReport('minggu_ini')}
+                    disabled={reportLoading}
+                    className="flex items-center justify-center gap-2 px-5 py-3.5 bg-amber-500 hover:bg-amber-600 text-[#3e2723] font-black rounded-2xl shadow-md transition-all active:scale-95 uppercase tracking-wider text-[9px] border border-amber-400"
+                  >
+                    {reportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                    <span>Rekap Mingguan</span>
+                  </button>
+                  <button
+                    onClick={() => handlePrintPeriodicReport('bulan_ini')}
+                    disabled={reportLoading}
+                    className="flex items-center justify-center gap-2 px-5 py-3.5 bg-amber-100 text-[#3e2723] hover:bg-white font-black rounded-2xl shadow-md transition-all active:scale-95 uppercase tracking-wider text-[9px] border border-amber-200"
+                  >
+                    {reportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                    <span>Rekap Bulanan</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Integrated Statistics row within the 16:7 header */}
+              <div className="relative z-10 mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Sakit Hari Ini', value: sakitStats.hariIni, color: 'text-rose-200' },
+                  { label: 'Sakit Kemarin', value: sakitStats.kemarin, color: 'text-amber-200' },
+                  { label: 'Sakit Minggu Ini', value: sakitStats.mingguIni, color: 'text-blue-200' },
+                  { label: 'Sakit Bulan Ini', value: sakitStats.bulanIni, color: 'text-emerald-200' }
+                ].map((stat, idx) => (
+                  <div key={idx} className="bg-amber-950/40 backdrop-blur-sm p-4 rounded-2xl border border-amber-500/10 hover:border-amber-500/20 transition-all flex flex-col justify-between">
+                    <span className="text-[7.5px] font-black text-[#ebdccb]/60 uppercase tracking-widest block mb-1">{stat.label}</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className={`text-2xl sm:text-3xl font-black font-display ${stat.color}`}>{stat.value}</span>
+                      <span className="text-[8px] font-black uppercase tracking-wider opacity-60">Santri</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Feature Cards / Bento Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                { title: 'Izin Pulang', desc: 'Keperluan keluarga atau mendesak', icon: Home, color: 'text-amber-800', bg: 'bg-amber-100' },
-                { title: 'Izin Kegiatan', desc: 'Lomba atau acara luar sekolah', icon: Users, color: 'text-[#5d4037]', bg: 'bg-[#f8f3ed]' },
-                { title: 'Izin Mendadak', desc: 'Keadaan darurat / force majeure', icon: Info, color: 'text-rose-800', bg: 'bg-rose-100' }
-              ].map((f, i) => (
-                <div key={i} className="p-6 rounded-[2.5rem] bg-white border border-[#d7ccc8]/40 shadow-sm">
-                  <div className={`p-4 ${f.bg} ${f.color} rounded-2xl w-fit mb-4 border border-black/5`}>
-                    <f.icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-black uppercase tracking-widest text-[10px] mb-2 text-[#3e2723] italic">{f.title}</h3>
-                  <p className="text-[10px] font-bold leading-relaxed opacity-60 text-[#8b5e3c] italic uppercase tracking-tighter">{f.desc}</p>
-                </div>
-              ))}
+            {/* Riwayat Terakhir Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest text-left">
+                {(viewMode as string) === 'perizinan' ? 'Riwayat Perizinan' : (viewMode as string) === 'pinjam_hp' ? 'Riwayat HP Individu' : (viewMode as string) === 'permohonan_hp' ? 'Permohonan HP' : 'Permohonan Laptop'}
+              </h2>
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                <button 
+                  onClick={() => setViewMode('perizinan')}
+                  className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    (viewMode as string) === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                  }`}
+                >
+                  Izin
+                </button>
+                <button 
+                  onClick={() => setViewMode('pinjam_laptop')}
+                  className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    (viewMode as string) === 'pinjam_laptop' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                  }`}
+                >
+                  Laptop
+                </button>
+                <button 
+                  onClick={() => setViewMode('permohonan_hp')}
+                  className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    (viewMode as string) === 'permohonan_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                  }`}
+                >
+                  Req HP
+                </button>
+                <button 
+                  onClick={() => setViewMode('pinjam_hp')}
+                  className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    (viewMode as string) === 'pinjam_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                  }`}
+                >
+                  Pinjam HP
+                </button>
+              </div>
             </div>
 
-            <div className="bg-white rounded-[3rem] border border-[#d7ccc8]/40 overflow-hidden shadow-sm">
-              <div className="p-8 border-b border-[#f8f3ed] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#f8f3ed] text-[#5d4037] rounded-xl border border-[#d7ccc8]/20">
-                    <History className="w-5 h-5" />
+            <div className="space-y-6">
+              {/* Filters & Search */}
+              <div className="space-y-4">
+                <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+                  {[ 
+                    { id: 'hari_ini', label: 'Hari Ini' },
+                    { id: 'kemarin', label: 'Kemarin' },
+                    { id: 'minggu_ini', label: 'Minggu Ini' },
+                    { id: 'bulan_ini', label: 'Bulan Ini' },
+                    { id: 'semua', label: 'Semua' }
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setTimeFilter(cat.id as any)}
+                      className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                        timeFilter === cat.id
+                          ? 'bg-[#5d4037] text-white shadow-xl shadow-black/10 border-black/20 translate-y-[-2px]'
+                          : 'bg-white text-[#8b5e3c] border-[#d7ccc8]/40 hover:border-[#d7ccc8] border-b-white'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-[#fdfcf0] p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-4">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama siswa atau nomor surat..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border border-[#d7ccc8]/30 rounded-2xl focus:ring-2 focus:ring-[#5d4037] outline-none transition-all"
+                      />
+                    </div>
                   </div>
-                  <h3 className="font-black uppercase tracking-widest text-[10px] text-[#3e2723] italic">Riwayat Izin Umum Anda</h3>
                 </div>
               </div>
-              
-              <div className="divide-y divide-[#f8f3ed]">
-                {permits.filter(p => p.tipe === 'umum').length > 0 ? (
-                  permits.filter(p => p.tipe === 'umum').map((permit) => (
-                    <div key={permit.id} className="p-6 hover:bg-[#fdfcf0] transition-colors flex items-center justify-between group">
-                      <div className="flex items-center gap-5">
-                        <div className="w-12 h-12 bg-[#f8f3ed] rounded-2xl flex items-center justify-center font-black text-[#d7ccc8] group-hover:bg-[#5d4037] group-hover:text-[#fdfcf0] transition-colors shadow-inner">
-                          {permit.nama_siswa.charAt(0)}
+
+              {/* Memorandum Section */}
+              {memos.length > 0 && (
+                <div className="space-y-4 text-left">
+                  <div className="flex items-center gap-2 text-slate-900">
+                    <Mail className="w-5 h-5 text-[#5d4037]" />
+                    <h3 className="font-black text-xs uppercase tracking-wider text-[#3e2723]">Memorandum dari Kepala Sekolah</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {memos.map(memo => {
+                      const tglMemoObj = memo.tgl_memo?.toDate ? memo.tgl_memo.toDate() : new Date();
+                      return (
+                        <div 
+                          key={memo.id}
+                          onClick={() => setSelectedMemo(memo)}
+                          className="bg-amber-50/50 p-5 rounded-3xl border border-[#ebdccb]/60 border-l-8 border-l-[#a1887f] shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-amber-100 text-[#5d4037] rounded-xl group-hover:scale-110 transition-transform">
+                              <Mail className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black text-slate-900 group-hover:text-[#5d4037] transition-colors">{memo.perihal}</h4>
+                              <p className="text-[10px] font-bold text-slate-500">{format(tglMemoObj, 'EEEE, d MMMM yyyy (HH:mm)', { locale: id })}</p>
+                            </div>
+                          </div>
+                          <Plus className="w-4 h-4 text-[#8b5e3c]/50 group-hover:text-[#3e2723] transition-colors" />
                         </div>
-                        <div>
-                          <h4 className="font-black text-sm text-[#3e2723] font-display italic tracking-tight">{permit.nama_siswa}</h4>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">{permit.kelas}</span>
-                            <span className="w-1 h-1 bg-[#d7ccc8] rounded-full" />
-                            <span className="text-[10px] font-black text-[#5d4037] uppercase tracking-widest italic">{permit.alasan}</span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* List Perizinan / History with 16:8 slim scale view (8:16 horizontal look) */}
+              <div className="p-6 bg-[#fdfcf9] rounded-[2rem] border border-[#d7ccc8]/35 overflow-hidden shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredPermits.length > 0 ? (
+                    filteredPermits.map((permit) => {
+                      const permitDate = permit.tgl_surat?.toDate ? permit.tgl_surat.toDate() : new Date();
+                      const formattedDate = format(permitDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                      
+                      const startP = permit.tgl_mulai?.toDate 
+                        ? format(permit.tgl_mulai.toDate(), 'd MMM yyyy, HH:mm', { locale: id }) 
+                        : '-';
+                      const endP = permit.tgl_selesai?.toDate 
+                        ? format(permit.tgl_selesai.toDate(), 'd MMM yyyy, HH:mm', { locale: id }) 
+                        : '-';
+
+                      return (
+                        <div 
+                          key={permit.id} 
+                          className="bg-white rounded-2xl border border-[#ebdccb] hover:border-[#a1887f] p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4 group text-left"
+                        >
+                          {/* Card Header: Student Info */}
+                          <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/40">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                                {permit.nama_siswa?.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="font-black text-xs text-[#3e2723] font-display uppercase italic tracking-tight truncate leading-none">
+                                    {permit.nama_siswa}
+                                  </h4>
+                                  <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                                    {permit.kelas}
+                                  </span>
+                                </div>
+                                <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1 italic max-w-full truncate">
+                                  {permit.tipe === 'sakit' ? `Diagnosa: ${permit.diagnosa || 'Sakit (Tanpa diagnosa)'}` : `Alasan: ${permit.alasan || 'Izin Umum'}`}
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded text-[7px] font-black uppercase tracking-wider border shadow-inner ${
+                              permit.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' :
+                              permit.status === 'rejected' ? 'bg-rose-50 text-rose-800 border-rose-100' :
+                              'bg-amber-100/60 text-amber-800 border-amber-200'
+                            }`}>
+                              {permit.status.replace('_', ' ')}
+                            </span>
+                          </div>
+
+                          {/* Card Body: Duration / Masa Izin */}
+                          <div className="bg-[#fcfaf6] p-3 rounded-xl border border-[#ebdccb]/45 space-y-2">
+                            <div className="flex items-center gap-2 text-[7.5px] font-black text-[#8d6e63] uppercase tracking-wider">
+                              <Calendar className="w-3.5 h-3.5 text-[#5d4037] shrink-0" />
+                              <span>Periode Penggunaan / Masa Izin</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-left font-sans pl-1.5">
+                              <div>
+                                <span className="text-[6.5px] font-black text-[#8d6e63] uppercase block leading-none">Mulai Tanggal</span>
+                                <span className="text-[9.5px] font-bold text-[#3e2723] block mt-0.5">{startP}</span>
+                              </div>
+                              <div>
+                                <span className="text-[6.5px] font-black text-[#8d6e63] uppercase block leading-none">Hingga Tanggal</span>
+                                <span className="text-[9.5px] font-bold text-[#3e2723] block mt-0.5">{endP}</span>
+                              </div>
+                            </div>
+                            <div className="pl-1.5 pt-1 border-t border-[#ebdccb]/30 flex justify-between items-center text-[7.5px] font-bold">
+                              <span className="text-[#8d6e63] uppercase">Masa Berlaku:</span>
+                              <span className="bg-[#5d4037] text-white px-1.5 py-0.5 rounded font-black">{permit.jumlah_hari || 0} Hari</span>
+                            </div>
+                          </div>
+
+                          {/* Logged creation Date */}
+                          <div className="flex items-center gap-1.5 text-[7.5px] font-black uppercase text-[#8d6e63] tracking-wider pt-2 border-t border-[#ebdccb]/20">
+                            <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
+                            <span>Diajukan: {formattedDate} WIB</span>
+                          </div>
+
+                          {/* Card Footer Actions */}
+                          <div className="flex items-center gap-2 w-full pt-1">
+                            <button
+                              onClick={() => setSelectedPermit(permit)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#f5ebe0] hover:bg-[#ebdccb] text-[#5d4037] hover:text-[#3e2723] text-[9px] font-black uppercase tracking-wider rounded-lg border border-[#ebdccb] transition-all active:scale-95 shadow-sm"
+                            >
+                              <Info className="w-3 h-3 text-[#5d4037]" />
+                              <span>Selengkapnya</span>
+                            </button>
+                            <button
+                              onClick={() => generatePermitPDF(permit)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#3e2723] hover:bg-black text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 shadow-sm"
+                            >
+                              <Printer className="w-3 h-3 text-amber-200" />
+                              <span>Print PDF</span>
+                            </button>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right hidden sm:block">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-[#8b5e3c]/40">Status</p>
-                          <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-1 border shadow-sm ${
-                            permit.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                            permit.status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                            'bg-amber-50 text-amber-700 border-amber-100'
-                          }`}>
-                            {permit.status.replace('_', ' ')}
-                          </span>
-                        </div>
-                        <button 
-                          onClick={() => setSelectedPermit(permit)}
-                          className="p-3 bg-white border border-[#d7ccc8]/40 rounded-2xl text-[#d7ccc8] hover:text-[#5d4037] shadow-sm transition-all hover:bg-[#f8f3ed]"
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
-                      </div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-full p-20 text-center bg-white rounded-2xl border border-dashed border-[#ebdccb]">
+                      <ClipboardList className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada riwayat perizinan</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="p-20 text-center space-y-4">
-                    <div className="w-20 h-20 bg-[#f8f3ed] rounded-full flex items-center justify-center mx-auto border-2 border-dashed border-[#d7ccc8]/40">
-                      <ClipboardList className="w-8 h-8 text-[#d7ccc8]" />
-                    </div>
-                    <p className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest leading-relaxed">Belum ada riwayat izin umum<br/>yang Anda ajukan.</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {viewMode === 'perizinan' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-black text-[#3e2723] font-display italic">Rekapitulasi Data</h2>
-                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Monitor & Cetak Laporan Kesehatan Siswa</p>
+        {viewMode === 'pinjam_laptop' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 text-left">
+            {/* Brown Header for Laptop Loan with 16:7 responsive horizontal look */}
+            <div className="relative bg-[#3e2723] rounded-[2.5rem] p-6 sm:p-8 md:p-10 text-white overflow-hidden shadow-xl border-b-4 border-amber-950 flex flex-col justify-between min-h-[280px] md:aspect-[16/7] transition-all">
+              {/* Decorative Elements */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_0)] bg-[size:16px_16px]" />
               </div>
-              <button 
-                onClick={() => setShowReportModal(true)}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-[#5d4037] text-white font-black rounded-3xl shadow-xl shadow-black/10 hover:bg-[#3e2723] transition-all active:scale-95 group border-b-4 border-black/20"
-              >
-                <Printer className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                <span className="uppercase tracking-widest text-xs">Pilihan Rekap</span>
-              </button>
-            </div>
+              <div className="absolute -top-10 -right-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-12 w-48 h-48 bg-amber-100/5 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Sakit Hari Ini */}
-            <motion.div 
-              whileHover={{ y: -4 }}
-              onClick={() => setTimeFilter('hari_ini')}
-              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.hariIni}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <Activity className="w-6 h-6 text-amber-200" />
+              {/* Banner Content Details */}
+              <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-200 text-[8px] font-black uppercase tracking-[0.2em] rounded-md border border-amber-500/20 w-fit">
+                    <Laptop className="w-3.5 h-3.5" />
+                    <span>EQUIPMENT ACCESS SYSTEM</span>
                   </div>
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-display uppercase tracking-tight text-[#fdfcf0] italic leading-none">
+                    Peminjaman Laptop
+                  </h2>
+                  <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
+                    Sistem Persetujuan & Monitoring Distribusi Laptop Santri
+                  </p>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Hari Ini</p>
               </div>
-            </motion.div>
 
-            {/* Card 2: Sakit Kemarin */}
-            <motion.div 
-              whileHover={{ y: -4 }}
-              onClick={() => setTimeFilter('kemarin')}
-              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.kemarin}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <Clock className="w-6 h-6 text-amber-200" />
-                  </div>
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Kemarin</p>
-              </div>
-            </motion.div>
-
-            {/* Card 3: Sakit Minggu Ini */}
-            <motion.div 
-              whileHover={{ y: -4 }}
-              onClick={() => setTimeFilter('minggu_ini')}
-              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.mingguIni}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <Calendar className="w-6 h-6 text-amber-200" />
-                  </div>
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Minggu Ini</p>
-              </div>
-            </motion.div>
-
-            {/* Card 4: Sakit Bulan Ini */}
-            <motion.div 
-              whileHover={{ y: -4 }}
-              onClick={() => setTimeFilter('bulan_ini')}
-              className="relative overflow-hidden bg-[#5d4037] p-6 rounded-[2.5rem] shadow-xl text-white group cursor-pointer border-b-4 border-[#3e2723]"
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-4xl font-black font-display tracking-tight">{sakitStats.bulanIni}</h3>
-                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md">
-                    <BarChart3 className="w-6 h-6 text-amber-200" />
-                  </div>
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight opacity-80 italic">Sakit<br />Bulan Ini</p>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Riwayat Terakhir Header */}
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">
-              {(viewMode as string) === 'perizinan' ? 'Riwayat Perizinan' : (viewMode as string) === 'pinjam_hp' ? 'Riwayat HP Individu' : (viewMode as string) === 'permohonan_hp' ? 'Permohonan HP' : 'Permohonan Laptop'}
-            </h2>
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-              <button 
-                onClick={() => setViewMode('perizinan')}
-                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                  (viewMode as string) === 'perizinan' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-                }`}
-              >
-                Izin
-              </button>
-              <button 
-                onClick={() => setViewMode('pinjam_laptop')}
-                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                  (viewMode as string) === 'pinjam_laptop' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-                }`}
-              >
-                Laptop
-              </button>
-              <button 
-                onClick={() => setViewMode('permohonan_hp')}
-                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                  (viewMode as string) === 'permohonan_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-                }`}
-              >
-                Req HP
-              </button>
-              <button 
-                onClick={() => setViewMode('pinjam_hp')}
-                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                  (viewMode as string) === 'pinjam_hp' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-                }`}
-              >
-                Pinjam HP
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {/* Filters & Search - Restored */}
-            <div className="space-y-6">
-          <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
-            {[ 
-              { id: 'hari_ini', label: 'Hari Ini' },
-              { id: 'kemarin', label: 'Kemarin' },
-              { id: 'minggu_ini', label: 'Minggu Ini' },
-              { id: 'bulan_ini', label: 'Bulan Ini' },
-              { id: 'semua', label: 'Semua' }
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setTimeFilter(cat.id as any)}
-                className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
-                  timeFilter === cat.id
-                    ? 'bg-[#5d4037] text-white shadow-xl shadow-black/10 border-black/20 translate-y-[-2px]'
-                    : 'bg-white text-[#8b5e3c] border-[#d7ccc8]/40 hover:border-[#d7ccc8] border-b-white'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="bg-[#fdfcf0] p-6 rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b5e3c]/40" />
-                <input
-                  type="text"
-                  placeholder="Cari nama siswa atau nomor surat..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-white border border-[#d7ccc8]/30 rounded-2xl focus:ring-2 focus:ring-[#5d4037] outline-none transition-all"
-                />
-              </div>
-            </div>
-          </div>
-            </div>
-
-          {/* Memorandum Section */}
-          {memos.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-slate-900">
-                <Mail className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-black">Memorandum dari Kepala Sekolah</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {memos.map(memo => (
-                  <div 
-                    key={memo.id}
-                    onClick={() => setSelectedMemo(memo)}
-                    className="bg-orange-50 p-4 rounded-3xl border border-orange-100 border-l-8 border-l-orange-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-100 text-orange-600 rounded-xl group-hover:scale-110 transition-transform">
-                        <Mail className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors">{memo.perihal}</h4>
-                        <p className="text-[10px] font-bold text-slate-500">{format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}</p>
-                      </div>
+              {/* Integrated Statistics row within header */}
+              <div className="relative z-10 mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Hari Ini', value: laptopStats.hariIni, color: 'text-rose-200' },
+                  { label: 'Kemarin', value: laptopStats.kemarin, color: 'text-amber-200' },
+                  { label: 'Minggu Ini', value: laptopStats.mingguIni, color: 'text-blue-200' },
+                  { label: 'Bulan Ini', value: laptopStats.bulanIni, color: 'text-emerald-200' }
+                ].map((stat, idx) => (
+                  <div key={idx} className="bg-amber-950/40 backdrop-blur-sm p-4 rounded-2xl border border-amber-500/10 hover:border-amber-500/20 transition-all flex flex-col justify-between">
+                    <span className="text-[7.5px] font-black text-[#ebdccb]/60 uppercase tracking-widest block mb-1">{stat.label}</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className={`text-2xl sm:text-3xl font-black font-display ${stat.color}`}>{stat.value}</span>
+                      <span className="text-[8px] font-black uppercase tracking-wider opacity-60">Req</span>
                     </div>
-                    <Plus className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
                   </div>
                 ))}
               </div>
             </div>
-          )}
 
-          {/* List Perizinan - Banner Style */}
-          <div className="grid grid-cols-1 gap-3">
-            {filteredPermits.map((permit) => (
-              <motion.div 
-                key={permit.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => setSelectedPermit(permit)}
-                className={`group flex items-center gap-4 p-4 bg-white rounded-[2rem] shadow-sm border-l-8 hover:shadow-md transition-all cursor-pointer ${
-                  permit.tipe === 'sakit' ? 'border-emerald-500 hover:border-emerald-600' :
-                  permit.tipe === 'umum' ? 'border-blue-500 hover:border-blue-600' :
-                  'border-amber-500 hover:border-amber-600'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                  permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600' :
-                  permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600' :
-                  'bg-amber-50 text-amber-600'
-                }`}>
-                  <User className="w-6 h-6" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-black text-slate-900 truncate font-display">{permit.nama_siswa} ({permit.kelas})</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
-                      permit.tipe === 'sakit' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                      permit.tipe === 'umum' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                      'bg-amber-50 text-amber-600 border-amber-100'
-                    }`}>
-                      {permit.tipe === 'sakit' ? 'Input Dokter' : permit.tipe === 'umum' ? 'Izin Wali Asuh' : 'Input Wali Kelas'}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400">• {permit.status === 'approved' || permit.status === 'acknowledged' ? 'Selesai' : 'Proses'}</span>
+            {/* Category selection */}
+            <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+              {[ 
+                { id: 'hari_ini', label: 'Hari Ini' },
+                { id: 'kemarin', label: 'Kemarin' },
+                { id: 'minggu_ini', label: 'Minggu Ini' },
+                { id: 'bulan_ini', label: 'Bulan Ini' },
+                { id: 'semua', label: 'Semua' }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setLaptopTimeFilter(cat.id as any)}
+                  className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                    laptopTimeFilter === cat.id
+                      ? 'bg-[#5d4037] text-white shadow-xl shadow-black/10 border-black/20 translate-y-[-2px]'
+                      : 'bg-white text-[#8b5e3c] border-[#d7ccc8]/40 hover:border-[#d7ccc8] border-b-white'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* List laptop requests */}
+            <div className="p-6 bg-[#fdfcf9] rounded-[2rem] border border-[#d7ccc8]/35 overflow-hidden shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredLaptopRequests.length > 0 ? (
+                  filteredLaptopRequests.map((req) => {
+                    const reqDate = req.tgl_request?.toDate ? req.tgl_request.toDate() : new Date();
+                    const formattedDate = format(reqDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                    return (
+                      <div 
+                        key={req.id}
+                        className="bg-white rounded-2xl border border-[#ebdccb] hover:border-[#a1887f] p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4"
+                      >
+                        {/* Card Header: Student Info & Subject */}
+                        <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/40">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                              {req.kelas?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="font-black text-xs text-[#3e2723] font-display uppercase italic tracking-tight truncate leading-none">
+                                    {req.mapel}
+                                  </h4>
+                                <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                                  {req.kelas}
+                                </span>
+                              </div>
+                              <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1 italic max-w-full truncate">
+                                Pengaju: {req.guru_name}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded text-[7px] font-black uppercase tracking-wider border shadow-inner ${
+                            req.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' :
+                            req.status === 'rejected' ? 'bg-rose-50 text-rose-800 border-rose-100' :
+                            'bg-amber-100/60 text-amber-800 border-amber-200'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </div>
+
+                        {/* Card Body: Student List Box */}
+                        <div className="bg-[#fcfaf6] p-3 rounded-xl border border-[#ebdccb]/45 space-y-2">
+                          <div className="flex items-center gap-2 text-[7.5px] font-black text-[#8d6e63] uppercase tracking-wider">
+                            <Laptop className="w-3.5 h-3.5 text-[#5d4037] shrink-0" />
+                            <span>Siswa Penerima ({req.daftar_siswa.length})</span>
+                          </div>
+                          <p className="text-[10px] font-semibold text-slate-600 leading-relaxed font-sans pl-1.5 break-words">
+                            {req.daftar_siswa.join(', ')}
+                          </p>
+                        </div>
+
+                        {/* Logged creation Date */}
+                        <div className="flex items-center gap-1.5 text-[7.5px] font-black uppercase text-[#8d6e63] tracking-wider pt-2 border-t border-[#ebdccb]/20">
+                          <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
+                          <span>Diajukan: {formattedDate} WIB</span>
+                        </div>
+
+                        {/* Action Controls */}
+                        <div className="flex flex-col gap-2 pt-1">
+                          {req.status === 'pending' && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleUpdateLaptopStatus(req.id!, 'rejected')}
+                                disabled={loading}
+                                className="flex-1 py-2 px-3 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+                              >
+                                Tolak
+                              </button>
+                              <button
+                                onClick={() => handleUpdateLaptopStatus(req.id!, 'approved')}
+                                disabled={loading}
+                                className="flex-1 py-2 px-3 bg-[#5d4037] text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#3e2723] transition-all shadow-md"
+                              >
+                                Setujui
+                              </button>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleLaptopPDF(req)}
+                            disabled={laptopPdfLoading === req.id}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-[#3e2723] hover:bg-black text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 shadow-sm"
+                          >
+                            {laptopPdfLoading === req.id ? (
+                              <Loader2 className="w-3 animate-spin" />
+                            ) : (
+                              <Printer className="w-3 text-amber-200" />
+                            )}
+                            <span>Cetak Laporan PDF</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-[#ebdccb]">
+                    <Laptop className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-sans">Belum ada riwayat perizinan</p>
                   </div>
-                  <p className="text-[9px] font-bold text-indigo-500 mt-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {permit.tgl_surat && typeof permit.tgl_surat.toDate === 'function' ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
-                  </p>
-                </div>
-                <div className="text-slate-300 group-hover:text-amber-500 transition-colors">
-                  <ChevronRight className="w-5 h-5" />
-                </div>
-              </motion.div>
-            ))}
-
-            {permits.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-                <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <h3 className="text-slate-900 font-bold">Tidak Ada Data</h3>
-                <p className="text-slate-500 text-sm mt-1">Belum ada perizinan yang dibuat.</p>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
-
-        {viewMode === 'pinjam_laptop' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
-            {laptopRequests.map(req => (
-              <motion.div
-                key={req.id}
-                layout
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                      <Laptop className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam Laptop - {req.kelas}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
-                    </div>
-                  </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                    'bg-amber-50 text-amber-600'
-                  }`}>
-                    {req.status}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                    <span>Guru Pengaju</span>
-                    <span className="text-slate-900">{req.guru_name}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                    <span>Mata Pelajaran</span>
-                    <span className="text-slate-900">{req.mapel}</span>
-                  </div>
-                </div>
-
-                <div className="py-2 bg-slate-50 p-4 rounded-2xl">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
-                  <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
-                    {req.daftar_siswa.join(', ')}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-slate-50 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    {req.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleUpdateLaptopStatus(req.id!, 'rejected')}
-                          disabled={loading}
-                          className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
-                        >
-                          Tolak
-                        </button>
-                        <button
-                          onClick={() => handleUpdateLaptopStatus(req.id!, 'approved')}
-                          disabled={loading}
-                          className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-                        >
-                          Setujui
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleLaptopPDF(req)}
-                    disabled={laptopPdfLoading === req.id}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                  >
-                    {laptopPdfLoading === req.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Printer className="w-4 h-4" />
-                    )}
-                    Cetak PDF
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-            {laptopRequests.length === 0 && (
-              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Laptop className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan masuk</p>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -2037,92 +2851,177 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         )}
 
         {viewMode === 'permohonan_hp' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
-            {hpRequests.map(req => (
-              <motion.div
-                key={req.id}
-                layout
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-4 relative overflow-hidden group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                      <Tablet className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 font-display leading-tight">Pinjam HP - {req.kelas}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.nomor_surat}</p>
-                    </div>
-                  </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                    'bg-amber-50 text-amber-600'
-                  }`}>
-                    {req.status}
-                  </div>
-                </div>
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 text-left">
+            {/* Brown Header for HP Permohonan with 16:7 responsive horizontal look */}
+            <div className="relative bg-[#3e2723] rounded-[2.5rem] p-6 sm:p-8 md:p-10 text-white overflow-hidden shadow-xl border-b-4 border-amber-950 flex flex-col justify-between min-h-[280px] md:aspect-[16/7] transition-all">
+              {/* Decorative Elements */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_0)] bg-[size:16px_16px]" />
+              </div>
+              <div className="absolute -top-10 -right-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-12 w-48 h-48 bg-amber-100/5 rounded-full blur-2xl pointer-events-none" />
 
+              {/* Banner Content Details */}
+              <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                    <span>Guru Pengaju</span>
-                    <span className="text-slate-900">{req.guru_name}</span>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-200 text-[8px] font-black uppercase tracking-[0.2em] rounded-md border border-amber-500/20 w-fit">
+                    <Tablet className="w-3.5 h-3.5" />
+                    <span>EQUIPMENT ACCESS SYSTEM</span>
                   </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                    <span>Mata Pelajaran</span>
-                    <span className="text-slate-900">{req.mapel}</span>
-                  </div>
-                </div>
-
-                <div className="py-2 bg-slate-50 p-4 rounded-2xl">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Siswa ({req.daftar_siswa.length})</p>
-                  <p className="text-sm font-bold text-slate-600 leading-relaxed truncate">
-                    {req.daftar_siswa.join(', ')}
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-display uppercase tracking-tight text-[#fdfcf0] italic leading-none">
+                    Peminjaman Smartphone
+                  </h2>
+                  <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
+                    Sistem Persetujuan & Monitoring Distribusi Gadget Santri
                   </p>
                 </div>
-
-                <div className="pt-4 border-t border-slate-50 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    {req.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleUpdateHPRequestStatus(req.id!, 'rejected')}
-                          disabled={loading}
-                          className="flex-1 py-3 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
-                        >
-                          Tolak
-                        </button>
-                        <button
-                          onClick={() => handleUpdateHPRequestStatus(req.id!, 'approved')}
-                          disabled={loading}
-                          className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-                        >
-                          Setujui
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleHPRequestPDF(req)}
-                    disabled={hpRequestPdfLoading === req.id}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                  >
-                    {hpRequestPdfLoading === req.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Printer className="w-4 h-4" />
-                    )}
-                    Cetak Surat Izin HP
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-            {hpRequests.length === 0 && (
-              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <Tablet className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tidak ada permohonan HP masuk</p>
               </div>
-            )}
+
+              {/* Integrated Statistics row within header */}
+              <div className="relative z-10 mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Hari Ini', value: hpStats.hariIni, color: 'text-rose-200' },
+                  { label: 'Kemarin', value: hpStats.kemarin, color: 'text-amber-200' },
+                  { label: 'Minggu Ini', value: hpStats.mingguIni, color: 'text-blue-200' },
+                  { label: 'Bulan Ini', value: hpStats.bulanIni, color: 'text-emerald-200' }
+                ].map((stat, idx) => (
+                  <div key={idx} className="bg-amber-950/40 backdrop-blur-sm p-4 rounded-2xl border border-amber-500/10 hover:border-amber-500/20 transition-all flex flex-col justify-between">
+                    <span className="text-[7.5px] font-black text-[#ebdccb]/60 uppercase tracking-widest block mb-1">{stat.label}</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className={`text-2xl sm:text-3xl font-black font-display ${stat.color}`}>{stat.value}</span>
+                      <span className="text-[8px] font-black uppercase tracking-wider opacity-60">Req</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Category selection */}
+            <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+              {[ 
+                { id: 'hari_ini', label: 'Hari Ini' },
+                { id: 'kemarin', label: 'Kemarin' },
+                { id: 'minggu_ini', label: 'Minggu Ini' },
+                { id: 'bulan_ini', label: 'Bulan Ini' },
+                { id: 'semua', label: 'Semua' }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setHpTimeFilter(cat.id as any)}
+                  className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                    hpTimeFilter === cat.id
+                      ? 'bg-[#5d4037] text-white shadow-xl shadow-black/10 border-black/20 translate-y-[-2px]'
+                      : 'bg-white text-[#8b5e3c] border-[#d7ccc8]/40 hover:border-[#d7ccc8] border-b-white'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* List HP requests */}
+            <div className="p-6 bg-[#fdfcf9] rounded-[2rem] border border-[#d7ccc8]/35 overflow-hidden shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredHPRequests.length > 0 ? (
+                  filteredHPRequests.map((req) => {
+                    const reqDate = req.tgl_request?.toDate ? req.tgl_request.toDate() : new Date();
+                    const formattedDate = format(reqDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                    return (
+                      <div 
+                        key={req.id}
+                        className="bg-white rounded-2xl border border-[#ebdccb] hover:border-[#a1887f] p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4"
+                      >
+                        {/* Card Header: Student Info & Subject */}
+                        <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/40">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                              {req.kelas?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="font-black text-xs text-[#3e2723] font-display uppercase italic tracking-tight truncate leading-none">
+                                    {req.mapel}
+                                  </h4>
+                                <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                                  {req.kelas}
+                                </span>
+                              </div>
+                              <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1 italic max-w-full truncate">
+                                Pengaju: {req.guru_name}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded text-[7px] font-black uppercase tracking-wider border shadow-inner ${
+                            req.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' :
+                            req.status === 'rejected' ? 'bg-rose-50 text-rose-800 border-rose-100' :
+                            'bg-amber-100/60 text-amber-800 border-amber-200'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </div>
+
+                        {/* Card Body: Student List Box */}
+                        <div className="bg-[#fcfaf6] p-3 rounded-xl border border-[#ebdccb]/45 space-y-2">
+                          <div className="flex items-center gap-2 text-[7.5px] font-black text-[#8d6e63] uppercase tracking-wider">
+                            <Tablet className="w-3.5 h-3.5 text-[#5d4037] shrink-0" />
+                            <span>Siswa Penerima ({req.daftar_siswa.length})</span>
+                          </div>
+                          <p className="text-[10px] font-semibold text-slate-600 leading-relaxed font-sans pl-1.5 break-words">
+                            {req.daftar_siswa.join(', ')}
+                          </p>
+                        </div>
+
+                        {/* Logged creation Date */}
+                        <div className="flex items-center gap-1.5 text-[7.5px] font-black uppercase text-[#8d6e63] tracking-wider pt-2 border-t border-[#ebdccb]/20">
+                          <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
+                          <span>Diajukan: {formattedDate} WIB</span>
+                        </div>
+
+                        {/* Action Controls */}
+                        <div className="flex flex-col gap-2 pt-1">
+                          {req.status === 'pending' && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleUpdateHPRequestStatus(req.id!, 'rejected')}
+                                disabled={loading}
+                                className="flex-1 py-2 px-3 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+                              >
+                                Tolak
+                              </button>
+                              <button
+                                onClick={() => handleUpdateHPRequestStatus(req.id!, 'approved')}
+                                disabled={loading}
+                                className="flex-1 py-2 px-3 bg-[#5d4037] text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#3e2723] transition-all shadow-md"
+                              >
+                                Setujui
+                              </button>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleHPRequestPDF(req)}
+                            disabled={hpRequestPdfLoading === req.id}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-[#3e2723] hover:bg-black text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 shadow-sm"
+                          >
+                            {hpRequestPdfLoading === req.id ? (
+                              <Loader2 className="w-3 animate-spin" />
+                            ) : (
+                              <Printer className="w-3 text-amber-200" />
+                            )}
+                            <span>Cetak Laporan PDF</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-[#ebdccb]">
+                    <Tablet className="w-12 h-12 text-[#d7ccc8] mx-auto mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-sans">Belum ada riwayat perizinan</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

@@ -231,6 +231,24 @@
         "status": { "type": "string", "enum": ["pending", "on_progress", "fixed"] }
       },
       "required": ["asrama", "item_name", "damage_description", "location", "author_name", "author_uid", "tgl_lapor", "status"]
+    },
+    "Ketidakhadiran": {
+      "title": "Ketidakhadiran",
+      "description": "Student absence tracking reports for activities and class KBM",
+      "type": "object",
+      "properties": {
+        "nomor_surat": { "type": "string" },
+        "tgl_absen": { "type": "string", "format": "date-time" },
+        "keterangan_kegiatan": { "type": "string" },
+        "kelas": { "type": "string" },
+        "daftar_siswa": { "type": "array", "items": { "type": "string" } },
+        "deskripsi": { "type": "string" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "author_role": { "type": "string", "enum": ["wali_asuh", "wali_asrama"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nomor_surat", "tgl_absen", "keterangan_kegiatan", "kelas", "daftar_siswa", "deskripsi", "author_name", "author_uid", "author_role", "createdAt"]
     }
   },
   "firestore": {
@@ -289,6 +307,10 @@
     "/evaluation_notes/{noteId}": {
       "schema": "EvaluationNote",
       "description": "Daily evaluation notes created by wali asrama"
+    },
+    "/ketidakhadiran/{khId}": {
+      "schema": "Ketidakhadiran",
+      "description": "Activity level and class-level attendance tracking and absence records"
     }
   }
 }

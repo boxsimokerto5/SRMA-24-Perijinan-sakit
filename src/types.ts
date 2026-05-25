@@ -283,6 +283,21 @@ export interface SarprasReport {
   status: 'pending' | 'on_progress' | 'fixed';
 }
 
+export interface Ketidakhadiran {
+  id?: string;
+  nomor_surat?: string;
+  tgl_absen: Timestamp;
+  keterangan_kegiatan: string;
+  kelas: string;
+  daftar_siswa: string[]; // List of student names
+  deskripsi: string; // Keterangan tambahan
+  author_name: string;
+  author_uid: string;
+  author_role: UserRole;
+  createdAt: Timestamp;
+}
+
+
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
   // Trim and convert to upper case for consistency

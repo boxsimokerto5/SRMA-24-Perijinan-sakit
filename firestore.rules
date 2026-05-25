@@ -190,6 +190,20 @@ service cloud.firestore {
              (!('foto_siswa_url' in data) || (data.foto_siswa_url is string));
     }
 
+    function isValidKetidakhadiran(data) {
+      return data.keys().hasAll(['nomor_surat', 'tgl_absen', 'keterangan_kegiatan', 'kelas', 'daftar_siswa', 'deskripsi', 'author_name', 'author_uid', 'author_role', 'createdAt']) &&
+             data.nomor_surat is string && data.nomor_surat.size() <= 64 &&
+             data.tgl_absen is timestamp &&
+             data.keterangan_kegiatan is string && data.keterangan_kegiatan.size() <= 255 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.daftar_siswa is list && data.daftar_siswa.size() > 0 &&
+             data.deskripsi is string && data.deskripsi.size() <= 2000 &&
+             data.author_name is string && data.author_name.size() <= 128 &&
+             data.author_uid == request.auth.uid &&
+             data.author_role in ['wali_asuh', 'wali_asrama'] &&
+             data.createdAt == request.time;
+    }
+
     function isMadingAuthor(authId) {
       return isSignedIn() && authId == request.auth.uid;
     }
@@ -403,6 +417,13 @@ service cloud.firestore {
       allow get: if isSignedIn() && isValidId(incidentId);
       allow create: if (isAdmin() || isMasterAdmin() || hasRole('wali_asuh') || hasRole('wali_asrama')) && isValidId(incidentId) && isValidDormitoryIncident(incoming());
       allow delete: if isAdmin() || isMasterAdmin() || (existing().author_uid == request.auth.uid);
+    }
+
+    match /ketidakhadiran/{khId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(khId);
+      allow create: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(khId) && isValidKetidakhadiran(incoming());
+      allow update, delete: if isAdmin() || isMasterAdmin() || isSystemAdmin();
     }
   }
 }
