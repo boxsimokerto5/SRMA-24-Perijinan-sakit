@@ -2363,15 +2363,21 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                                   {item.keperluan}
                                 </p>
                               </div>
+                              
+                              <div className="mt-2 flex flex-wrap gap-2 text-[8.5px] font-bold">
+                                <span className="bg-stone-50 text-[#5d4037]/75 px-2 py-0.5 rounded border border-stone-150 italic">
+                                  Peminjam (Asuh): <strong className="text-[#3e2723] uppercase font-black">{item.wali_asuh_name}</strong>
+                                </span>
+                                {item.status === 'dikembalikan' && item.penerima_kembali_name && (
+                                  <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-100/50 italic">
+                                    Penerima Kembali: <strong className="text-emerald-850 uppercase font-black">{item.penerima_kembali_name}</strong>
+                                  </span>
+                                )}
+                              </div>
                             </div>
   
                             <div className="shrink-0 flex items-center gap-3 pr-2">
-                               <div className="text-right hidden sm:block">
-                                  <p className="text-[8px] font-black text-stone-300 uppercase tracking-widest leading-none">Oleh</p>
-                                  <p className="text-[9px] font-black text-[#3e2723] italic uppercase truncate max-w-[80px]">{item.wali_asuh_name}</p>
-                               </div>
-                               
-                               {item.status === 'dipinjam' ? (
+                              {item.status === 'dipinjam' ? (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -2994,20 +3000,20 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed">"{selectedPinjam.keperluan}"</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 font-sans text-left">
                   <div className="bg-white p-4 rounded-2xl border border-[#d7ccc8]/30 shadow-sm">
-                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Pinjam</label>
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Peminjaman Gadget</label>
                     <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
-                      {selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'HH:mm - dd MMM') : '-'}
+                      {selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'HH:mm - dd MMM yyyy') : '-'}
                     </p>
-                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.wali_asuh_name}</p>
+                    <p className="text-[8px] font-bold text-[#3e2723]/80 uppercase tracking-tight truncate mt-1">Peminjam: <span className="font-extrabold text-[#3e2723]">{selectedPinjam.wali_asuh_name}</span></p>
                   </div>
                   <div className={`p-4 rounded-2xl border transition-all ${selectedPinjam.status === 'dikembalikan' ? 'bg-[#fdfcf0] border-emerald-100' : 'bg-stone-50 border-stone-100 opacity-60'}`}>
-                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Kembali</label>
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Pengembalian Gadget</label>
                     <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
-                      {selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'HH:mm - dd MMM') : '--:--'}
+                      {selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'HH:mm - dd MMM yyyy') : '--:--'}
                     </p>
-                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.penerima_kembali_name || '-'}</p>
+                    <p className="text-[8px] font-bold text-emerald-800/80 uppercase tracking-tight truncate mt-1">Penerima: <span className="font-extrabold text-emerald-950">{selectedPinjam.penerima_kembali_name || '-'}</span></p>
                   </div>
                 </div>
                 

@@ -197,12 +197,6 @@ export default function App() {
         onTabChange={setActiveTab}
         hideChrome={['wali_asuh', 'dokter', 'wali_kelas', 'guru_mapel', 'kepala_sekolah', 'wali_asrama'].includes(appUser.role)}
       >
-        {isOffline && (
-          <div className="fixed top-0 left-0 right-0 z-[200] bg-rose-600 text-white py-1 px-4 text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 animate-in slide-in-from-top duration-300">
-            <WifiOff className="w-3 h-3" />
-            Terdeteksi Masalah Koneksi - Menggunakan Mode Offline (Data Mungkin Tidak Sinkron)
-          </div>
-        )}
         {!user.emailVerified && (
           <div className="fixed top-20 left-4 right-4 z-[100] bg-[#fdfcf0] border border-[#d7ccc8]/40 p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
             <div className="flex items-center gap-3">

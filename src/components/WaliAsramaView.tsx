@@ -909,17 +909,26 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                         </div>
                         
                         {/* Footer details */}
-                        <div className="pt-2 border-t border-stone-50 flex items-center justify-between gap-1 mt-auto">
-                          <div className="min-w-0">
-                            <span className="text-[6px] font-black text-stone-300 uppercase tracking-widest italic block leading-none">AUTHORIZED BY</span>
-                            <span className="text-[8px] font-black text-[#3e2723] uppercase italic truncate block mt-0.5 max-w-[120px]">{item.wali_asuh_name}</span>
+                        <div className="pt-2 border-t border-stone-50 flex flex-col gap-1.5 mt-auto">
+                          <div className="flex flex-wrap gap-1.5 text-[8px] font-bold">
+                            <div className="bg-[#fcfaf6] text-[#5d4037]/85 px-1.5 py-0.5 rounded border border-stone-150 italic max-w-full">
+                              Peminjam: <strong className="text-[#3e2723] uppercase font-black">{item.wali_asuh_name}</strong>
+                            </div>
+                            {item.status === 'dikembalikan' && item.penerima_kembali_name && (
+                              <div className="bg-emerald-50 text-emerald-650 px-1.5 py-0.5 rounded border border-emerald-100 italic max-w-full font-bold">
+                                Penerima: <strong className="text-emerald-850 uppercase font-black">{item.penerima_kembali_name}</strong>
+                              </div>
+                            )}
                           </div>
                           
-                          <div className="flex items-center gap-1 py-1 px-1.5 bg-stone-50 rounded-lg group-hover:bg-[#3e2723] transition-colors shrink-0">
-                            <span className="text-[7px] font-black text-stone-400 group-hover:text-amber-200 uppercase tracking-widest italic leading-none">
-                              DETAILS
-                            </span>
-                            <ChevronRight className="w-2.5 h-2.5 text-stone-300 group-hover:text-white" />
+                          <div className="flex items-center justify-between gap-1 w-full mt-1">
+                            <span className="text-[6.5px] font-black text-stone-300 uppercase tracking-widest italic leading-none">GADGET SYSTEM</span>
+                            <div className="flex items-center gap-1 py-1 px-1.5 bg-stone-50 rounded group-hover:bg-[#3e2723] transition-colors shrink-0">
+                              <span className="text-[7.5px] font-black text-[#3e2723]/60 group-hover:text-amber-200 uppercase tracking-widest italic leading-none">
+                                DETAILS
+                              </span>
+                              <ChevronRight className="w-2.5 h-2.5 text-stone-300 group-hover:text-white" />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1694,20 +1703,20 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                   <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed">"{selectedPinjam.keperluan}"</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 font-sans text-left">
                   <div className="bg-white p-4 rounded-2xl border border-[#d7ccc8]/30 shadow-sm">
-                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Pinjam</label>
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Peminjaman Gadget</label>
                     <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
-                      {selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'HH:mm - dd MMM') : '-'}
+                      {selectedPinjam.tgl_pinjam && typeof selectedPinjam.tgl_pinjam.toDate === 'function' ? format(selectedPinjam.tgl_pinjam.toDate(), 'HH:mm - dd MMM yyyy') : '-'}
                     </p>
-                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.wali_asuh_name}</p>
+                    <p className="text-[8px] font-bold text-[#3e2723]/80 uppercase tracking-tight truncate mt-1">Peminjam: <span className="font-extrabold text-[#3e2723]">{selectedPinjam.wali_asuh_name}</span></p>
                   </div>
                   <div className={`p-4 rounded-2xl border transition-all ${selectedPinjam.status === 'dikembalikan' ? 'bg-[#fdfcf0] border-emerald-100' : 'bg-stone-50 border-stone-100 opacity-60'}`}>
-                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Kembali</label>
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-widest block mb-1">Pengembalian Gadget</label>
                     <p className="text-[11px] font-black text-[#3e2723] leading-none mb-1">
-                      {selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'HH:mm - dd MMM') : '--:--'}
+                      {selectedPinjam.tgl_kembali && typeof selectedPinjam.tgl_kembali.toDate === 'function' ? format(selectedPinjam.tgl_kembali.toDate(), 'HH:mm - dd MMM yyyy') : '--:--'}
                     </p>
-                    <p className="text-[7px] font-black text-stone-400 uppercase tracking-tighter truncate">Oleh: {selectedPinjam.penerima_kembali_name || '-'}</p>
+                    <p className="text-[8px] font-bold text-emerald-800/80 uppercase tracking-tight truncate mt-1">Penerima: <span className="font-extrabold text-emerald-950">{selectedPinjam.penerima_kembali_name || '-'}</span></p>
                   </div>
                 </div>
                 
@@ -1980,12 +1989,13 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-[#d7ccc8]/10">
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-[#d7ccc8]/10 text-left">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-1 italic">Waktu Pinjam</label>
                     <p className="text-xs font-black text-stone-600">
                       {format(selectedPinjam.tgl_pinjam.toDate(), 'dd MMM yyyy, HH:mm')}
                     </p>
+                    <p className="text-[9px] font-bold text-[#3e2723]/80 uppercase mt-1">Peminjam: <span className="font-extrabold text-[#3e2723]">{selectedPinjam.wali_asuh_name}</span></p>
                   </div>
                   <div className="space-y-1 text-right">
                     <label className="text-[10px] font-black text-[#3e2723]/40 uppercase tracking-widest mb-1 italic">Waktu Kembali</label>
@@ -1994,19 +2004,11 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                         ? format(selectedPinjam.tgl_kembali.toDate(), 'dd MMM yyyy, HH:mm') 
                         : 'Belum dikembalikan'}
                     </p>
+                    {selectedPinjam.status === 'dikembalikan' && (
+                      <p className="text-[9px] font-bold text-emerald-700/80 uppercase mt-1">Penerima: <span className="font-extrabold text-emerald-900">{selectedPinjam.penerima_kembali_name || '-'}</span></p>
+                    )}
                   </div>
                 </div>
-
-                {selectedPinjam.status === 'dikembalikan' && (
-                  <div className="pt-4 border-t border-[#d7ccc8]/10">
-                    <div className="flex items-center gap-2">
-                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                       <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest italic">
-                         Diterima Oleh: {selectedPinjam.penerima_kembali_name}
-                       </span>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="p-6 bg-[#f8f3ed] border-t border-[#d7ccc8]/20 flex gap-3">

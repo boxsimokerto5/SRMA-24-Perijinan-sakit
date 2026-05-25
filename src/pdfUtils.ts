@@ -2049,7 +2049,7 @@ export const generatePinjamHPReportPDF = async (data: PinjamHP[], period: 'mingg
 
   autoTable(doc, {
     startY: 38,
-    head: [['Waktu Pinjam', 'Siswa', 'Keperluan', 'Nama Peminjam', 'Status', 'Waktu Kembali', 'Nama Penerima']],
+    head: [['Waktu Pinjam', 'Nama Siswa', 'Keperluan', 'Peminjam (Wali Asuh)', 'Status', 'Waktu Kembali', 'Penerima Pengembalian']],
     body: tableData,
     theme: 'grid',
     styles: {
@@ -2063,12 +2063,12 @@ export const generatePinjamHPReportPDF = async (data: PinjamHP[], period: 'mingg
     bodyStyles: { textColor: [50, 50, 50] },
     columnStyles: {
       0: { cellWidth: 20 }, // Waktu Pinjam
-      1: { cellWidth: 25 }, // Siswa
+      1: { cellWidth: 23 }, // Nama Siswa
       2: { cellWidth: 'auto', halign: 'justify' }, // Keperluan
-      3: { cellWidth: 25 }, // Nama Peminjam
-      4: { cellWidth: 15, halign: 'center' }, // Status
+      3: { cellWidth: 28 }, // Peminjam (Wali Asuh)
+      4: { cellWidth: 14, halign: 'center' }, // Status
       5: { cellWidth: 20 }, // Waktu Kembali
-      6: { cellWidth: 25 }  // Nama Penerima
+      6: { cellWidth: 28 }  // Penerima Pengembalian
     },
     margin: { left: 10, right: 10 }
   });
