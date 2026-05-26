@@ -281,6 +281,10 @@ export interface SarprasReport {
   author_uid: string;
   tgl_lapor: Timestamp;
   status: 'pending' | 'on_progress' | 'fixed';
+  tindakan_oleh_name?: string;
+  tindakan_oleh_role?: string;
+  tgl_tindakan?: Timestamp;
+  keterangan_tindakan?: string;
 }
 
 export interface Ketidakhadiran {

@@ -365,7 +365,7 @@ service cloud.firestore {
     match /sarpras_reports/{reportId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn() && isValidId(reportId);
-      allow create: if hasRole('wali_asrama') && isValidId(reportId) && isValidSarprasReport(incoming());
+      allow create: if (hasRole('wali_asrama') || hasRole('wali_asuh') || isAdmin() || isMasterAdmin()) && isValidId(reportId) && isValidSarprasReport(incoming());
       allow update: if isValidId(reportId) && (hasRole('wali_asrama') || hasRole('kepala_sekolah') || hasRole('wali_asuh') || isAdmin());
       allow delete: if isAdmin() || (hasRole('wali_asrama') && existing().author_uid == request.auth.uid);
     }

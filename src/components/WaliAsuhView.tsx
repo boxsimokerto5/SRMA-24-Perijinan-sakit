@@ -54,7 +54,15 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
-  const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('minggu_ini');
+  const [sarprasFilter, setSarprasFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
+  const [showSarprasCreateModal, setShowSarprasCreateModal] = useState(false);
+  const [sarprasItemName, setSarprasItemName] = useState('');
+  const [sarprasDamageDesc, setSarprasDamageDesc] = useState('');
+  const [sarprasLocation, setSarprasLocation] = useState('');
+  const [sarprasAsramaInput, setSarprasAsramaInput] = useState('Asrama Putra');
+  const [selectedSarprasForTindakan, setSelectedSarprasForTindakan] = useState<SarprasReport | null>(null);
+  const [tindakanStatus, setTindakanStatus] = useState<'pending' | 'on_progress' | 'fixed'>('on_progress');
+  const [tindakanKeterangan, setTindakanKeterangan] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -327,6 +335,40 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       bulanIni: hpRequests.filter(req => req.tgl_request && isThisMonth(req.tgl_request.toDate())).length,
     };
   }, [hpRequests]);
+
+  const sarprasStats = React.useMemo(() => {
+    return {
+      hariIni: sarprasReports.filter(rec => {
+        const d = rec.tgl_lapor?.toDate ? rec.tgl_lapor.toDate() : (rec.tgl_lapor instanceof Date ? rec.tgl_lapor : null);
+        return d && isToday(d);
+      }).length,
+      kemarin: sarprasReports.filter(rec => {
+        const d = rec.tgl_lapor?.toDate ? rec.tgl_lapor.toDate() : (rec.tgl_lapor instanceof Date ? rec.tgl_lapor : null);
+        return d && isYesterday(d);
+      }).length,
+      mingguIni: sarprasReports.filter(rec => {
+        const d = rec.tgl_lapor?.toDate ? rec.tgl_lapor.toDate() : (rec.tgl_lapor instanceof Date ? rec.tgl_lapor : null);
+        return d && isThisWeek(d, { weekStartsOn: 1 });
+      }).length,
+      bulanIni: sarprasReports.filter(rec => {
+        const d = rec.tgl_lapor?.toDate ? rec.tgl_lapor.toDate() : (rec.tgl_lapor instanceof Date ? rec.tgl_lapor : null);
+        return d && isThisMonth(d);
+      }).length,
+    };
+  }, [sarprasReports]);
+
+  const filteredSarpras = React.useMemo(() => {
+    return sarprasReports.filter(rec => {
+      const date = rec.tgl_lapor?.toDate ? rec.tgl_lapor.toDate() : (rec.tgl_lapor instanceof Date ? rec.tgl_lapor : null);
+      if (!date) return false;
+
+      if (sarprasFilter === 'hari_ini') return isToday(date);
+      if (sarprasFilter === 'kemarin') return isYesterday(date);
+      if (sarprasFilter === 'minggu_ini') return isThisWeek(date, { weekStartsOn: 1 });
+      if (sarprasFilter === 'bulan_ini') return isThisMonth(date);
+      return true; // semua
+    });
+  }, [sarprasReports, sarprasFilter]);
 
   const filteredStudents = students.filter(s => {
     const name = s.nama_lengkap || '';
@@ -721,6 +763,67 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       alert('Status laporan diperbarui');
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `sarpras_reports/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitSarpras = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sarprasItemName || !sarprasDamageDesc || !sarprasLocation || !sarprasAsramaInput) {
+      alert('Mohon lengkapi semua data laporan');
+      return;
+    }
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'sarpras_reports'), {
+        asrama: sarprasAsramaInput,
+        item_name: sarprasItemName,
+        damage_description: sarprasDamageDesc,
+        location: sarprasLocation,
+        author_name: user.name,
+        author_uid: user.uid,
+        tgl_lapor: Timestamp.now(),
+        status: 'pending'
+      });
+
+      notifyAllRoles(['kepala_sekolah', 'wali_asrama'], 'Laporan Kerusakan Sarpras Baru', `Wali Asuh ${user.name} melaporkan adanya kerusakan sarana & prasarana.`);
+
+      setSarprasItemName('');
+      setSarprasDamageDesc('');
+      setSarprasLocation('');
+      setShowSarprasCreateModal(false);
+      alert('Laporan kerusakan sarpras berhasil disimpan.');
+    } catch (err) {
+      console.error('Error saving sarpras report:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'sarpras_reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveTindakanLanjut = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSarprasForTindakan) return;
+
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'sarpras_reports', selectedSarprasForTindakan.id!), {
+        status: tindakanStatus,
+        tindakan_oleh_name: user.name,
+        tindakan_oleh_role: user.role === 'wali_asuh' ? 'Wali Asuh' : 'Wali Asrama',
+        tindakan_oleh_uid: user.uid,
+        tgl_tindakan: Timestamp.now(),
+        keterangan_tindakan: tindakanKeterangan,
+        updatedAt: serverTimestamp()
+      });
+
+      setSelectedSarprasForTindakan(null);
+      setTindakanKeterangan('');
+      alert('Tindak lanjut berhasil disimpan!');
+    } catch (err) {
+      console.error('Error updating sarpras follow up:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `sarpras_reports/${selectedSarprasForTindakan.id}`);
     } finally {
       setLoading(false);
     }
@@ -1879,100 +1982,399 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
         
         {viewMode === 'sarpras_asrama' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-black text-[#075e6e] font-display italic">Sarana & Prasarana</h2>
-                <p className="text-[10px] font-black text-[#8b5e3c]/60 uppercase tracking-widest mt-1 italic">Monitor Kerusakan Fasilitas Asrama</p>
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header banner coklat */}
+            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 shadow-3xl text-white relative overflow-hidden border border-[#5d4037]">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
+                <div className="flex items-center gap-8 text-left">
+                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 transition-transform shrink-0">
+                    <Wrench className="w-10 h-10 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Sarpras Asrama</h1>
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ebdccb]/70 mt-3 italic leading-relaxed">
+                      Sistem Pelaporan & Pemantauan Kerusakan Sarana Prasarana Asrama
+                    </p>
+                  </div>
+                </div>
+
+                {/* Clock inside banner as requested */}
+                <div className="bg-[#4e342e] border border-amber-500/15 rounded-3xl p-5 text-right self-start sm:self-auto shrink-0 min-w-[150px]">
+                  <p className="text-[7.5px] font-black text-amber-200/50 uppercase tracking-widest mb-1.5 flex items-center justify-end gap-1">
+                    <span className="w-1 h-1 bg-amber-400 rounded-full animate-ping" />
+                    LIVE CLOCK
+                  </p>
+                  <p className="font-mono text-sm font-bold text-amber-100 tracking-wider">
+                    {formatRealTime(currentTime)}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                 <select 
-                   value={sarprasFilter}
-                   onChange={(e) => setSarprasFilter(e.target.value as any)}
-                   className="px-4 py-2.5 rounded-full bg-white border border-slate-100 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-display"
-                 >
-                   <option value="minggu_ini">Minggu Ini</option>
-                   <option value="bulan_ini">Bulan Ini</option>
-                   <option value="semua">Semua Laporan</option>
-                 </select>
-                 <button
-                   onClick={() => {
-                     const filtered = sarprasReports.filter(r => {
-                       const date = r.tgl_lapor?.toDate();
-                       if (!date) return false;
-                       if (sarprasFilter === 'minggu_ini') return isThisWeek(date);
-                       if (sarprasFilter === 'bulan_ini') return isThisMonth(date);
-                       return true;
-                     });
-                     generateSarprasSummaryPDF(filtered, sarprasFilter, { name: user.name, role: user.role });
-                   }}
-                   className="px-6 py-2.5 bg-emerald-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
-                 >
-                   <Printer className="w-3.5 h-3.5" />
-                   Rekap Laporan
-                 </button>
+
+              {/* Action Buttons in Chocolate Header */}
+              <div className="relative z-10 mt-8 pt-6 border-t border-[#ebdccb]/10 flex flex-col sm:flex-row flex-wrap gap-4 justify-start">
+                <button
+                  onClick={() => {
+                    const filtered = sarprasReports.filter(r => {
+                      const date = r.tgl_lapor?.toDate ? r.tgl_lapor.toDate() : null;
+                      return date && isThisWeek(date, { weekStartsOn: 1 });
+                    });
+                    generateSarprasSummaryPDF(filtered, 'Minggu Ini', { name: user.name, role: user.role });
+                    alert('Meluncurkan generate rekap PDF Mingguan...');
+                  }}
+                  className="bg-[#4e342e] hover:bg-black/30 border border-amber-500/10 text-amber-200 py-3.5 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  Rekap Mingguan
+                </button>
+                <button
+                  onClick={() => {
+                    const filtered = sarprasReports.filter(r => {
+                      const date = r.tgl_lapor?.toDate ? r.tgl_lapor.toDate() : null;
+                      return date && isThisMonth(date);
+                    });
+                    generateSarprasSummaryPDF(filtered, 'Bulan Ini', { name: user.name, role: user.role });
+                    alert('Meluncurkan generate rekap PDF Bulanan...');
+                  }}
+                  className="bg-[#4e342e] hover:bg-black/30 border border-amber-500/10 text-amber-200 py-3.5 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  Rekap Bulanan
+                </button>
+                <button
+                  onClick={() => {
+                    setSarprasAsramaInput('Asrama Putra');
+                    setSarprasLocation('');
+                    setSarprasItemName('');
+                    setSarprasDamageDesc('');
+                    setShowSarprasCreateModal(true);
+                  }}
+                  className="bg-amber-100 hover:bg-amber-250 text-[#3e2723] py-3.5 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95"
+                >
+                  <Plus className="w-4 h-4 text-[#3e2723]" />
+                  Buat Catatan Kerusakan
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
-              {sarprasReports.map((report) => (
-                <div key={report.id} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col md:flex-row gap-6 items-start md:items-center relative group">
-                  <div className={`p-4 rounded-[2rem] ${
-                    report.status === 'fixed' ? 'bg-emerald-50 text-emerald-600' :
-                    report.status === 'on_progress' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'
-                  }`}>
-                    <Wrench className="w-8 h-8" />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        {report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? format(report.tgl_lapor.toDate(), 'dd MMM yyyy, HH:mm') : '-'}
-                      </span>
-                      <span className="w-1 h-1 bg-slate-200 rounded-full" />
-                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-tight">Pelapor: {report.author_name}</span>
-                    </div>
-                    <h3 className="text-lg font-black text-slate-900">{report.item_name}</h3>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {report.location} ({report.asrama})
+            {/* Category Filter Tab (hari ini, kemarin, minggu ini dan bulan ini) */}
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar justify-start">
+              {[
+                { id: 'hari_ini', label: `Hari Ini (${sarprasStats.hariIni})` },
+                { id: 'kemarin', label: `Kemarin (${sarprasStats.kemarin})` },
+                { id: 'minggu_ini', label: `Minggu Ini (${sarprasStats.mingguIni})` },
+                { id: 'bulan_ini', label: `Bulan Ini (${sarprasStats.bulanIni})` },
+                { id: 'semua', label: `Semua (${sarprasReports.length})` }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSarprasFilter(cat.id as any)}
+                  className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                    sarprasFilter === cat.id
+                      ? 'bg-[#5d4037] text-amber-100 border-[#3e2723] shadow-lg translate-y-[-1px]'
+                      : 'bg-white text-[#8b5e3c] border-stone-200/50 hover:bg-[#faf6f0]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* History Grid styled in cozy Chocolate theme */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              {filteredSarpras.length > 0 ? (
+                filteredSarpras.map((report) => {
+                  const repDate = report.tgl_lapor?.toDate ? report.tgl_lapor.toDate() : new Date();
+                  const formattedRepDate = format(repDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                  return (
+                    <div 
+                      key={report.id}
+                      className="bg-white rounded-[2rem] border border-[#ebdccb] hover:border-[#a1887f] p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4"
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2.5 pb-2.5 border-b border-[#ebdccb]/45">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-11 h-11 rounded-2xl bg-[#f5ebe0] text-[#3e2723] flex items-center justify-center font-black text-sm italic border border-[#ebdccb]/30 shrink-0">
+                            <Wrench className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-black text-xs sm:text-sm text-[#3e2723] font-display uppercase italic tracking-tight leading-tight truncate">
+                              {report.item_name}
+                            </h4>
+                            <p className="text-[10px] font-bold text-[#8d6e63]/85 uppercase mt-0.5 flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#3e2723]/60" />
+                              <span>{report.location}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`text-[8.5px] font-black px-2.5 py-1 rounded uppercase tracking-wider shrink-0 shadow-sm ${
+                          report.status === 'fixed'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
+                            : report.status === 'on_progress'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200/50'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200/50'
+                        }`}>
+                          {report.status === 'fixed' ? '🍏 Selesai' : report.status === 'on_progress' ? '🌀 Proses' : '⏳ Pending'}
+                        </span>
+                      </div>
+
+                      {/* Damage description comment */}
+                      <div className="bg-[#fcfaf6] p-4 rounded-2xl border border-[#ebdccb]/45 pl-4 relative italic text-[11px] text-[#5d4037] font-medium leading-relaxed font-sans">
+                        "{report.damage_description}"
+                      </div>
+
+                      {/* Detail Pembuat Laporan dan Tindak Lanjut */}
+                      <div className="space-y-2 mt-1">
+                        <div className="bg-[#fcfaf6]/50 p-2.5 rounded-xl border border-[#ebdccb]/20 text-[10px] text-stone-600 space-y-0.5">
+                          <p className="font-semibold flex items-center justify-between">
+                            <span className="text-[#3e2723] font-bold uppercase text-[7.5px] tracking-wider block">Pelapor:</span>
+                            <span className="font-bold text-[#3e2723]">{report.author_name}</span>
+                          </p>
+                          <p className="flex items-center justify-between text-stone-400">
+                            <span>Sektor Asrama:</span>
+                            <span className="font-mono text-[9px]">{report.asrama}</span>
+                          </p>
+                        </div>
+
+                        {report.tindakan_oleh_name ? (
+                          <div className="bg-[#f5ebe0]/40 border border-[#ebdccb]/40 rounded-2xl p-3 space-y-1">
+                            <div className="flex items-center gap-1.5 text-[9px] font-black text-[#5d4037] uppercase tracking-wider">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Tindak Lanjut Oleh: {report.tindakan_oleh_name}</span>
+                            </div>
+                            {report.keterangan_tindakan && (
+                              <p className="text-[10.5px] text-stone-600 font-sans italic pl-5 leading-normal">
+                                "{report.keterangan_tindakan}"
+                              </p>
+                            )}
+                            {report.tgl_tindakan && (
+                              <p className="text-[8px] text-[#8d6e63]/60 font-mono text-right mt-1">
+                                Diupdate: {report.tgl_tindakan?.toDate ? format(report.tgl_tindakan.toDate(), 'd MMM yyyy HH:mm', { locale: id }) : ''} WIB
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-[#fcfaf6] rounded-xl text-center border border-dashed border-[#ebdccb]/30">
+                            <p className="text-[9px] font-bold text-[#8d6e63]/60 uppercase italic">Belum ada tindakan lanjut</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer with action buttons */}
+                      <div className="flex items-center justify-between pt-3 border-t border-[#ebdccb]/30">
+                        <span className="text-[8.5px] font-black text-[#8d6e63]/60 uppercase tracking-widest font-mono">
+                          {formattedRepDate}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => generateSarprasReportPDF(report)}
+                            className="p-2.5 bg-[#f5ebe0] text-[#3e2723] hover:bg-[#e3d5ca] rounded-xl transition-all active:scale-95 border border-[#ebdccb]/50"
+                            title="Cetak Laporan PDF"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedSarprasForTindakan(report);
+                              setTindakanStatus(report.status || 'on_progress');
+                              setTindakanKeterangan(report.keterangan_tindakan || '');
+                            }}
+                            className="flex items-center gap-1.5 py-2 px-3.5 bg-[#3e2723] hover:bg-black text-[9px] text-white font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 shadow-sm"
+                          >
+                            <Check className="w-3 h-3 text-amber-200" />
+                            Tindak Lanjut
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-2xl italic font-medium mt-2">"{report.damage_description}"</p>
-                  </div>
-                  <div className="flex flex-col gap-3 w-full md:w-auto">
-                    <div className="flex items-center gap-2 mb-2">
-                      <select 
-                        value={report.status}
-                        onChange={(e) => handleUpdateSarprasStatus(report.id!, e.target.value as any)}
-                        className={`w-full md:w-44 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all outline-none ${
-                          report.status === 'fixed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                          report.status === 'on_progress' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                          'bg-rose-50 text-rose-700 border-rose-100'
-                        }`}
-                      >
-                        <option value="pending">🟡 PENDING</option>
-                        <option value="on_progress">🔵 PROSES</option>
-                        <option value="fixed">🟢 SELESAI</option>
-                      </select>
-                      <button
-                        onClick={() => generateSarprasReportPDF(report)}
-                        className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95"
-                        title="Cetak Laporan"
-                      >
-                        <Printer className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {sarprasReports.length === 0 && (
-                <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                  <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-xs italic">Tidak ada laporan kerusakan sarpras</p>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-24 bg-white rounded-[3rem] border border-dashed border-[#ebdccb]/40 text-center flex flex-col items-center justify-center px-6">
+                  <Wrench className="w-16 h-16 text-stone-100 mb-4 opacity-50" />
+                  <h3 className="text-xl font-black text-stone-300 uppercase tracking-widest italic font-display">Semua Beres</h3>
+                  <p className="text-[10px] font-black text-[#8d6e63] uppercase tracking-[0.2em] italic max-w-sm mt-1">Tidak ada laporan kerusakan sarpras pada kategori ini.</p>
                 </div>
               )}
             </div>
+
+            {/* Modal Pop Up Buat Catatan Kerusakan */}
+            {showSarprasCreateModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                  className="bg-white rounded-[2.5rem] border border-[#ebdccb] shadow-2xl max-w-lg w-full overflow-hidden text-left"
+                >
+                  <div className="bg-[#3e2723] p-6 text-white relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <span className="text-[8px] font-black tracking-widest bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 rounded uppercase font-mono">NEW LOG ENTRY</span>
+                        <h3 className="text-xl font-black uppercase tracking-tight font-display mt-1">Form Laporan Kerusakan</h3>
+                      </div>
+                      <button
+                        onClick={() => setShowSarprasCreateModal(false)}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-[#f5ebe0] transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSubmitSarpras} className="p-6 space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Sektor Asrama</label>
+                      <select
+                        value={sarprasAsramaInput}
+                        onChange={(e) => setSarprasAsramaInput(e.target.value)}
+                        className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-bold text-stone-800 font-display"
+                      >
+                        <option value="Asrama Putra">Asrama Putra</option>
+                        <option value="Asrama Putri">Asrama Putri</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Lokasi Kerusakan</label>
+                        <input
+                          type="text"
+                          placeholder="misal: Kamar 3, Kamar Mandi Atas"
+                          value={sarprasLocation}
+                          onChange={(e) => setSarprasLocation(e.target.value)}
+                          required
+                          className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-semibold text-stone-800 font-sans"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Subjek (Item Rusak)</label>
+                        <input
+                          type="text"
+                          placeholder="misal: Kran air bocor, Kipas mati"
+                          value={sarprasItemName}
+                          onChange={(e) => setSarprasItemName(e.target.value)}
+                          required
+                          className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-semibold text-stone-800 font-sans"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Keterangan Lengkap</label>
+                      <textarea
+                        rows={4}
+                        placeholder="Jelaskan detail kerusakan yang terjadi agar dapat segera diidentifikasi..."
+                        value={sarprasDamageDesc}
+                        onChange={(e) => setSarprasDamageDesc(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-semibold text-stone-800 font-sans"
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t border-[#ebdccb]/40 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSarprasCreateModal(false)}
+                        className="flex-1 py-3 bg-[#f5ebe0] hover:bg-[#e3d5ca] text-[#3e2723] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 py-3 bg-[#3e2723] hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 shadow-md"
+                      >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Simpan Laporan
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
+            )}
+
+            {/* Modal Pop Up Tindak Lanjut */}
+            {selectedSarprasForTindakan && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                  className="bg-white rounded-[2.5rem] border border-[#ebdccb] shadow-2xl max-w-md w-full overflow-hidden text-left"
+                >
+                  <div className="bg-[#5d4037] p-6 text-white relative">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[8px] font-black tracking-widest bg-white/15 px-2.5 py-0.5 rounded uppercase font-mono">FOLLOW UP ACTIONS</span>
+                        <h3 className="text-lg font-black uppercase tracking-tight font-display mt-1">Tindak Lanjut Kerusakan</h3>
+                      </div>
+                      <button
+                        onClick={() => setSelectedSarprasForTindakan(null)}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-[#f5ebe0] transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSaveTindakanLanjut} className="p-6 space-y-4">
+                    <div className="bg-[#fcfaf6] p-4 rounded-xl border border-[#ebdccb]/30 space-y-1">
+                      <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest block">Detail Item Kerusakan</span>
+                      <h4 className="text-xs font-black text-[#5d4037] uppercase">{selectedSarprasForTindakan.item_name}</h4>
+                      <p className="text-[10px] text-stone-500 font-sans italic">"{selectedSarprasForTindakan.damage_description}"</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Status Terbaru</label>
+                      <select
+                        value={tindakanStatus}
+                        onChange={(e) => setTindakanStatus(e.target.value as any)}
+                        className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-bold text-[#3e2723] font-sans"
+                      >
+                        <option value="pending">🟡 Pending (Belum Ditangani)</option>
+                        <option value="on_progress">🔵 Proses (Sedang Diperbaiki)</option>
+                        <option value="fixed">🟢 Selesai (Sudah Diperbaiki)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Catatan Tindakan Lengkap</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Contoh: Lampu telah diganti baru oleh tim sarpras asrama pada sore hari tadi."
+                        value={tindakanKeterangan}
+                        onChange={(e) => setTindakanKeterangan(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-semibold text-stone-800 font-sans"
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t border-[#ebdccb]/40 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSarprasForTindakan(null)}
+                        className="flex-1 py-3 bg-[#f5ebe0] hover:bg-[#e3d5ca] text-[#3e2723] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 py-3 bg-[#3e2723] hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 shadow-md"
+                      >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Simpan Tindakan
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
+            )}
           </div>
         )}
 

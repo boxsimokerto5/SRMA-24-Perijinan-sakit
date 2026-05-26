@@ -10,6 +10,7 @@ import {
   Plus, 
   MapPin, 
   ClipboardList, 
+  ClipboardCheck,
   Activity, 
   Mail, 
   Search, 
@@ -46,11 +47,11 @@ import {
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp, limit, deleteDoc } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, Announcement, ProgressRecord, UserRole } from '../types';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, Announcement, ProgressRecord, UserRole, Ketidakhadiran } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { generatePermitPDF, generateMemorandumPDF, generateSummaryReportPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateSummaryReportPDF, generateKetidakhadiranPDF, generateKetidakhadiranReportPDF } from '../pdfUtils';
 import MadingSekolahView from './MadingSekolahView';
 import ProfileView from './ProfileView';
 import Logo from './Logo';
@@ -63,7 +64,7 @@ interface KepalaSekolahViewProps {
 }
 
 export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahViewProps) {
-  const [viewMode, setViewMode] = useState<'beranda' | 'statistik' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'announcements' | 'perizinan_global'>('beranda');
+  const [viewMode, setViewMode] = useState<'beranda' | 'statistik' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'announcements' | 'perizinan_global' | 'cek_ketidakhadiran'>('beranda');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -74,6 +75,11 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     totalCatatan: 0,
     activeAnnouncements: 0
   });
+
+  const [ketidakhadiranData, setKetidakhadiranData] = useState<Ketidakhadiran[]>([]);
+  const [khTimeFilter, setKhTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
+  const [khPdfLoading, setKhPdfLoading] = useState<string | null>(null);
+  const [khSearchTerm, setKhSearchTerm] = useState('');
 
   const [recentPermits, setRecentPermits] = useState<IzinSakit[]>([]);
   const [memos, setMemos] = useState<Memorandum[]>([]);
@@ -121,11 +127,16 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       setStats(prev => ({ ...prev, activeAnnouncements: snap.size }));
     });
 
+    const unsubKh = onSnapshot(query(collection(db, 'ketidakhadiran'), orderBy('tgl_absen', 'desc')), (snap) => {
+      setKetidakhadiranData(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ketidakhadiran)));
+    });
+
     return () => {
       unsubStudents();
       unsubPermits();
       unsubMemos();
       unsubAnn();
+      unsubKh();
     };
   }, []);
 
@@ -151,7 +162,8 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     mading: 'Mading Sekolah',
     agenda: 'Agenda Strategis',
     announcements: 'Kelola Pengumuman',
-    perizinan_global: 'Log Perizinan Global'
+    perizinan_global: 'Log Perizinan Global',
+    cek_ketidakhadiran: 'Cek Ketidakhadiran'
   };
 
   const handleCreateMemo = async (e: React.FormEvent) => {
@@ -222,6 +234,57 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     m.isi.toLowerCase().includes(memoSearch.toLowerCase())
   );
 
+  const filteredKetidakhadiran = React.useMemo(() => {
+    return ketidakhadiranData.filter(rec => {
+      const matchesSearch = khSearchTerm ? (
+        rec.keterangan_kegiatan.toLowerCase().includes(khSearchTerm.toLowerCase()) ||
+        rec.daftar_siswa.some(s => s.toLowerCase().includes(khSearchTerm.toLowerCase())) ||
+        rec.kelas.toLowerCase().includes(khSearchTerm.toLowerCase())
+      ) : true;
+
+      if (!matchesSearch) return false;
+
+      const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
+      if (!date) return false;
+
+      if (khTimeFilter === 'hari_ini') return isToday(date);
+      if (khTimeFilter === 'kemarin') return isYesterday(date);
+      if (khTimeFilter === 'minggu_ini') return isThisWeek(date, { weekStartsOn: 1 });
+      if (khTimeFilter === 'bulan_ini') return isThisMonth(date);
+      return true;
+    });
+  }, [ketidakhadiranData, khTimeFilter, khSearchTerm]);
+
+  const khStats = React.useMemo(() => {
+    return {
+      hariIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isToday(rec.tgl_absen.toDate())).length,
+      kemarin: ketidakhadiranData.filter(rec => rec.tgl_absen && isYesterday(rec.tgl_absen.toDate())).length,
+      mingguIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisWeek(rec.tgl_absen.toDate(), { weekStartsOn: 1 })).length,
+      bulanIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisMonth(rec.tgl_absen.toDate())).length,
+    };
+  }, [ketidakhadiranData]);
+
+  const handlePrintSummaryPDF = async (periodType: 'Minggu Ini' | 'Bulan Ini') => {
+    setLoading(true);
+    try {
+      const filtered = ketidakhadiranData.filter(rec => {
+        const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
+        if (!date) return false;
+        if (periodType === 'Minggu Ini') return isThisWeek(date, { weekStartsOn: 1 });
+        if (periodType === 'Bulan Ini') return isThisMonth(date);
+        return true;
+      });
+
+      await generateKetidakhadiranReportPDF(filtered, periodType, user.name, 'Kepala Sekolah');
+      alert(`Berhasil membuat rekap PDF ${periodType}!`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat rekap PDF!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-amber-50' : 'bg-[#fcfaf6] text-[#3e2723]'} font-sans antialiased selection:bg-[#3e2723] selection:text-white`}>
        <AnimatePresence>
@@ -261,6 +324,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                     { id: 'statistik', label: 'Monitor Analitik', icon: BarChart3 },
                     { id: 'pangkalan_data', label: 'Arsip Santri', icon: Database },
                     { id: 'perizinan_global', label: 'Log Perizinan', icon: ClipboardList },
+                    { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
                     { id: 'agenda', label: 'Agenda Strategis', icon: Calendar },
                     { id: 'announcements', label: 'Pengumuman', icon: Bell },
                     { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
@@ -825,6 +889,178 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   <FileSearch className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
                   <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Data Nihil</h3>
                   <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Sistem audit tidak menemukan adanya rekaman data perizinan pada kategori ini.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'cek_ketidakhadiran' && (
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header banner */}
+            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 shadow-3xl text-white relative overflow-hidden border border-[#5d4037]">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
+                <div className="flex items-center gap-8 text-left">
+                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 transition-transform shrink-0">
+                    <ClipboardCheck className="w-10 h-10 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Cek Ketidakhadiran</h1>
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ebdccb]/70 mt-3 italic leading-relaxed">
+                      Monitoring & Audit Riwayat Ketidakhadiran Santri oleh Wali Asuh / Wali Asrama
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handlePrintSummaryPDF('Minggu Ini')}
+                    disabled={loading}
+                    className="bg-[#4e342e] hover:bg-black/40 text-amber-200 text-[10px] font-black uppercase tracking-widest py-4 px-6 rounded-2xl border border-amber-500/10 transition-all flex items-center justify-center gap-2 italic active:scale-95 disabled:opacity-50"
+                  >
+                    <Printer className="w-4 h-4 text-amber-400" />
+                    <span>Rekap Mingguan</span>
+                  </button>
+                  <button
+                    onClick={() => handlePrintSummaryPDF('Bulan Ini')}
+                    disabled={loading}
+                    className="bg-[#4e342e] hover:bg-black/40 text-amber-200 text-[10px] font-black uppercase tracking-widest py-4 px-6 rounded-2xl border border-amber-500/10 transition-all flex items-center justify-center gap-2 italic active:scale-95 disabled:opacity-50"
+                  >
+                    <Printer className="w-4 h-4 text-amber-400" />
+                    <span>Rekap Bulanan</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search controls */}
+            <div className="flex flex-col md:flex-row gap-6 items-stretch md:items-center justify-between">
+              {/* Category Time Filters */}
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {[
+                  { id: 'hari_ini', label: `Hari Ini (${khStats.hariIni})` },
+                  { id: 'kemarin', label: `Kemarin (${khStats.kemarin})` },
+                  { id: 'minggu_ini', label: `Minggu Ini (${khStats.mingguIni})` },
+                  { id: 'bulan_ini', label: `Bulan Ini (${khStats.bulanIni})` },
+                  { id: 'semua', label: `Semua (${ketidakhadiranData.length})` }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setKhTimeFilter(cat.id as any)}
+                    className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                      khTimeFilter === cat.id
+                        ? 'bg-[#5d4037] text-amber-100 border-[#3e2723] shadow-lg translate-y-[-1px]'
+                        : 'bg-white text-[#8b5e3c] border-stone-200/50 hover:bg-[#faf6f0]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search input field */}
+              <div className="relative max-w-sm w-full md:self-center">
+                <input
+                  type="text"
+                  placeholder="Cari kegiatan, kelas, atau nama santri..."
+                  value={khSearchTerm}
+                  onChange={(e) => setKhSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-6 py-4 bg-white border border-[#ebdccb] rounded-2xl text-xs font-bold text-[#3e2723] shadow-inner focus:outline-none focus:ring-2 focus:ring-[#3e2723]/35 placeholder-stone-400 italic"
+                />
+                <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+
+            {/* List / Grid of records */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              {filteredKetidakhadiran.length > 0 ? (
+                filteredKetidakhadiran.map((rec) => {
+                  const recDate = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : new Date();
+                  const formattedDate = format(recDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                  return (
+                    <div 
+                      key={rec.id}
+                      className="bg-white rounded-3xl border border-[#ebdccb] hover:border-[#a1887f] p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-5"
+                    >
+                      <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/45">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="w-12 h-12 rounded-2xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                            {rec.kelas?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-black text-sm text-[#3e2723] font-display uppercase italic tracking-tight leading-none truncate mt-0.5">
+                                {rec.keterangan_kegiatan}
+                              </h4>
+                              <span className="bg-[#5d4037] text-amber-200 text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-widest leading-none">
+                                {rec.kelas}
+                              </span>
+                            </div>
+                            <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1.5 italic">
+                              Oleh: {rec.author_name} ({rec.author_role === 'wali_asuh' ? 'Wali Asuh' : 'Wali Asrama'})
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-black text-[#8d6e63]/60 uppercase tracking-widest shrink-0 font-mono">
+                          {rec.nomor_surat || ''}
+                        </span>
+                      </div>
+
+                      <div className="bg-[#fcfaf6] p-4 rounded-2xl border border-[#ebdccb]/45 space-y-3">
+                        <div className="flex items-center gap-2 text-[8px] font-black text-[#8d6e63] uppercase tracking-wider">
+                          <ClipboardCheck className="w-4 h-4 text-[#5d4037] shrink-0" />
+                          <span>Siswa Tidak Hadir ({rec.daftar_siswa.length})</span>
+                        </div>
+                        <p className="text-[11px] font-semibold text-slate-600 leading-relaxed font-sans pl-1.5 break-words">
+                          {rec.daftar_siswa.join(', ')}
+                        </p>
+                      </div>
+
+                      {rec.deskripsi && (
+                        <div className="text-[11px] text-[#5d4037] pl-1">
+                          <span className="font-bold text-[#3e2723] block mb-1 uppercase text-[8px] tracking-wider">Keterangan:</span>
+                          <p className="leading-relaxed font-sans">{rec.deskripsi}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-[#ebdccb]/30">
+                        <div className="flex items-center gap-1.5 text-[8.5px] font-black uppercase text-[#8d6e63] tracking-wider">
+                          <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
+                          <span>Dicatat: {formattedDate} WIB</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            setKhPdfLoading(rec.id!);
+                            try {
+                              await generateKetidakhadiranPDF(rec);
+                            } catch (err) {
+                              console.error(err);
+                            } finally {
+                              setKhPdfLoading(null);
+                            }
+                          }}
+                          disabled={khPdfLoading === rec.id}
+                          className="flex items-center gap-1.5 py-2 px-4 bg-[#3e2723] hover:bg-black text-[9px] font-black uppercase tracking-wider text-white rounded-lg transition-all active:scale-95 shadow-sm disabled:opacity-50"
+                        >
+                          {khPdfLoading === rec.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Printer className="w-3.5 h-3.5 text-amber-200" />
+                          )}
+                          <span>Detail PDF</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-40 bg-white rounded-[4rem] border border-dashed border-[#ebdccb]/40 text-center flex flex-col items-center justify-center px-10">
+                  <ClipboardCheck className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
+                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Data Nihil</h3>
+                  <p className="text-[11px] font-black text-[#8d6e63] uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Tidak ada rekaman data ketidakhadiran pada kategori ini.</p>
                 </div>
               )}
             </div>
