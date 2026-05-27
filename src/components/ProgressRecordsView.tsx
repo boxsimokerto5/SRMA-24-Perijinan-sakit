@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, addDoc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { ProgressRecord, AppUser, Siswa } from '../types';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClipboardList, Search, Activity, User, Calendar, CheckCircle2, Clock, ChevronRight, MessageSquare, ShieldCheck, Check, Download, X, Printer, FileText, Plus, Send, Loader2 } from 'lucide-react';
+import { ClipboardList, Search, Activity, User, CheckCircle2, Clock, Check, Download, X, Printer, FileText, Plus, Send, Loader2 } from 'lucide-react';
 import { notifyAllRoles } from '../services/fcmService';
 
 import { generateProgressRecordPDF, generateProgressRecordReportPDF } from '../pdfUtils';
@@ -23,6 +23,16 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
   const [selectedRecord, setSelectedRecord] = useState<ProgressRecord | null>(null);
   const [isAdding, setIsAdding] = useState(autoOpenAdd || false);
   const [expandedRecords, setExpandedRecords] = useState<Record<string, boolean>>({});
+  const [timeFilter, setTimeFilter] = useState<'semua' | 'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini'>('semua');
+  const [submitting, setSubmitting] = useState(false);
+  const [students, setStudents] = useState<Siswa[]>([]);
+  const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [newRecord, setNewRecord] = useState({
+    nama_siswa: '',
+    kelas: '',
+    isi_catatan: ''
+  });
 
   const toggleExpandRecord = (recordId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -37,15 +47,6 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
       setIsAdding(true);
     }
   }, [autoOpenAdd]);
-  const [submitting, setSubmitting] = useState(false);
-  const [students, setStudents] = useState<Siswa[]>([]);
-  const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [newRecord, setNewRecord] = useState({
-    nama_siswa: '',
-    kelas: '',
-    isi_catatan: ''
-  });
 
   useEffect(() => {
     // Fetch all students for suggestions
@@ -63,8 +64,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
   }, []);
 
   useEffect(() => {
-    let q;
-    q = query(
+    const q = query(
       collection(db, 'progress_records'),
       orderBy('tgl_catatan', 'desc')
     );
@@ -157,23 +157,49 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
     await generateProgressRecordPDF(record);
   };
 
-  const filteredRecords = records.filter(r => 
-    r.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.author_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.isi_catatan.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getRecordDate = (r: ProgressRecord): Date => {
+    if (r.tgl_catatan && typeof r.tgl_catatan.toDate === 'function') {
+      return r.tgl_catatan.toDate();
+    }
+    return new Date();
+  };
+
+  // Pre-calculate filter category counts
+  const countAll = records.length;
+  const countHariIni = records.filter(r => isToday(getRecordDate(r))).length;
+  const countKemarin = records.filter(r => isYesterday(getRecordDate(r))).length;
+  const countMingguIni = records.filter(r => isThisWeek(getRecordDate(r))).length;
+  const countBulanIni = records.filter(r => isThisMonth(getRecordDate(r))).length;
+
+  const filteredRecords = records.filter(r => {
+    // Search filter
+    const matchesSearch = searchTerm ? (
+      r.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.author_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.isi_catatan || '').toLowerCase().includes(searchTerm.toLowerCase())
+    ) : true;
+    if (!matchesSearch) return false;
+
+    // Time filter
+    const recordDate = getRecordDate(r);
+    if (timeFilter === 'hari_ini') return isToday(recordDate);
+    if (timeFilter === 'kemarin') return isYesterday(recordDate);
+    if (timeFilter === 'minggu_ini') return isThisWeek(recordDate);
+    if (timeFilter === 'bulan_ini') return isThisMonth(recordDate);
+    return true; // 'semua'
+  });
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Activity className="w-12 h-12 text-indigo-400 animate-pulse mb-4" />
-        <p className="text-slate-400 font-bold animate-pulse">Memuat Catatan...</p>
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <Loader2 className="w-8 h-8 text-[#8b5e3c] animate-spin mb-3" />
+        <p className="text-[#8b5e3c] text-[10px] uppercase tracking-widest font-black animate-pulse">Memuat Catatan...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20 text-left">
       {/* Detail Modal */}
       <AnimatePresence>
         {selectedRecord && (
@@ -183,84 +209,84 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedRecord(null)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-[3rem] shadow-2xl overflow-hidden"
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden border border-stone-200/50"
             >
-              <div className="bg-slate-900 p-8 text-white relative">
+              <div className="bg-[#3e2723] p-4 text-white relative">
                 <button 
                   onClick={() => setSelectedRecord(null)}
-                  className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                  className="absolute top-4 right-4 p-1 hover:bg-white/10 rounded-full transition-all"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 text-amber-200" />
                 </button>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg border border-white/5">
-                    <FileText className="w-8 h-8 text-blue-400" />
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#d7ccc8]/20 border border-white/10 rounded-xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-amber-200" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-black italic tracking-tight uppercase">Detail Catatan</h2>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] italic">{selectedRecord.nama_siswa}</p>
+                  <div className="text-left font-sans">
+                    <h2 className="text-sm font-black italic tracking-tight uppercase leading-none">Detail Catatan</h2>
+                    <p className="text-stone-305 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic text-stone-300">{selectedRecord.nama_siswa}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Siswa / Kelas</p>
-                    <p className="text-sm font-black text-slate-900">{selectedRecord.nama_siswa} (Kelas {selectedRecord.kelas})</p>
+              <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto font-sans text-left">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-[#fcfaf6] rounded-xl border border-stone-100">
+                    <p className="text-[7px] font-bold text-stone-400 uppercase tracking-widest mb-0.5 italic">Siswa / Kelas</p>
+                    <p className="text-[10px] font-black text-[#3e2723] uppercase italic">{selectedRecord.nama_siswa} (Kelas {selectedRecord.kelas})</p>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Tanggal</p>
-                    <p className="text-sm font-black text-slate-900">
-                      {selectedRecord.tgl_catatan?.toDate ? format(selectedRecord.tgl_catatan.toDate(), 'dd MMM yyyy HH:mm') : '-'}
+                  <div className="p-3 bg-[#fcfaf6] rounded-xl border border-stone-100">
+                    <p className="text-[7px] font-bold text-stone-400 uppercase tracking-widest mb-0.5 italic">Tanggal Catatan</p>
+                    <p className="text-[10px] font-black text-[#3e2723] uppercase italic">
+                      {selectedRecord.tgl_catatan?.toDate ? format(selectedRecord.tgl_catatan.toDate(), 'dd MMM yyyy HH:mm', { locale: id }) : '-'}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-inner">
-                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-3 italic">Isi Catatan</p>
-                  <p className="text-slate-600 font-medium leading-relaxed italic whitespace-pre-wrap">
+                <div className="p-4 bg-stone-50 rounded-xl border border-stone-100 relative shadow-inner">
+                  <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-1.5 italic">Isi Catatan Perkembangan:</p>
+                  <p className="text-[10px] font-semibold text-slate-700 leading-relaxed italic whitespace-pre-wrap">
                     "{selectedRecord.isi_catatan}"
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-slate-100">
-                      <User className="w-6 h-6 text-slate-400" />
+                <div className="flex items-center justify-between p-3 bg-[#fcfaf6] rounded-xl border border-stone-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center border border-stone-100 shrink-0">
+                      <User className="w-4 h-4 text-[#8b5e3c]" />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Dibuat Oleh</p>
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-tighter">{selectedRecord.author_name}</p>
+                      <p className="text-[7px] font-bold text-stone-400 uppercase tracking-widest leading-none">Dibuat Oleh</p>
+                      <p className="text-[9.5px] font-black text-[#3e2723] uppercase tracking-tight mt-0.5 italic">{selectedRecord.author_name}</p>
                     </div>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                  <span className={`px-2 py-0.5 rounded text-[6px] font-black uppercase tracking-wider italic ${
                     selectedRecord.is_acknowledged 
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                    : 'bg-amber-50 text-amber-600 border-amber-100'
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {selectedRecord.is_acknowledged ? 'Diterima' : 'Menunggu'}
-                  </div>
+                    {selectedRecord.is_acknowledged ? 'Diterima Wali Asuh' : 'Menunggu Respon'}
+                  </span>
                 </div>
               </div>
 
-              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+              <div className="p-4 bg-stone-50 border-t border-stone-100 flex gap-2">
                 <button 
                   onClick={() => downloadPDF(selectedRecord)}
-                  className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center justify-center gap-2 italic"
+                  className="flex-1 bg-[#3e2723] hover:bg-[#5d4037] text-amber-200 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm flex items-center justify-center gap-1.5 transition-all italic active:scale-95"
                 >
-                  <Download className="w-4 h-4" />
-                  Unduh PDF
+                  <Download className="w-3.5 h-3.5" />
+                  UNDUH PDF
                 </button>
                 <button 
                   onClick={() => setSelectedRecord(null)}
-                  className="px-8 bg-white text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all italic"
+                  className="px-4 bg-white text-stone-400 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider border border-stone-200 hover:bg-stone-100 transition-all italic active:scale-95"
                 >
                   Tutup
                 </button>
@@ -270,71 +296,66 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
         )}
       </AnimatePresence>
 
-      {/* Header Style matching Slate Theme */}
-      <div className="bg-slate-900 rounded-3xl p-5 lg:p-6 text-white shadow-lg overflow-hidden border border-slate-950 relative">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+      {/* Header Style with Brown theme */}
+      <div className="bg-[#3e2723] rounded-2xl p-4 lg:p-5 text-white shadow-md overflow-hidden border border-[#5d4037] relative">
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg border border-white/5 shrink-0">
-              <ClipboardList className="w-5 h-5 text-blue-400" />
+            <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shrink-0 -rotate-2">
+              <ClipboardList className="w-5 h-5 text-[#3e2723]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Catatan Perkembangan</h1>
-                <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-blue-500/20">
-                  MONITORING
+                <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10 italic">
+                  Siswa
                 </span>
               </div>
-              <p className="text-slate-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
-                Log Perkembangan & Aktivitas Siswa
+              <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-85">
+                Monitoring Log Catatan Guru Mapel ke Wali Asuh / Wali Asrama
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="flex bg-slate-800 p-1 rounded-2xl border border-slate-700 mr-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex bg-[#5d4037] p-1 rounded-xl border border-[#3e2723] shadow-inner">
               <button 
-                onClick={() => generateProgressRecordReportPDF(records, 'minggu', user.name)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-all"
+                onClick={() => {
+                  const filtered = records.filter(r => isThisWeek(getRecordDate(r)));
+                  generateProgressRecordReportPDF(filtered, 'minggu', user.name);
+                }}
+                className="px-2.5 py-1 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn border border-transparent"
               >
-                <div className="flex items-center gap-1.5 px-1">
-                  <Printer className="w-3.5 h-3.5" />
-                  <span className="text-[8px] font-black uppercase tracking-tighter italic">Minggu</span>
-                </div>
+                <Printer className="w-3 h-3 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                <span className="text-[7.5px] font-black uppercase tracking-wider italic">MINGGU</span>
               </button>
-              <div className="w-[1px] bg-slate-700 mx-1 self-stretch" />
+              <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
               <button 
-                onClick={() => generateProgressRecordReportPDF(records, 'bulan', user.name)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-all"
+                onClick={() => {
+                  const filtered = records.filter(r => isThisMonth(getRecordDate(r)));
+                  generateProgressRecordReportPDF(filtered, 'bulan', user.name);
+                }}
+                className="px-2.5 py-1 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn border border-transparent"
               >
-                <div className="flex items-center gap-1.5 px-1">
-                  <Printer className="w-3.5 h-3.5" />
-                  <span className="text-[8px] font-black uppercase tracking-tighter italic">Bulan</span>
-                </div>
+                <Printer className="w-3 h-3 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                <span className="text-[7.5px] font-black uppercase tracking-wider italic">BULAN</span>
               </button>
             </div>
 
             {user.role !== 'wali_asuh' && (
               <button
                 onClick={() => setIsAdding(!isAdding)}
-                className={`group px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-black/20 ${
-                  isAdding 
-                  ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700 border-b-4 border-blue-800 italic'
-                }`}
+                className="px-3.5 py-2 rounded-lg font-black text-[8px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-amber-600 hover:bg-amber-700 text-white italic shadow-sm"
               >
-                {isAdding ? 'Batal' : (
-                  <>
-                    <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
-                    Catat Baru
-                  </>
-                )}
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span>Catat Baru</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
+      {/* Add Record Modal */}
       <AnimatePresence>
         {isAdding && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -346,39 +367,39 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                 setIsAdding(false);
                 onCloseAdd?.();
               }}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden"
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden border border-stone-200/50"
             >
-              <div className="bg-slate-900 p-10 text-white relative">
+              <div className="bg-[#3e2723] p-4 text-white relative">
                 <button 
                   onClick={() => {
                     setIsAdding(false);
                     onCloseAdd?.();
                   }}
-                  className="absolute top-8 right-8 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                  className="absolute top-4 right-4 p-1 text-amber-250 hover:bg-white/10 rounded-full transition-all"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 text-amber-200" />
                 </button>
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 bg-slate-800 rounded-[1.5rem] flex items-center justify-center shadow-2xl border border-white/5">
-                    <Plus className="w-8 h-8 text-blue-400" />
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#d7ccc8]/20 border border-white/10 rounded-xl flex items-center justify-center">
+                    <Plus className="w-5 h-5 text-amber-200" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-black italic tracking-tight uppercase leading-none">Tambah Catatan</h2>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2 italic">Perkembangan Baru</p>
+                  <div className="text-left font-sans">
+                    <h2 className="text-sm font-black italic tracking-tight uppercase leading-none">Tambah Catatan</h2>
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic">Perkembangan Baru Siswa</p>
                   </div>
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-10 space-y-6">
+              <form onSubmit={handleSubmit} className="p-5 space-y-4 text-left font-sans">
                 <div className="space-y-4">
                   <div className="relative">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2 italic">Nama Siswa</label>
+                    <label className="block text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Nama Siswa</label>
                     <input
                       type="text"
                       required
@@ -388,75 +409,68 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                         if (newRecord.nama_siswa.length > 1) setShowSuggestions(true);
                       }}
                       placeholder="Masukkan nama lengkap siswa..."
-                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-bold text-slate-700 italic placeholder:text-slate-300"
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-100 rounded-lg outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[10px] font-semibold text-slate-700 italic placeholder:text-stone-300 shadow-inner"
                     />
                     
                     <AnimatePresence>
                       {showSuggestions && studentSuggestions.length > 0 && (
                         <motion.div
-                          initial={{ opacity: 0, y: -10 }}
+                          initial={{ opacity: 0, y: -5 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-[110] left-0 right-0 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
+                          exit={{ opacity: 0, y: -5 }}
+                          className="absolute z-[110] left-0 right-0 mt-1 bg-white rounded-lg shadow-md border border-stone-100 overflow-hidden max-h-40 overflow-y-auto"
                         >
                           {studentSuggestions.map((student) => (
                             <button
                               key={student.id}
                               type="button"
                               onClick={() => selectStudent(student)}
-                              className="w-full px-8 py-4 text-left hover:bg-slate-50 flex flex-col transition-colors border-b border-slate-50 last:border-0"
+                              className="w-full px-3.5 py-2 text-left hover:bg-stone-50 flex flex-col transition-colors border-b border-stone-50 last:border-0"
                             >
-                              <span className="text-sm font-black text-slate-900 italic">{student.nama_lengkap}</span>
-                              <span className="text-[10px] font-black text-slate-400 uppercase italic">Kelas {student.kelas}</span>
+                              <span className="text-[10px] font-black text-[#3e2723] italic">{student.nama_lengkap}</span>
+                              <span className="text-[8px] font-bold text-stone-400 uppercase italic">Kelas {student.kelas}</span>
                             </button>
                           ))}
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    
-                    {showSuggestions && (
-                      <div 
-                        className="fixed inset-0 z-[105]" 
-                        onClick={() => setShowSuggestions(false)}
-                      />
-                    )}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2 italic">Kelas</label>
+                    <label className="block text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Kelas</label>
                     <input
                       type="text"
                       required
                       value={newRecord.kelas}
                       onChange={(e) => setNewRecord({...newRecord, kelas: e.target.value})}
                       placeholder="Contoh: X-1, XI-IPA..."
-                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-bold text-slate-700 italic placeholder:text-slate-300"
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-100 rounded-lg outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[10px] font-semibold text-slate-700 italic placeholder:text-stone-300 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2 italic">Isi Catatan</label>
+                    <label className="block text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Isi Catatan</label>
                     <textarea
                       required
                       value={newRecord.isi_catatan}
                       onChange={(e) => setNewRecord({...newRecord, isi_catatan: e.target.value})}
                       placeholder="Tuliskan catatan perkembangan di sini..."
-                      rows={6}
-                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-600 leading-relaxed italic resize-none placeholder:text-slate-300"
+                      rows={4}
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-100 rounded-lg outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[10px] font-semibold text-slate-600 leading-normal italic resize-none placeholder:text-stone-300 shadow-inner"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-4 pt-4">
+                <div className="flex gap-2 pt-2">
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-1 bg-blue-600 text-white py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50 border-b-4 border-blue-800 italic"
+                    className="flex-1 bg-[#3e2723] hover:bg-[#5d4037] text-amber-200 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 italic active:scale-95 shadow-sm"
                   >
                     {submitting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Send className="w-5 h-5" />
+                      <Send className="w-3.5 h-3.5" />
                     )}
-                    Simpan Catatan
+                    <span>Simpan Catatan</span>
                   </button>
                   <button
                     type="button"
@@ -464,7 +478,7 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
                       setIsAdding(false);
                       onCloseAdd?.();
                     }}
-                    className="px-10 bg-white text-slate-400 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest border-2 border-slate-100 hover:bg-slate-50 transition-all italic"
+                    className="px-4 bg-stone-50 text-stone-400 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider border border-stone-200 hover:bg-stone-100 transition-all italic active:scale-95"
                   >
                     Batal
                   </button>
@@ -475,136 +489,156 @@ export default function ProgressRecordsView({ user, autoOpenAdd, onCloseAdd }: P
         )}
       </AnimatePresence>
 
-      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
-        <div className="relative group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
-          <input
-            type="text"
-            placeholder="Cari nama siswa atau isi catatan..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-16 pr-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 transition-all outline-none text-sm font-bold text-slate-900 italic placeholder:text-slate-300"
-          />
+      {/* Time Categories & Search Container */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+        {/* Category Time Filters */}
+        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full md:w-auto">
+          {[
+            { id: 'semua', label: 'Semua', count: countAll },
+            { id: 'hari_ini', label: 'Hari Ini', count: countHariIni },
+            { id: 'kemarin', label: 'Kemarin', count: countKemarin },
+            { id: 'minggu_ini', label: 'Minggu Ini', count: countMingguIni },
+            { id: 'bulan_ini', label: 'Bulan Ini', count: countBulanIni }
+          ].map((cat) => {
+            const isActive = timeFilter === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setTimeFilter(cat.id as any)}
+                type="button"
+                className={`px-3.5 py-2 rounded-lg text-[8px] font-black uppercase tracking-wider whitespace-nowrap transition-all italic border-b-2 ${
+                  isActive 
+                    ? 'bg-[#3e2723] text-amber-200 border-black shadow-md scale-[1.02]' 
+                    : 'bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100/70'
+                }`}
+              >
+                {cat.label} ({cat.count})
+              </button>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          <AnimatePresence mode="popLayout">
-            {filteredRecords.length === 0 ? (
-              <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-                <ClipboardList className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Belum ada catatan perkembangan</p>
-              </div>
-            ) : (
-              filteredRecords.map((record, idx) => {
-                const recordDate = record.tgl_catatan?.toDate ? record.tgl_catatan.toDate() : new Date();
-                const isExpanded = !!expandedRecords[record.id || ''];
-                const textLimit = 150;
-                const bodyText = record.isi_catatan || '';
-                const isTruncated = bodyText.length > textLimit;
-                const displayText = isExpanded ? bodyText : (isTruncated ? `${bodyText.substring(0, textLimit)}...` : bodyText);
+        {/* Search */}
+        <div className="relative w-full md:w-48 group shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+          <input
+            type="text"
+            placeholder="Cari Catatan..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-[#fcfaf6] border border-stone-100 rounded-lg pl-8 pr-3 py-2 text-[8px] font-black uppercase tracking-widest outline-none focus:bg-white focus:border-[#3e2723] transition-all italic text-[#3e2723] placeholder:text-stone-300 shadow-inner"
+          />
+        </div>
+      </div>
 
-                return (
-                  <motion.div
-                    key={record.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: idx * 0.03 }}
-                    onClick={() => setSelectedRecord(record)}
-                    className={`group relative w-full max-w-2xl mx-auto bg-[#fdfaf5] rounded-[1.25rem] shadow-sm hover:shadow-md border p-5 flex flex-col justify-between space-y-3.5 transition-all duration-300 cursor-pointer ${
-                      !record.is_acknowledged 
-                        ? 'border-[#8d6e63] bg-[#faf6f0] ring-1 ring-[#8d6e63]/20' 
-                        : 'border-[#ebdccb] hover:border-[#8d6e63]/70'
-                    }`}
-                  >
-                    {/* Header: Author & Student metadata */}
-                    <div className="flex items-center justify-between gap-4 w-full border-b border-[#ebdccb]/60 pb-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {/* Styled Initial Avatar */}
-                        <div className="w-8 h-8 rounded-lg bg-[#d7ccc8] flex items-center justify-center text-[#3e2723] font-black italic shadow-inner shrink-0 text-xs">
+      {/* Records Dense Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AnimatePresence mode="popLayout">
+          {filteredRecords.length === 0 ? (
+            <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+              <ClipboardList className="w-12 h-12 text-stone-100 mb-4 opacity-50" />
+              <h3 className="text-xs font-black text-stone-300 uppercase tracking-widest italic leading-none mb-2">Data Nihil</h3>
+              <p className="text-[9px] font-semibold text-stone-450 uppercase tracking-widest leading-relaxed max-w-xs italic text-stone-400 text-center">Belum ada catatan perkembangan siswa pada kategori ini.</p>
+            </div>
+          ) : (
+            filteredRecords.map((record, idx) => {
+              const recordDate = getRecordDate(record);
+              const isExpanded = !!expandedRecords[record.id || ''];
+              const textLimit = 120;
+              const bodyText = record.isi_catatan || '';
+              const isTruncated = bodyText.length > textLimit;
+              const displayText = isExpanded ? bodyText : (isTruncated ? `${bodyText.substring(0, textLimit)}...` : bodyText);
+
+              return (
+                <motion.div
+                  key={record.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.98, y: 12 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ delay: idx * 0.02 }}
+                  onClick={() => setSelectedRecord(record)}
+                  className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden cursor-pointer flex flex-col justify-between h-full font-sans"
+                >
+                  <div className={`absolute top-0 right-0 w-1 h-full transition-all duration-300 ${
+                    record.is_acknowledged ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`} />
+
+                  <div className="flex flex-col gap-3 w-full">
+                    {/* Header: Student Profile Info */}
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#fcfaf6] flex items-center justify-center text-[#3e2723] font-black italic border border-stone-100 group-hover:bg-[#3e2723] group-hover:text-amber-200 transition-all shrink-0 text-[10px]">
                           {record.nama_siswa?.charAt(0).toUpperCase() || 'S'}
                         </div>
                         <div className="min-w-0 text-left">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <h4 className="font-extrabold text-[#3e2723] text-xs leading-tight italic truncate uppercase">
+                            <h4 className="font-extrabold text-xs text-[#3e2723] uppercase italic leading-tight truncate">
                               {record.nama_siswa}
                             </h4>
-                            <span className="bg-[#3e2723] text-amber-200 text-[6.5px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                            <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
                               {record.kelas}
                             </span>
                           </div>
-                          
-                          {/* Sender Info details */}
-                          <div className="flex items-center gap-1.5 mt-1 font-sans text-[8px] font-bold text-[#8d6e63]/80 uppercase tracking-wider">
-                            <User className="w-2.5 h-2.5 text-[#5d4037]/75" />
-                            <span>Pengirim: <strong className="text-[#3e2723] font-extrabold">{record.author_name}</strong></span>
-                            <span className="text-stone-300 font-normal">|</span>
-                            <span className="bg-[#f5ebe0] text-[#5d4037] text-[6.5px] px-1 py-0.5 rounded border border-[#ebdccb]/40">
-                              {record.author_role.replace('_', ' ')}
-                            </span>
-                          </div>
+                          <p className="text-[7.5px] font-bold text-stone-400 uppercase mt-1 italic truncate">
+                            Oleh: {record.author_name} ({record.author_role === 'guru_mapel' ? 'Guru Mapel' : record.author_role === 'wali_kelas' ? 'Wali Kelas' : 'Pimpinan'})
+                          </p>
                         </div>
-                      </div>
-
-                      {/* Right Hand Quick Status Check / Action */}
-                      <div className="shrink-0 flex items-center gap-2">
-                        {!record.is_acknowledged && user.role === 'wali_asuh' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAcknowledge(record.id!);
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 bg-[#5d4037] hover:bg-[#3e2723] rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1"
-                            title="Terima Catatan"
-                          >
-                            <Check className="w-3 h-3" />
-                            <span>Terima</span>
-                          </button>
-                        ) : (
-                          <div className={`flex items-center gap-1 py-1 px-2 rounded-lg text-[8px] font-black uppercase tracking-wider ${
-                            record.is_acknowledged 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                              : 'bg-amber-50 text-amber-600 border border-amber-100'
-                          }`}>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span>{record.is_acknowledged ? 'Diterima' : 'Menunggu'}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
 
-                    {/* Catatan Body text area */}
-                    <div className="text-left py-0.5">
-                      <p className="text-[#3e2723] text-[11px] md:text-xs font-semibold leading-relaxed italic whitespace-pre-wrap">
+                    {/* Progress Record Body Text */}
+                    <div className="bg-[#fcfaf6] p-2.5 rounded-lg border border-stone-50/85 text-left relative">
+                      <p className="text-[7.5px] font-bold text-stone-400 uppercase tracking-widest mb-1 italic">Catatan Guru:</p>
+                      <p className="text-[9.5px] font-semibold text-slate-700 italic leading-normal">
                         "{displayText}"
                       </p>
-                      
                       {isTruncated && (
                         <button
                           onClick={(e) => toggleExpandRecord(record.id!, e)}
-                          className="text-[#5d4037] hover:text-[#3e2723] font-black text-[8px] uppercase tracking-widest italic mt-2.5 inline-flex items-center gap-1 bg-[#f5ebe0] hover:bg-[#ebdccb] px-2.5 py-1 rounded transition-all select-none border border-[#e4d5c9]"
+                          className="text-[#5d4037] hover:text-[#3e2723] font-bold text-[7px] uppercase tracking-widest italic mt-2 inline-block bg-stone-150 bg-stone-100 hover:bg-[#ebdccb]/60 px-1.5 py-0.5 rounded transition-colors"
                         >
                           {isExpanded ? 'Sembunyikan' : 'Selengkapnya'}
                         </button>
                       )}
                     </div>
 
-                    {/* Integrated 7:16 exact date time block */}
-                    <div className="flex items-center gap-1.5 text-[8px] font-black uppercase text-[#8d6e63] tracking-widest pt-2.5 border-t border-[#ebdccb]/40">
-                      <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
-                      <span className="font-medium">
-                        {format(recordDate, 'EEEE, d MMMM yyyy • HH:mm:ss', { locale: id })} WIB
-                      </span>
+                    {/* Footer Area with Datetime & Acknowledge Status / Response Button */}
+                    <div className="flex items-center justify-between pt-2 border-t border-stone-100 mt-auto">
+                      <div className="flex items-center gap-1 text-[7.5px] font-bold text-stone-400">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
+                        <span>{format(recordDate, 'dd MMM yyyy • HH:mm', { locale: id })}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!record.is_acknowledged && user.role === 'wali_asuh' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAcknowledge(record.id!);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-705 px-2 py-0.5 rounded text-[6.5px] font-bold uppercase text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm italic"
+                          >
+                            Terima
+                          </button>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded text-[6px] font-black uppercase tracking-wider italic ${
+                            record.is_acknowledged 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {record.is_acknowledged ? 'Diterima' : 'Menunggu'}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </motion.div>
-                );
-              })
-            )}
-          </AnimatePresence>
-        </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
-

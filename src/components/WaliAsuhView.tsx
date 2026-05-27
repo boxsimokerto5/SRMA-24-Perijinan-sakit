@@ -14,7 +14,7 @@ import {
 import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran } from '../types';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -247,14 +247,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
   const filteredKetidakhadiran = React.useMemo(() => {
     return ketidakhadiranData.filter(rec => {
-      const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
-      if (!date) return true;
+      const date = parseFirestoreDate(rec.tgl_absen);
 
       let matchesTime = true;
-      if (khTimeFilter === 'hari_ini') matchesTime = isToday(date);
-      else if (khTimeFilter === 'kemarin') matchesTime = isYesterday(date);
-      else if (khTimeFilter === 'minggu_ini') matchesTime = isThisWeek(date, { weekStartsOn: 1 });
-      else if (khTimeFilter === 'bulan_ini') matchesTime = isThisMonth(date);
+      if (khTimeFilter === 'hari_ini') matchesTime = date ? isToday(date) : false;
+      else if (khTimeFilter === 'kemarin') matchesTime = date ? isYesterday(date) : false;
+      else if (khTimeFilter === 'minggu_ini') matchesTime = date ? isThisWeek(date, { weekStartsOn: 1 }) : false;
+      else if (khTimeFilter === 'bulan_ini') matchesTime = date ? isThisMonth(date) : false;
 
       const matchesSearch = !searchTerm || 
         rec.keterangan_kegiatan.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -269,10 +268,22 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
   const khStats = React.useMemo(() => {
     return {
-      hariIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isToday(rec.tgl_absen.toDate())).length,
-      kemarin: ketidakhadiranData.filter(rec => rec.tgl_absen && isYesterday(rec.tgl_absen.toDate())).length,
-      mingguIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisWeek(rec.tgl_absen.toDate(), { weekStartsOn: 1 })).length,
-      bulanIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisMonth(rec.tgl_absen.toDate())).length,
+      hariIni: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isToday(date) : false;
+      }).length,
+      kemarin: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isYesterday(date) : false;
+      }).length,
+      mingguIni: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isThisWeek(date, { weekStartsOn: 1 }) : false;
+      }).length,
+      bulanIni: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isThisMonth(date) : false;
+      }).length,
     };
   }, [ketidakhadiranData]);
 
@@ -691,7 +702,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     setLoading(true);
     try {
       const filtered = ketidakhadiranData.filter(rec => {
-        const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
+        const date = parseFirestoreDate(rec.tgl_absen);
         if (!date) return false;
         if (periodType === 'Minggu Ini') return isThisWeek(date, { weekStartsOn: 1 });
         if (periodType === 'Bulan Ini') return isThisMonth(date);
@@ -1714,7 +1725,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredKetidakhadiran.length > 0 ? (
                   filteredKetidakhadiran.map((rec) => {
-                    const recDate = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : new Date();
+                    const recDate = parseFirestoreDate(rec.tgl_absen) || new Date();
                     const formattedDate = format(recDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
                     return (
                       <div 

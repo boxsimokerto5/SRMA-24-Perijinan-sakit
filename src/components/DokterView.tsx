@@ -64,6 +64,16 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [permits, setPermits] = useState<IzinSakit[]>([]);
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
+  const [expandedMemos, setExpandedMemos] = useState<Record<string, boolean>>({});
+  const [memoSearch, setMemoSearch] = useState('');
+
+  const toggleExpandMemo = (memoId: string) => {
+    setExpandedMemos(prev => ({
+      ...prev,
+      [memoId]: !prev[memoId]
+    }));
+  };
+
   const [students, setStudents] = useState<Siswa[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Siswa[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -402,6 +412,26 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         dokter_uid: user.uid,
       });
 
+      // Automatically add record to Jurnal Keperawatan
+      await addDoc(collection(db, 'jurnal_keperawatan'), {
+        nama_siswa: namaSiswa,
+        kelas: kelas,
+        keterangan_sakit: `${diagnosa} (SKD #${nomorSurat})`,
+        tgl_mulai: Timestamp.fromDate(startDate),
+        status: 'dirawat',
+        penanganan: [
+          {
+            waktu: Timestamp.fromDate(startDate),
+            oleh_name: user.name || 'Dokter Klinik',
+            oleh_role: 'dokter',
+            tindakan: `Penerbitan SKD nomor ${nomorSurat} selama ${jumlahHari} hari.`
+          }
+        ],
+        created_by_name: user.name || 'Dokter Klinik',
+        created_by_uid: user.uid,
+        created_by_role: 'dokter'
+      });
+
       // Notify relevant roles
       notifyAllRoles(['wali_asuh', 'kepala_sekolah'], 'Izin Sakit Baru', `Dokter ${user.name} membuat riwayat izin sakit untuk ${namaSiswa}.`);
 
@@ -479,33 +509,33 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     const COLORS = ['#8b5e3c', '#5d4037', '#c0b298', '#d7ccc8', '#a1887f'];
 
     return (
-      <div className="space-y-10 animate-in fade-in duration-500 pb-20 mt-10">
-        <div className="bg-[#3e2723] p-10 lg:p-14 rounded-[4rem] text-white shadow-3xl relative overflow-hidden group border-b-[12px] border-black">
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-          <div className="relative z-10">
-            <h1 className="text-4xl lg:text-5xl font-black font-display tracking-tight mb-4 italic leading-tight uppercase">Dashboard<br />Layanan Medik</h1>
-            <div className="flex items-center gap-4 bg-white/10 px-6 py-2.5 rounded-[1.5rem] backdrop-blur-xl border border-white/15 w-fit mb-10">
-              <ShieldCheck className="w-5 h-5 text-amber-200" />
-              <p className="text-[11px] font-black text-amber-100 uppercase tracking-[0.3em] italic">
+      <div className="space-y-6 animate-in fade-in duration-500 pb-12 mt-6">
+        <div className="bg-[#3e2723] p-6 md:p-8 rounded-2xl text-white shadow-md relative overflow-hidden group border-b-4 border-stone-900">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+          <div className="relative z-10 text-left">
+            <h1 className="text-xl md:text-2xl font-black font-display tracking-tight mb-2 italic leading-tight uppercase">Dashboard Layanan Medik</h1>
+            <div className="flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-xl backdrop-blur-md border border-white/10 w-fit mb-6">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-200" />
+              <p className="text-[9px] font-black text-amber-100 uppercase tracking-widest italic">
                 {getRoleLabel(user.role || 'dokter')}: {user.name}
               </p>
             </div>
             
-            <div className="bg-white/5 backdrop-blur-md rounded-[3rem] p-10 border border-white/10">
-              <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-amber-200/50 mb-6 flex items-center gap-3 italic">
-                <LayoutDashboard className="w-5 h-5" />
+            <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
+              <h3 className="text-[9px] font-black uppercase tracking-wider text-amber-200/60 mb-3 flex items-center gap-2 italic">
+                <LayoutDashboard className="w-4 h-4" />
                 Akses Perizinan Terpadu:
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-white">
                 {features.map((f, i) => (
                   <motion.div 
                     key={i} 
-                    initial={{ opacity: 0, x: -10 }}
+                    initial={{ opacity: 0, x: -5 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="flex items-center gap-4 text-xs font-black uppercase tracking-widest italic opacity-80"
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider italic opacity-85"
                   >
-                    <div className="w-2.5 h-2.5 bg-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.8)] shrink-0" />
+                    <div className="w-2 h-2 bg-amber-400 rounded-full shadow-sm shrink-0" />
                     {f}
                   </motion.div>
                 ))}
@@ -515,54 +545,54 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         </div>
 
         <div className="flex items-center justify-between font-display relative px-2">
-          <div className="absolute -left-6 bottom-0 w-24 h-24 bg-[#3e2723]/5 rounded-full blur-3xl -z-10" />
-          <div>
-            <h2 className="text-3xl font-black text-[#3e2723] font-display uppercase italic tracking-tight">E-Klinik Dashboard</h2>
-            <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] mt-3 italic leading-none">Indikator Kesehatan Akademik Digital</p>
+          <div className="absolute -left-4 bottom-0 w-16 h-16 bg-[#3e2723]/5 rounded-full blur-2xl -z-10" />
+          <div className="text-left">
+            <h2 className="text-lg font-black text-[#3e2723] uppercase italic tracking-tight font-display">E-Klinik Dashboard</h2>
+            <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest mt-1 italic leading-none">Indikator Kesehatan Akademik Digital</p>
           </div>
-          <div className="p-5 bg-white text-[#3e2723] rounded-[2rem] border-2 border-stone-100 shadow-xl group hover:rotate-6 transition-transform">
-            <Activity className="w-8 h-8 group-hover:scale-110 transition-transform" />
+          <div className="p-3 bg-white text-[#3e2723] rounded-xl border border-stone-100 shadow-sm group hover:rotate-3 transition-transform">
+            <Activity className="w-5 h-5 group-hover:scale-105 transition-transform" />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          <div className="bg-white p-10 lg:p-14 rounded-[4rem] shadow-xl border border-stone-100 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-[#fcfaf6] rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-150 transition-transform duration-1000" />
-            <div className="flex items-center justify-between mb-12 relative z-10">
-              <h3 className="font-black text-[#3e2723] uppercase tracking-[0.3em] text-[11px] italic leading-none">Analisis Tren Kunjungan</h3>
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-                <TrendingUp className="w-6 h-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#fcfaf6] rounded-full blur-2xl -mr-12 -mt-12 group-hover:scale-125 transition-transform duration-1000" />
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <h3 className="font-black text-[#3e2723] uppercase tracking-wider text-[9px] italic leading-none">Analisis Tren Kunjungan</h3>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <div className="h-72 w-full relative z-10">
+            <div className="h-56 w-full relative z-10">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={monthlyTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8f5f2" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#333', fontStyle: 'italic' }} dy={15} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#333' }} />
-                  <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', fontWeight: 900, fontSize: '12px' }} />
-                  <Line type="monotone" dataKey="value" stroke="#3e2723" strokeWidth={6} dot={{ r: 8, fill: '#3e2723', strokeWidth: 4, stroke: '#fff' }} activeDot={{ r: 12, fill: '#3e2723' }} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#333', fontStyle: 'italic' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#333' }} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontWeight: 900, fontSize: '10px' }} />
+                  <Line type="monotone" dataKey="value" stroke="#3e2723" strokeWidth={4} dot={{ r: 5, fill: '#3e2723', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8, fill: '#3e2723' }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-white p-10 lg:p-14 rounded-[4rem] shadow-xl border border-stone-100 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/30 rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-150 transition-transform duration-1000" />
-            <div className="flex items-center justify-between mb-12 relative z-10">
-              <h3 className="font-black text-[#3e2723] uppercase tracking-[0.3em] text-[11px] italic leading-none">Etiologi Diagnosa Terbesar</h3>
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
-                <Activity className="w-6 h-6" />
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/30 rounded-full blur-2xl -mr-12 -mt-12 group-hover:scale-125 transition-transform duration-1000" />
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <h3 className="font-black text-[#3e2723] uppercase tracking-wider text-[9px] italic leading-none">Etiologi Diagnosa Terbesar</h3>
+              <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                <Activity className="w-4 h-4" />
               </div>
             </div>
-            <div className="h-72 w-full relative z-10">
+            <div className="h-56 w-full relative z-10">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={diagnosisData} layout="vertical" margin={{ left: 20 }}>
+                <BarChart data={diagnosisData} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#f8f5f2" />
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#3e2723', fontStyle: 'italic' }} width={100} />
-                  <Tooltip cursor={{ fill: '#fcfaf6' }} contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', fontWeight: 900 }} />
-                  <Bar dataKey="value" radius={[0, 15, 15, 0]} barSize={25}>
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#3e2723', fontStyle: 'italic' }} width={80} />
+                  <Tooltip cursor={{ fill: '#fcfaf6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontWeight: 900, fontSize: '10px' }} />
+                  <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={16}>
                     {diagnosisData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={['#3e2723', '#5d4037', '#8b5e3c', '#a1887f', '#d7ccc8'][index % 5]} />
                     ))}
@@ -617,27 +647,27 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`fixed inset-y-0 left-0 h-full w-[320px] z-[70] flex flex-col shadow-2xl overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'}`}
+              className={`fixed inset-y-0 left-0 h-full w-[260px] z-[70] flex flex-col shadow-2xl overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'}`}
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="p-8">
-                  <div className={`rounded-[2.5rem] p-8 mb-10 border shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-stone-950 border-white/5' : 'bg-[#fcfaf6] border-stone-200'}`}>
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#3e2723]/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:scale-125 transition-transform" />
-                    <div className="flex items-center gap-5 relative z-10">
-                      <div className="w-16 h-16 bg-[#3e2723] rounded-3xl flex items-center justify-center shadow-xl shadow-black/20 -rotate-3 group-hover:rotate-0 transition-transform">
-                        <Stethoscope className="w-8 h-8 text-amber-200" />
+                <div className="p-4">
+                  <div className={`rounded-xl p-4 mb-6 border shadow-md relative overflow-hidden group ${isDarkMode ? 'bg-stone-950 border-white/5' : 'bg-[#fcfaf6] border-stone-200'}`}>
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-[#3e2723]/5 rounded-full -mr-8 -mt-8 blur-xl group-hover:scale-110 transition-transform" />
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div className="w-10 h-10 bg-[#3e2723] rounded-xl flex items-center justify-center shadow-sm -rotate-3 group-hover:rotate-0 transition-transform">
+                        <Stethoscope className="w-5 h-5 text-amber-200" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-black text-[15px] leading-tight tracking-tight uppercase italic font-display">Medical Desk</span>
-                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-40 italic`}>SRMA 24 KEDIRI</span>
+                      <div className="flex flex-col text-left">
+                        <span className="font-black text-xs leading-tight tracking-tight uppercase italic font-display">Medical Desk</span>
+                        <span className={`text-[8px] font-black uppercase tracking-[0.15em] mt-0.5 opacity-40 italic`}>SRMA 24 KEDIRI</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-10">
+                  <div className="space-y-6">
                     <div>
-                      <p className={`text-[10px] font-black uppercase tracking-[0.3em] mb-6 px-4 italic opacity-30`}>Klinik Hub Nav</p>
-                      <nav className="space-y-2">
+                      <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-3 px-2 italic opacity-30 text-left`}>Klinik Hub Nav</p>
+                      <nav className="space-y-1">
                         {[
                           { id: 'statistik', label: 'Dashboard Klinik', icon: LayoutDashboard },
                           { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
@@ -656,13 +686,13 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                               setViewMode(item.id as any);
                               setShowSidebar(false);
                             }}
-                            className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all duration-300 italic border-b-4 ${
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-300 italic border-b-2 ${
                               viewMode === item.id 
-                                ? 'bg-[#3e2723] text-white border-black shadow-xl shadow-stone-900/20' 
+                                ? 'bg-[#3e2723] text-white border-black shadow-md shadow-stone-900/15' 
                                 : 'bg-transparent text-stone-400 hover:bg-stone-50 hover:text-[#3e2723] border-transparent'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-amber-200' : 'text-stone-300'}`} />
+                            <item.icon className={`w-4 h-4 ${viewMode === item.id ? 'text-amber-200' : 'text-stone-300'}`} />
                             {item.label}
                           </button>
                         ))}
@@ -673,12 +703,12 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </div>
 
               {/* Bottom Logout Section */}
-              <div className="p-8 border-t border-stone-100">
+              <div className="p-4 border-t border-stone-100">
                 <button 
                   onClick={() => auth.signOut()}
-                  className={`w-full flex items-center gap-4 px-8 py-5 rounded-[1.5rem] font-black text-[11px] transition-all shadow-xl active:scale-95 bg-rose-600 text-white border-b-8 border-rose-900 italic uppercase tracking-wider mb-2`}
+                  className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl font-black text-[9px] transition-all shadow-md active:scale-95 bg-rose-600 text-white border-b-4 border-rose-900 italic uppercase tracking-wider mb-2 justify-center`}
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4" />
                   Sign Out Session
                 </button>
               </div>
@@ -687,61 +717,61 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         )}
       </AnimatePresence>
 
-      <header className={`sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#3e2723]/80 border-white/5' : 'bg-[#fcfaf6]/80 border-stone-200'} backdrop-blur-md border-b h-24`}>
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="flex items-center gap-6">
+      <header className={`sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#3e2723]/80 border-white/5' : 'bg-[#fcfaf6]/80 border-stone-200'} backdrop-blur-md border-b h-16`}>
+        <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => setShowSidebar(true)}
-              className={`p-4 rounded-[1.25rem] transition-all duration-300 ${
+              className={`p-2 rounded-xl transition-all duration-300 ${
                 isDarkMode 
-                  ? 'bg-stone-900 text-amber-200 shadow-lg shadow-black/20' 
-                  : 'bg-white text-[#3e2723] shadow-xl shadow-stone-200/50'
-              } active:scale-95 border border-stone-100/50`}
+                  ? 'bg-stone-900 text-amber-200 shadow-md shadow-black/15' 
+                  : 'bg-white text-[#3e2723] shadow-md shadow-stone-200/40'
+              } active:scale-95 border border-stone-50`}
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
             <div className="flex flex-col text-left">
-              <h1 className={`text-xl font-black uppercase tracking-tight font-display italic ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
+              <h1 className={`text-sm font-black uppercase tracking-tight font-display italic ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
                 {viewTitles[viewMode] || 'Medical Center'}
               </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="w-1.5 h-1.5 bg-[#3e2723] rounded-full animate-pulse opacity-30" />
-                <p className={`text-[9px] font-black uppercase tracking-[0.2em] opacity-40 italic ${isDarkMode ? 'text-amber-200/50' : 'text-[#3e2723]'}`}>Digital Health Informatics</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1 h-1 bg-[#3e2723] rounded-full animate-pulse opacity-40" />
+                <p className={`text-[7px] font-black uppercase tracking-[0.15em] opacity-40 italic ${isDarkMode ? 'text-amber-200/50' : 'text-[#3e2723]'}`}>Digital Health Informatics</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
              <button
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`w-12 h-12 flex items-center justify-center rounded-2xl ${isDarkMode ? 'bg-stone-800 text-amber-200 shadow-lg shadow-black/20' : 'bg-white text-stone-400 shadow-xl shadow-stone-200/50'} transition-all active:scale-95 border border-stone-100/50`}
+              className={`w-9 h-9 flex items-center justify-center rounded-xl ${isDarkMode ? 'bg-stone-800 text-amber-200 shadow-sm shadow-black/15' : 'bg-white text-stone-400 shadow-sm shadow-stone-200/40'} transition-all active:scale-95 border border-stone-50`}
             >
-              {isDarkMode ? <Activity className="w-5 h-5 text-amber-200" /> : <Activity className="w-5 h-5" />}
+              {isDarkMode ? <Activity className="w-4 h-4 text-amber-200" /> : <Activity className="w-4 h-4" />}
             </button>
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`w-12 h-12 flex items-center justify-center rounded-2xl ${isDarkMode ? 'bg-stone-800 text-amber-200 shadow-lg shadow-black/20' : 'bg-white text-stone-400 shadow-xl shadow-stone-200/50'} transition-all active:scale-95 border border-stone-100/50 relative`}
+                className={`w-9 h-9 flex items-center justify-center rounded-xl ${isDarkMode ? 'bg-stone-800 text-amber-200 shadow-sm shadow-black/15' : 'bg-white text-stone-400 shadow-sm shadow-stone-200/40'} transition-all active:scale-95 border border-stone-50 relative`}
               >
-                <Mail className="w-5 h-5" />
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white shadow-sm" />
+                <Mail className="w-4 h-4" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border border-white shadow-xs" />
               </button>
               <AnimatePresence>
                 {showNotifications && (
                   <motion.div
-                    initial={{ opacity: 0, y: 15, scale: 0.9 }}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 15, scale: 0.9 }}
-                    className={`absolute right-0 mt-6 w-80 ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'} rounded-[2.5rem] shadow-3xl p-6 z-50 border`}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className={`absolute right-0 mt-3 w-72 ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'} rounded-2xl shadow-xl p-4 z-50 border`}
                   >
-                    <div className="flex items-center justify-between mb-6 px-2">
-                       <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#3e2723]/30">Pesan Masuk</h3>
+                    <div className="flex items-center justify-between mb-4 px-1">
+                       <h3 className="text-[8px] font-black uppercase tracking-[0.2em] text-[#3e2723]/30">Pesan Masuk</h3>
                     </div>
-                    <div className="space-y-3">
-                      {notifications.map(n => (
-                        <div key={n.id} className={`p-5 rounded-[1.5rem] ${isDarkMode ? 'hover:bg-stone-800' : 'hover:bg-[#fcfaf6]'} transition-all group cursor-pointer border border-transparent`}>
-                          <h4 className="text-xs font-black uppercase tracking-tight italic">{n.title}</h4>
-                          <p className="text-[10px] text-stone-400 mt-2 uppercase leading-relaxed font-bold italic line-clamp-2">{n.message}</p>
+                    <div className="space-y-2">
+                       {notifications.map(n => (
+                        <div key={n.id} className={`p-3 rounded-xl ${isDarkMode ? 'hover:bg-stone-800' : 'hover:bg-[#fcfaf6]'} transition-all group cursor-pointer border border-transparent`}>
+                          <h4 className="text-[10px] font-black uppercase tracking-tight italic text-left">{n.title}</h4>
+                          <p className="text-[9px] text-stone-400 mt-1 uppercase leading-relaxed font-bold italic line-clamp-2 text-left">{n.message}</p>
                         </div>
                       ))}
                     </div>
@@ -762,29 +792,29 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="max-w-7xl mx-auto px-6 pt-8">
-              <div className={`relative overflow-hidden rounded-[2.5rem] bg-[#3e2723] p-8 text-white shadow-2xl group border-b-8 border-black`}>
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-                <div className="relative z-10 flex items-center justify-between gap-8">
-                  <div className="flex items-center gap-6">
-                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-xl border border-white/20 shadow-lg group-hover:rotate-12 transition-transform duration-500">
-                      {React.createElement(banners[bannerIndex].icon, { className: "w-8 h-8 text-amber-200" })}
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className={`relative overflow-hidden rounded-xl bg-[#3e2723] p-4 text-white shadow-md group border-b-4 border-black`}>
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+                <div className="relative z-10 flex items-center justify-between gap-4 text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/20 shadow-sm group-hover:rotate-6 transition-transform">
+                      {React.createElement(banners[bannerIndex].icon, { className: "w-5 h-5 text-amber-200" })}
                     </div>
                     <div>
-                      <div className="flex items-center gap-4">
-                        <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-amber-100 italic">{banners[bannerIndex].title}</h4>
-                        <span className="px-3 py-1 bg-white/15 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10 backdrop-blur-md">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[9px] font-black uppercase tracking-wider text-amber-100 italic">{banners[bannerIndex].title}</h4>
+                        <span className="px-2 py-0.5 bg-white/15 rounded-lg text-[8px] font-black uppercase tracking-widest border border-white/10 backdrop-blur-xs">
                           {banners[bannerIndex].author || 'System'}
                         </span>
                       </div>
-                      <p className="text-lg font-bold leading-relaxed mt-2 italic text-white/90 font-display">"{banners[bannerIndex].content}"</p>
+                      <p className="text-xs font-bold leading-normal mt-1 italic text-white/90 font-display">"{banners[bannerIndex].content}"</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setShowBanner(false)}
-                    className="w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-rose-500 rounded-2xl transition-all active:scale-90 border border-white/10 group/btn"
+                    className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-rose-500 rounded-lg transition-all active:scale-90 border border-white/10 group/btn"
                   >
-                    <X className="w-6 h-6 group-hover/btn:rotate-90 transition-transform" />
+                    <X className="w-4 h-4 group-hover/btn:rotate-90 transition-transform" />
                   </button>
                 </div>
               </div>
@@ -794,14 +824,14 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       </AnimatePresence>
 
       {/* Shrunken Real-time Clock Bar */}
-      <div className="max-w-7xl mx-auto w-full px-6 mt-8">
-        <div className="p-1 rounded-[1.5rem] bg-stone-100">
-          <div className="flex items-center justify-center gap-4 py-4 px-8 rounded-[calc(1.5rem-1px)] bg-[#fcfaf6] border-2 border-stone-100 shadow-inner">
-            <span className="w-2 h-2 bg-[#3e2723] rounded-full animate-ping opacity-30 px-1" />
-            <p className="text-[11px] font-black uppercase tracking-[0.4em] flex items-center gap-3 text-stone-400 italic">
-              OFFICIAL SYSTEM TIME: <span className="text-[#3e2723]">{formatRealTime(currentTime)}</span>
+      <div className="max-w-7xl mx-auto w-full px-4 mt-4">
+        <div className="p-0.5 rounded-xl bg-stone-100">
+          <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-[calc(0.75rem-1px)] bg-[#fcfaf6] border-2 border-stone-50 shadow-inner">
+            <span className="w-1.5 h-1.5 bg-[#3e2723] rounded-full animate-ping opacity-30" />
+            <p className="text-[8px] font-bold uppercase tracking-[0.15em] flex items-center gap-2 text-stone-400 italic">
+              OFFICIAL SYSTEM TIME: <span className="text-[#3e2723] font-black">{formatRealTime(currentTime)}</span>
             </p>
-            <span className="w-2 h-2 bg-[#3e2723] rounded-full animate-ping opacity-30 px-1" />
+            <span className="w-1.5 h-1.5 bg-[#3e2723] rounded-full animate-ping opacity-30" />
           </div>
         </div>
       </div>
@@ -813,85 +843,85 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
 
         {viewMode === 'buat_surat' && (
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-white rounded-[3.5rem] shadow-2xl shadow-indigo-100 border border-slate-100 overflow-hidden">
-               <div className="p-10 border-b border-indigo-50 bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-between relative overflow-hidden">
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="bg-white rounded-xl shadow-md border border-slate-100 overflow-hidden">
+               <div className="p-4 border-b border-indigo-50 bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-between relative overflow-hidden">
                 <div className="absolute inset-0 opacity-10 pointer-events-none">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(255,255,255,1)_1px,transparent_0)] bg-[size:24px_24px]" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(255,255,255,1)_1px,transparent_0)] bg-[size:16px_16px]" />
                 </div>
-                <div className="flex items-center gap-6 relative z-10">
-                  <div className="p-4 bg-white/20 backdrop-blur-xl rounded-3xl border border-white/30 shadow-xl">
-                    <Stethoscope className="w-8 h-8 text-white" />
+                <div className="flex items-center gap-3 relative z-10">
+                  <div className="p-2 bg-white/20 backdrop-blur-xl rounded-xl border border-white/20 shadow-md">
+                    <Stethoscope className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-black text-white uppercase tracking-tight text-2xl">Penerbitan SKD Digital</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="px-3 py-0.5 bg-white/20 rounded-full text-[10px] text-white font-mono uppercase tracking-widest backdrop-blur-md border border-white/10">
+                    <h3 className="font-black text-white uppercase tracking-tight text-sm text-left">Penerbitan SKD Digital</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="px-2 py-0.5 bg-white/20 rounded-full text-[8px] text-white font-mono uppercase tracking-widest backdrop-blur-md border border-white/10">
                         {nomorSurat}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="hidden md:block relative z-10 text-right">
-                  <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em]">Sistem SRMA 24</p>
-                  <p className="text-white font-bold text-sm">{format(new Date(), 'dd MMMM yyyy')}</p>
+                  <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em]">Sistem SRMA 24</p>
+                  <p className="text-white font-bold text-xs">{format(new Date(), 'dd MMMM yyyy')}</p>
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-10 md:p-14 space-y-12">
+              <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
                 {/* Student Info Section */}
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                      <User className="w-4 h-4 text-indigo-600" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-indigo-600" />
                     </div>
-                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">Informasi Pasien</h4>
+                    <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-wider text-left">Informasi Pasien</h4>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="relative group">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1 transition-colors group-focus-within:text-indigo-600">Nama Lengkap Siswa</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative group text-left">
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1 transition-colors group-focus-within:text-indigo-600 text-left">Nama Lengkap Siswa</label>
                       <div className="relative">
-                        <div className="absolute left-5 top-1/2 -translate-y-1/2 p-2 bg-slate-100 rounded-xl group-focus-within:bg-indigo-100 transition-colors">
-                          <Search className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-600" />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 p-1 bg-slate-100 rounded-lg group-focus-within:bg-indigo-100 transition-colors">
+                          <Search className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-600" />
                         </div>
                         <input
                           type="text"
                           required
                           value={namaSiswa}
                           onChange={(e) => handleNamaSiswaChange(e.target.value)}
-                          className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 shadow-inner"
-                          placeholder="Ketik nama siswa untuk mencari..."
+                          className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none transition-all font-bold text-xs text-slate-700 shadow-inner"
+                          placeholder="Ketik nama siswa..."
                         />
                         <AnimatePresence>
                           {showSuggestions && filteredStudents.length > 0 && (
                             <motion.div
-                              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                              initial={{ opacity: 0, scale: 0.98, y: -5 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                              className="absolute z-50 left-0 right-0 mt-4 bg-white border border-slate-200 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden backdrop-blur-xl"
+                              exit={{ opacity: 0, scale: 0.98, y: -5 }}
+                              className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden backdrop-blur-xl"
                             >
-                              <div className="p-4 bg-slate-50/50 border-b border-slate-100">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ditemukan {filteredStudents.length} siswa</p>
+                              <div className="p-2 bg-slate-50/50 border-b border-slate-100">
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Ditemukan {filteredStudents.length} siswa</p>
                               </div>
                               {filteredStudents.map((student) => (
                                 <button
                                   key={student.id}
                                   type="button"
                                   onClick={() => selectStudent(student)}
-                                  className="w-full px-8 py-5 text-left hover:bg-indigo-50 flex items-center justify-between group/item transition-all"
+                                  className="w-full px-4 py-2.5 text-left hover:bg-indigo-50 flex items-center justify-between group/item transition-all"
                                 >
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-white shadow-sm border border-slate-100 rounded-xl flex items-center justify-center font-black text-indigo-600">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-white shadow-xs border border-slate-100 rounded-lg flex items-center justify-center font-black text-xs text-indigo-600">
                                       {student.nama_lengkap.charAt(0)}
                                     </div>
                                     <div>
-                                      <p className="text-sm font-black text-slate-900 group-hover/item:text-indigo-700">{student.nama_lengkap || 'Tanpa Nama'}</p>
-                                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">{student.kelas}</p>
+                                      <p className="text-xs font-black text-slate-900 group-hover/item:text-indigo-700">{student.nama_lengkap || 'Tanpa Nama'}</p>
+                                      <p className="text-[8px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">{student.kelas}</p>
                                     </div>
                                   </div>
-                                  <div className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center group-hover/item:bg-indigo-600 group-hover/item:border-indigo-600 transition-all">
-                                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover/item:text-white" />
+                                  <div className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center group-hover/item:bg-indigo-600 group-hover/item:border-indigo-600 transition-all">
+                                    <ChevronRight className="w-3 h-3 text-slate-300 group-hover/item:text-white" />
                                   </div>
                                 </button>
                               ))}
@@ -901,23 +931,23 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-4 text-left">
                       <div className="group">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1 group-focus-within:text-indigo-600">Kelas</label>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1 group-focus-within:text-indigo-600 text-left">Kelas</label>
                         <select
                           value={kelas}
                           onChange={(e) => setKelas(e.target.value)}
-                          className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none appearance-none transition-all font-bold text-slate-700 shadow-inner"
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none appearance-none transition-all font-bold text-xs text-slate-700 shadow-inner"
                         >
                           {WALI_KELAS_LIST.map(wk => (
                             <option key={wk.kelas} value={wk.kelas}>{wk.kelas}</option>
                           ))}
                         </select>
                       </div>
-                      <div className="group opacity-60">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Wali Kelas</label>
-                        <div className="px-6 py-5 bg-slate-100 border-2 border-transparent rounded-[2rem] font-bold text-slate-500 shadow-inner flex items-center gap-2">
-                          <User className="w-4 h-4 opacity-40" />
+                      <div className="group opacity-70">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1 text-left">Wali Kelas</label>
+                        <div className="px-3 py-2 bg-[#f1f3f5] border border-slate-200 rounded-xl font-bold text-xs text-slate-500 shadow-inner flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 opacity-45" />
                           <span className="truncate">{waliKelas}</span>
                         </div>
                       </div>
@@ -926,46 +956,46 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                 </div>
 
                 {/* Diagnosis Section */}
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                      <Activity className="w-4 h-4 text-indigo-600" />
+                <div className="space-y-4 text-left">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
+                      <Activity className="w-3.5 h-3.5 text-indigo-600" />
                     </div>
-                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">Hasil Pemeriksaan</h4>
+                    <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-wider text-left">Hasil Pemeriksaan</h4>
                   </div>
                   
                   <div className="relative group">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1 group-focus-within:text-indigo-600">Diagnosa Medis & Keluhan</label>
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1 group-focus-within:text-indigo-600 text-left">Diagnosa Medis & Keluhan</label>
                     <div className="relative">
-                      <div className="absolute left-5 top-5 p-2 bg-slate-100 rounded-xl group-focus-within:bg-indigo-100 transition-colors">
-                        <MessageSquare className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-600" />
+                      <div className="absolute left-3 top-3 p-1 bg-slate-100 rounded-lg group-focus-within:bg-indigo-100 transition-colors">
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-600" />
                       </div>
                       <textarea
                         required
                         value={diagnosa}
                         onChange={(e) => setDiagnosa(e.target.value)}
-                        className="w-full pl-16 pr-8 py-5 bg-slate-50 border-2 border-transparent rounded-[2.5rem] focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 shadow-inner min-h-[160px] resize-none"
-                        placeholder="Tuliskan hasil diagnosa dan keluhan pasien secara detail..."
+                        className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none transition-all font-bold text-xs text-slate-700 shadow-inner min-h-[100px] resize-none"
+                        placeholder="Tuliskan hasil diagnosa pasien..."
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Recovery Period Section */}
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-indigo-600" />
+                <div className="space-y-4 text-left">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
+                      <Clock className="w-3.5 h-3.5 text-indigo-600" />
                     </div>
-                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">Masa Istirahat</h4>
+                    <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-wider text-left">Masa Istirahat</h4>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="group">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1 group-focus-within:text-indigo-600">Durasi Istirahat (Hari)</label>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1 group-focus-within:text-indigo-600 text-left">Durasi (Hari)</label>
                       <div className="relative">
-                        <div className="absolute left-5 top-1/2 -translate-y-1/2 p-2 bg-slate-100 rounded-xl group-focus-within:bg-indigo-100 transition-colors">
-                          <Activity className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-600" />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 p-1 bg-slate-100 rounded-lg group-focus-within:bg-indigo-100 transition-colors">
+                          <Activity className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-600" />
                         </div>
                         <input
                           type="number"
@@ -976,150 +1006,150 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                             const val = parseInt(e.target.value);
                             setJumlahHari(isNaN(val) ? 0 : val);
                           }}
-                          className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 shadow-inner"
+                          className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none transition-all font-bold text-xs text-slate-700 shadow-inner"
                         />
-                        <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase tracking-widest">Hari</div>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Hari</div>
                       </div>
                     </div>
                     <div className="group">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1 group-focus-within:text-indigo-600">Tanggal Mulai Istirahat</label>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1 group-focus-within:text-indigo-600 text-left">Mulai Tanggal</label>
                       <div className="relative">
-                        <div className="absolute left-5 top-1/2 -translate-y-1/2 p-2 bg-slate-100 rounded-xl group-focus-within:bg-indigo-100 transition-colors">
-                          <Calendar className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-600" />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 p-1 bg-slate-100 rounded-lg group-focus-within:bg-indigo-100 transition-colors">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-600" />
                         </div>
                         <input
                           type="date"
                           required
                           value={tglMulai}
                           onChange={(e) => setTglMulai(e.target.value)}
-                          className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 shadow-inner"
+                          className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none transition-all font-bold text-xs text-slate-700 shadow-inner"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-8">
+                <div className="pt-4">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full group/btn relative overflow-hidden"
+                    className="w-full group/btn relative overflow-hidden rounded-xl"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-700 to-blue-800 transition-transform duration-500 group-hover/btn:scale-105" />
-                    <div className="relative py-6 px-10 flex items-center justify-center gap-4 text-white font-black uppercase tracking-[0.2em] text-sm">
+                    <div className="relative py-3.5 px-6 flex items-center justify-center gap-3 text-white font-black uppercase tracking-widest text-xs">
                       {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <CheckCircle2 className="w-6 h-6 transition-transform group-hover/btn:scale-110" />
+                        <CheckCircle2 className="w-5 h-5 transition-transform group-hover/btn:scale-105" />
                       )}
                       {loading ? 'Memproses Data...' : 'Terbitkan SKD & Kirim'}
                     </div>
                   </button>
-                  <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-6">Data akan secara otomatis terkirim kepada Wali Kelas & Wali Asuh</p>
+                  <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-4">Data akan secara otomatis terkirim kepada Wali Kelas & Wali Asuh</p>
                 </div>
               </form>
             </div>
             
             {/* Quick Stats / Tips */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-indigo-50/50 p-8 rounded-[3rem] border border-indigo-100 flex flex-col items-center text-center">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-4">
-                  <Activity className="w-6 h-6 text-indigo-600" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex flex-col items-center text-center">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-xs mb-2">
+                  <Activity className="w-4 h-4 text-indigo-600" />
                 </div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total SKD Bulan Ini</p>
-                <p className="text-2xl font-black text-slate-900">{permits.filter(p => isThisMonth(p.tgl_surat?.toDate() || new Date())).length}</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5 text-center">Total SKD Bulan Ini</p>
+                <p className="text-base font-black text-slate-900 text-center">{permits.filter(p => isThisMonth(p.tgl_surat?.toDate() || new Date())).length}</p>
               </div>
-              <div className="bg-rose-50/50 p-8 rounded-[3rem] border border-rose-100 flex flex-col items-center text-center">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-4">
-                  <HeartPulse className="w-6 h-6 text-rose-600" />
+              <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex flex-col items-center text-center">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-xs mb-2">
+                  <HeartPulse className="w-4 h-4 text-rose-600" />
                 </div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kesehatan Siswa</p>
-                <p className="text-sm font-bold text-rose-700 uppercase tracking-tight">Pantau kondisi secara berkala</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5 text-center">Kesehatan Siswa</p>
+                <p className="text-[10px] font-bold text-rose-700 uppercase tracking-tight text-center">Pantau berkala</p>
               </div>
-              <div className="bg-emerald-50/50 p-8 rounded-[3rem] border border-emerald-100 flex flex-col items-center text-center">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-4">
-                  <ShieldCheck className="w-6 h-6 text-emerald-600" />
+              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center text-center">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-xs mb-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 </div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Keamanan Data</p>
-                <p className="text-sm font-bold text-emerald-700 uppercase tracking-tight">Integrasi Otomatis Wali Asuh</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5 text-center">Keamanan Data</p>
+                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-tight text-center">Integrasi Wali Asuh</p>
               </div>
             </div>
           </div>
         )}
 
         {viewMode === 'riwayat_skd' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12">
             {/* Minimal High-Contrast Header */}
-            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 shadow-3xl text-white relative overflow-hidden border border-[#5d4037]">
-              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 group-hover:rotate-0 transition-transform">
-                    <ClipboardList className="w-10 h-10 text-[#3e2723]" />
+            <div className="bg-[#3e2723] rounded-xl p-4 md:p-5 shadow-md text-white relative overflow-hidden border border-[#5d4037]/60">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 text-left">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shrink-0">
+                    <ClipboardList className="w-5 h-5 text-[#3e2723]" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Riwayat Surat</h1>
-                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10">MEDICAL LOGS</span>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-base font-black font-display tracking-tight leading-none italic uppercase">Riwayat Surat</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-white/10">MEDICAL LOGS</span>
                     </div>
-                    <p className="text-stone-400 text-[10px] font-black mt-3 uppercase tracking-[0.2em] italic opacity-80">Database Elektronik Surat Keterangan Sakit</p>
+                    <p className="text-stone-400 text-[8px] font-black mt-1 uppercase tracking-wider italic opacity-80">Database Elektronik Surat Keterangan Sakit</p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex bg-[#5d4037] p-1.5 rounded-[1.5rem] border border-[#3e2723] shadow-inner">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex bg-[#5d4037] p-1 rounded-xl border border-[#3e2723] shadow-inner">
                     <button 
                       onClick={() => {
                         const filtered = permits.filter(p => isThisWeek(p.tgl_surat.toDate()));
                         generateSummaryReportPDF(filtered, 'Minggu Ini', user.name, 'Dokter UKS');
                       }}
-                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                      className="px-3 py-1.5 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn"
                     >
-                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
-                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Minggu</span>
+                      <Printer className="w-3.5 h-3.5 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[8px] font-black uppercase tracking-wider italic">Minggu</span>
                     </button>
-                    <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+                    <div className="w-[1px] bg-[#3e2723] mx-0.5 self-stretch" />
                     <button 
                       onClick={() => {
                         const filtered = permits.filter(p => isThisMonth(p.tgl_surat.toDate()));
                         generateSummaryReportPDF(filtered, 'Bulan Ini', user.name, 'Dokter UKS');
                       }}
-                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                      className="px-3 py-1.5 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn"
                     >
-                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
-                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Bulan</span>
+                      <Printer className="w-3.5 h-3.5 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[8px] font-black uppercase tracking-wider italic">Bulan</span>
                     </button>
                   </div>
 
                   <button
                     onClick={() => setViewMode('buat_surat')}
-                    className="px-8 py-4 bg-[#fcfaf6] text-[#3e2723] rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.1em] flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-95 shadow-2xl italic border-b-4 border-[#d7ccc8]"
+                    className="px-4 py-2 bg-[#fcfaf6] text-[#3e2723] rounded-xl font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-white transition-all active:scale-95 shadow-md italic border-b-2 border-[#d7ccc8]"
                   >
-                    <Plus className="w-5 h-5" /> Buat Surat Baru
+                    <Plus className="w-4 h-4" /> Buat Surat baru
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-stone-100 flex flex-col md:flex-row gap-8 items-center border-b-[12px]">
+            <div className="bg-white p-4 rounded-xl shadow-xs border border-stone-100 flex flex-col md:flex-row gap-4 items-center border-b-4">
               <div className="relative w-full group">
-                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
                 <input 
                   type="text" 
                   placeholder="Cari nama siswa atau no surat..."
-                  className="w-full pl-24 pr-8 py-6 bg-[#fcfaf6] border-2 border-stone-50 rounded-[2rem] focus:border-[#3e2723] focus:ring-8 focus:ring-[#3e2723]/5 outline-none transition-all font-black text-[#3e2723] text-sm italic placeholder:text-stone-200 shadow-inner"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#fcfaf6] border border-stone-100 rounded-xl focus:border-[#3e2723] focus:bg-white outline-none transition-all font-bold text-xs italic placeholder:text-stone-300 shadow-inner"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar w-full md:w-auto">
+              <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full md:w-auto">
                 {(['hari_ini', 'kemarin', 'minggu_ini', 'bulan_ini', 'semua'] as const).map((filter) => (
                   <button
                     key={filter}
                     onClick={() => setTimeFilter(filter)}
-                    className={`px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all italic border-b-4 ${
+                    className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-wider whitespace-nowrap transition-all italic border-b-2 ${
                       timeFilter === filter 
-                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-xl scale-105' 
+                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-md scale-102' 
                         : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
                     }`}
                   >
@@ -1129,7 +1159,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnimatePresence mode="popLayout">
                 {permits
                   .filter(p => {
@@ -1150,49 +1180,49 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                     <motion.div
                       key={permit.id}
                       layout
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className="bg-white p-10 rounded-[3.5rem] border border-stone-50 shadow-sm hover:shadow-2xl transition-all group relative border-b-[12px] border-stone-100 overflow-hidden"
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      className="bg-white p-5 rounded-xl border border-stone-50 shadow-xs hover:shadow-md transition-all group relative border-b-4 border-stone-100 overflow-hidden text-left"
                     >
-                      <div className="absolute top-0 right-0 w-3 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-700" />
+                      <div className="absolute top-0 right-0 w-1 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-500" />
                       
-                      <div className="flex flex-col h-full gap-8">
-                        <div className="flex justify-between items-start pt-2">
-                           <div className="flex gap-6">
-                              <div className="w-14 h-14 rounded-2xl bg-[#fcfaf6] flex items-center justify-center border-2 border-stone-50 group-hover:bg-[#3e2723] transition-colors duration-500">
-                                <FileText className="w-7 h-7 text-[#3e2723]/30 group-hover:text-amber-200" />
+                      <div className="flex flex-col h-full gap-4 text-left">
+                        <div className="flex justify-between items-start">
+                           <div className="flex gap-3 text-left">
+                              <div className="w-10 h-10 rounded-lg bg-[#fcfaf6] flex items-center justify-center border border-stone-100 group-hover:bg-[#3e2723] transition-colors duration-300">
+                                <FileText className="w-5 h-5 text-[#3e2723]/30 group-hover:text-amber-200" />
                               </div>
-                              <div>
-                                <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic mb-1">SKD #{permit.nomor_surat}</p>
-                                <h4 className="text-2xl font-black text-[#3e2723] uppercase italic tracking-tight font-display">{permit.nama_siswa}</h4>
-                                <p className="text-[11px] font-bold text-stone-400 mt-2 uppercase tracking-widest italic">{permit.kelas}</p>
+                              <div className="text-left">
+                                <p className="text-[8px] font-bold text-stone-300 uppercase tracking-wider italic">SKD #{permit.nomor_surat}</p>
+                                <h4 className="text-sm font-black text-[#3e2723] uppercase italic tracking-tight font-display text-left">{permit.nama_siswa}</h4>
+                                <p className="text-[9px] font-bold text-stone-400 mt-0.5 uppercase tracking-wider italic text-left">{permit.kelas}</p>
                               </div>
                            </div>
                         </div>
 
-                        <div className="bg-[#fcfaf6] p-8 rounded-[2.5rem] border border-stone-50 relative group-hover:border-[#3e2723]/10 transition-colors">
-                          <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.2em] mb-4 italic leading-none">Diagnosa Medis:</p>
-                          <p className="text-lg font-black text-[#5d4037] italic leading-relaxed whitespace-pre-wrap">"{permit.diagnosa || permit.alasan || '-'}"</p>
+                        <div className="bg-[#fcfaf6] p-4 rounded-xl border border-stone-50 relative group-hover:border-[#3e2723]/10 transition-colors text-left">
+                          <p className="text-[8px] font-black text-stone-300 uppercase tracking-wider mb-2 italic leading-none text-left">Diagnosa Medis:</p>
+                          <p className="text-[11px] font-bold text-[#5d4037] italic leading-normal whitespace-pre-wrap text-left">"{permit.diagnosa || permit.alasan || '-'}"</p>
                         </div>
 
-                        <div className="flex items-center justify-between pt-6 border-t border-stone-50 mt-auto">
-                           <div className="flex items-center gap-3">
-                              <Clock className="w-4 h-4 text-stone-200" />
-                              <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic">
+                        <div className="flex items-center justify-between pt-3 border-t border-stone-50 mt-auto">
+                           <div className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5 text-stone-200" />
+                              <span className="text-[8px] font-black text-stone-300 uppercase tracking-wider italic">
                                 {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy', { locale: id }) : '-'}
                               </span>
                            </div>
                            
-                           <div className="flex items-center gap-3">
+                           <div className="flex items-center gap-2">
                              <button
                                onClick={() => generatePermitPDF(permit)}
-                               className="p-4 bg-stone-50 text-stone-300 hover:text-[#3e2723] hover:bg-white rounded-xl transition-all shadow-sm hover:shadow-xl border border-transparent hover:border-stone-100"
+                               className="p-2 bg-stone-50 text-stone-300 hover:text-[#3e2723] hover:bg-white rounded-lg transition-all border border-transparent hover:border-stone-100"
                                title="Cetak PDF"
                              >
-                               <Printer className="w-5 h-5" />
+                               <Printer className="w-4 h-4" />
                              </button>
-                             <div className="px-6 py-2.5 bg-[#3e2723] text-amber-200 rounded-xl text-[10px] font-black uppercase tracking-widest italic border-b-4 border-black">
+                             <div className="px-3 py-1 bg-[#3e2723] text-amber-200 rounded-lg text-[8px] font-black uppercase tracking-wider italic border-b-2 border-black">
                                VERIFIED
                              </div>
                            </div>
@@ -1203,10 +1233,10 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </AnimatePresence>
 
               {permits.length === 0 && (
-                <div className="col-span-full py-40 bg-white rounded-[4rem] border-4 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-10">
-                  <FileText className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
-                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Arsip Kosong</h3>
-                  <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Database elektronik belum merekam adanya surat keterangan yang diterbitkan untuk periode ini.</p>
+                <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+                  <FileText className="w-12 h-12 text-stone-100 mb-4 opacity-50" />
+                  <h3 className="text-lg font-black text-stone-200 uppercase tracking-wider italic font-display leading-tight mb-2 text-center">Arsip Kosong</h3>
+                  <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest italic max-w-xs leading-relaxed text-center">Database elektronik belum merekam adanya surat keterangan yang diterbitkan untuk periode ini.</p>
                 </div>
               )}
             </div>
@@ -1264,39 +1294,39 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         )}
 
         {viewMode === 'usulan_cek' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12">
             {/* Header Style Matching the Theme */}
-            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 text-white relative overflow-hidden shadow-2xl border border-[#5d4037]">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 transition-transform hover:rotate-0">
-                    <Activity className="w-10 h-10 text-[#3e2723]" />
+            <div className="bg-[#3e2723] rounded-2xl p-4 md:p-5 text-white relative overflow-hidden shadow-md border border-[#5d4037]/60">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10 text-left">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shadow-black/20 shrink-0">
+                    <Activity className="w-5 h-5 text-[#3e2723]" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Usulan Kesehatan</h1>
-                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Usulan Kesehatan</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10">
                         MONITORING
                       </span>
                     </div>
-                    <p className="text-stone-400 text-[10px] font-black mt-3 uppercase tracking-[0.2em] italic opacity-80">
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-80 leading-snug">
                       Permohonan Pemeriksaan dari Wali Asrama
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex bg-[#5d4037] p-1.5 rounded-[1.5rem] border border-[#3e2723] shadow-inner">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex bg-[#5d4037]/90 p-1 rounded-xl border border-[#3e2723] shadow-inner">
                     <button 
                       onClick={() => {
                         const filtered = proposals.filter(p => isThisWeek(p.tgl_usulan.toDate()));
                         generateHealthCheckSummaryReportPDF(filtered, 'Minggu Ini', user.name);
                       }}
-                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                      className="px-3 py-1.5 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn"
                     >
-                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
-                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Minggu</span>
+                      <Printer className="w-3.5 h-3.5 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[8px] font-black uppercase tracking-wider italic">Minggu</span>
                     </button>
                     <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
                     <button 
@@ -1304,22 +1334,22 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                         const filtered = proposals.filter(p => isThisMonth(p.tgl_usulan.toDate()));
                         generateHealthCheckSummaryReportPDF(filtered, 'Bulan Ini', user.name);
                       }}
-                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                      className="px-3 py-1.5 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn"
                     >
-                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
-                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Bulan</span>
+                      <Printer className="w-3.5 h-3.5 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[8px] font-black uppercase tracking-wider italic">Bulan</span>
                     </button>
                   </div>
 
-                  <div className="px-6 py-4 bg-[#fcfaf6] text-[#3e2723] rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.1em] shadow-2xl italic border-b-4 border-[#d7ccc8]">
+                  <div className="px-3 py-1.5 bg-[#fcfaf6] text-[#3e2723] rounded-xl font-black text-[9px] uppercase tracking-wider shadow-sm italic border-b-2 border-[#d7ccc8]">
                     {proposals.filter(p => p.status === 'pending').length} Menunggu
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-stone-100 flex flex-col md:flex-row gap-8 items-center border-b-[12px]">
-              <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar w-full">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col md:flex-row gap-4 items-center border-b-4">
+              <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full">
                 {[
                   { id: 'hari_ini', label: 'Hari Ini' },
                   { id: 'kemarin', label: 'Kemarin' },
@@ -1329,9 +1359,9 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                   <button
                     key={f.id}
                     onClick={() => setProposalTimeFilter(f.id as any)}
-                    className={`px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all italic border-b-4 ${
+                    className={`px-4 py-2 rounded-lg text-[8px] font-black uppercase tracking-wider whitespace-nowrap transition-all italic border-b-2 ${
                       proposalTimeFilter === f.id 
-                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-xl scale-105' 
+                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-md scale-102' 
                         : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
                     }`}
                   >
@@ -1341,7 +1371,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnimatePresence mode="popLayout" initial={false}>
                 {(proposals || [])
                   .filter(p => {
@@ -1359,85 +1389,91 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                    <motion.div 
                      key={proposal.id} 
                      layout
-                     initial={{ opacity: 0, scale: 0.9 }}
-                     animate={{ opacity: 1, scale: 1 }}
-                     className={`relative overflow-hidden bg-white p-10 rounded-[3.5rem] border transition-all duration-500 border-b-[12px] group ${
+                     initial={{ opacity: 0, scale: 0.98, y: 15 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.98 }}
+                     className={`relative overflow-hidden bg-white p-5 rounded-xl border transition-all duration-500 border-b-4 group text-left flex flex-col justify-between ${
                        proposal.status === 'processed' 
-                         ? 'border-stone-50 opacity-75' 
-                         : 'border-[#3e2723] shadow-2xl'
+                         ? 'border-stone-100 opacity-75 shadow-sm' 
+                         : 'border-[#3e2723] shadow-md'
                      }`}
+                     id={`proposal-card-${proposal.id}`}
                    >
-                      <div className="flex flex-col h-full gap-8">
-                        <div className="flex items-center justify-between">
-                           <div className="flex items-center gap-6">
-                              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${
-                                proposal.status === 'processed' ? 'bg-stone-100 text-stone-300' : 'bg-[#3e2723] text-amber-200'
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-[#3e2723] opacity-0 group-hover:opacity-10 transition-all duration-500" />
+                      
+                      <div className="flex flex-col h-full gap-4 w-full">
+                        <div className="flex items-center justify-between w-full">
+                           <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-300 shrink-0 border ${
+                                proposal.status === 'processed' ? 'bg-stone-50 text-stone-300 border-stone-200' : 'bg-[#3e2723] text-amber-200 border-transparent shadow-sm'
                               }`}>
-                                <Activity className="w-7 h-7" />
+                                <Activity className="w-5 h-5" />
                               </div>
-                              <div>
-                                <p className="text-[11px] font-black text-stone-300 uppercase tracking-widest italic mb-1">
+                              <div className="text-left">
+                                <p className="text-[8px] font-bold text-stone-300 uppercase tracking-wider italic">
                                   {proposal.tgl_usulan && typeof proposal.tgl_usulan.toDate === 'function' 
-                                    ? format(proposal.tgl_usulan.toDate(), 'HH:mm • dd MMM', { locale: id }) 
+                                    ? format(proposal.tgl_usulan.toDate(), 'HH:mm • dd MMM yyyy', { locale: id }) 
                                     : '-'}
                                 </p>
-                                <h4 className="text-2xl font-black text-[#3e2723] uppercase italic font-display leading-tight">Asrama: {proposal.asrama || 'Utama'}</h4>
+                                <h4 className="text-xs font-black text-[#3e2723] uppercase italic font-display leading-tight text-left">Asrama: {proposal.asrama || 'Utama'}</h4>
                               </div>
                            </div>
                            {proposal.status === 'processed' && (
-                             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-full">
-                               <CheckCircle2 className="w-6 h-6" />
+                             <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shrink-0">
+                               <CheckCircle2 className="w-4 h-4" />
                              </div>
                            )}
                         </div>
 
-                        <div className="space-y-6">
-                          <div className="bg-[#fcfaf6] rounded-[2.5rem] p-8 border border-stone-50">
-                            <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest mb-4 italic">Daftar Siswa:</p>
-                            <div className="flex flex-wrap gap-3">
+                        <div className="space-y-3">
+                          <div className="bg-[#fcfaf6] rounded-xl p-3 border border-stone-50/80">
+                            <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-2 italic text-left">Daftar Siswa:</p>
+                            <div className="flex flex-wrap gap-1.5">
                               {proposal.daftar_siswa.map((s, i) => (
                                 <button 
                                   key={i} 
                                   onClick={() => handleProposalStudentClick(s)}
-                                  className="px-5 py-2.5 bg-white border-2 border-stone-100 text-[11px] font-black text-[#3e2723] rounded-2xl hover:border-[#3e2723] hover:text-[#3e2723] transition-all shadow-sm flex items-center gap-3 active:scale-95 italic"
+                                  className="px-2.5 py-1 bg-white border border-stone-200/60 text-[10px] font-black text-[#5d4037] rounded-lg hover:border-[#3e2723] hover:text-[#3e2723] transition-all shadow-xs flex items-center gap-1.5 active:scale-95 italic shrink-0"
                                 >
-                                  <User className="w-4 h-4 opacity-30" />
-                                  {s}
+                                  <User className="w-3 h-3 text-[#3e2723]/40" />
+                                  <span>{s}</span>
                                 </button>
                               ))}
                             </div>
                           </div>
 
                           {proposal.keterangan && (
-                             <div className="p-6 bg-rose-50 rounded-[2rem] border border-rose-100">
-                               <p className="text-sm font-bold text-[#3e2723] italic leading-relaxed whitespace-pre-wrap">"{proposal.keterangan}"</p>
+                             <div className="p-3 bg-rose-50/55 rounded-xl border border-rose-100/60 text-left">
+                               <p className="text-[7.5px] font-black text-rose-400 uppercase tracking-wider mb-1 italic">Keterangan Gejala:</p>
+                               <p className="text-xs font-semibold text-[#5d4037] italic leading-relaxed whitespace-pre-wrap">"{proposal.keterangan}"</p>
                              </div>
                           )}
                         </div>
 
-                        <div className="flex items-center justify-between pt-8 border-t border-stone-50 mt-auto">
-                          <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 bg-stone-50 rounded-full flex items-center justify-center">
-                               <User className="w-5 h-5 text-stone-300" />
+                        <div className="flex items-center justify-between pt-3 border-t border-stone-100 mt-auto">
+                          <div className="flex items-center gap-2">
+                             <div className="w-8 h-8 bg-[#d7ccc8]/20 border border-[#d7ccc8]/40 rounded-lg flex items-center justify-center shrink-0">
+                               <User className="w-4 h-4 text-[#3e2723]" />
                              </div>
-                             <div>
-                               <p className="text-[10px] font-black text-stone-300 uppercase italic leading-none block">Diusulkan oleh</p>
-                               <span className="text-sm font-bold text-[#3e2723] italic block mt-1">{proposal.proposer_name}</span>
+                             <div className="text-left">
+                               <p className="text-[8px] font-bold text-stone-400 uppercase italic leading-none">Diusulkan oleh</p>
+                               <span className="text-xs font-extrabold text-[#3e2723] italic block mt-1 leading-none">{proposal.proposer_name}</span>
                              </div>
                           </div>
                           
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2 shrink-0">
                             <button 
                               onClick={() => handleGenerateProposalPDF(proposal)}
-                              className="p-4 bg-stone-50 text-stone-300 hover:text-[#3e2723] hover:bg-white rounded-xl transition-all shadow-sm hover:shadow-xl border border-transparent hover:border-stone-100"
+                              className="p-1 px-2.5 bg-[#ebdccb]/60 hover:bg-[#3e2723] hover:text-white text-[7.5px] font-black uppercase tracking-wider text-[#3e2723] rounded transition-all active:scale-95 flex items-center gap-1 border border-transparent"
                               title="Cetak Usulan"
                             >
-                               <Printer className="w-5 h-5" />
+                               <Printer className="w-3 h-3" />
+                               <span>PDF</span>
                             </button>
                             {proposal.status === 'pending' && (
                               <button 
                                 onClick={() => handleProcessProposal(proposal.id!)}
-                                className="px-8 py-4 bg-emerald-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-2xl border-b-4 border-emerald-800 italic"
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[8px] uppercase tracking-widest transition-all shadow-xs border-b-2 border-emerald-800 italic"
                               >
                                 Selesaikan
                               </button>
@@ -1450,12 +1486,183 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </AnimatePresence>
 
               {proposals.length === 0 && (
-                <div className="col-span-full py-40 bg-white rounded-[4rem] border-4 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-10">
-                  <ShieldCheck className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
-                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Data Nihil</h3>
-                  <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Saat ini tidak ada usulan cek kesehatan yang perlu ditindaklanjuti.</p>
+                <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+                  <ShieldCheck className="w-12 h-12 text-stone-100 mb-4 opacity-50" />
+                  <h3 className="text-base font-black text-stone-300 uppercase tracking-widest italic font-display leading-tight mb-2 text-center">Data Nihil</h3>
+                  <p className="text-[9px] font-black text-stone-400 uppercase tracking-wider italic max-w-xs leading-relaxed text-center">Saat ini tidak ada usulan cek kesehatan yang perlu ditindaklanjuti.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'memorandum' && (
+          <div className="w-full mix-blend-normal space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12 text-left">
+            {/* Dynamic Header Block (Compact, aligned with Mading/Memorandum style) */}
+            <div className="bg-[#3e2723] rounded-2xl p-4 md:p-5 text-white relative overflow-hidden shadow-md border border-[#5d4037]/60">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10 text-left">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shadow-black/20 shrink-0">
+                    <Mail className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Memorandum Intern</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10">
+                        OFFICIAL
+                      </span>
+                    </div>
+                    <p className="text-[#ebdccb] text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-80 leading-snug">
+                      Instruksi & Komunikasi Strategis dari Pimpinan (Kepala Sekolah)
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3 py-1.5 bg-[#fcfaf6] text-[#3e2723] rounded-xl font-black text-[9px] uppercase tracking-wider shadow-sm italic border-b-2 border-[#d7ccc8] shrink-0">
+                  {memos.length} Memorandum Diterima
+                </div>
+              </div>
+            </div>
+
+            {/* Archives and Listing (Compact, aligned with Mading exactly) */}
+            <div className="space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-stone-100 shadow-sm shrink-0">
+                    <Clock className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-[#3e2723] tracking-tight uppercase italic leading-none font-display">Daftar Memo</h3>
+                    <p className="text-[8px] font-black text-stone-300 uppercase tracking-[0.15em] italic mt-1 leading-none">
+                      Daftar instruksi resmi yang harus dilaksanakan
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="relative w-full md:w-64 group">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                  <input
+                    type="text"
+                    value={memoSearch}
+                    onChange={(e) => setMemoSearch(e.target.value)}
+                    placeholder="Filter memo..."
+                    className="w-full bg-white border border-stone-100 rounded-xl pl-9 pr-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:border-[#3e2723] transition-all italic text-[#3e2723] shadow-inner placeholder:text-stone-300"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {memos
+                  .filter(memo => 
+                    memo.perihal?.toLowerCase().includes(memoSearch.toLowerCase()) || 
+                    memo.isi?.toLowerCase().includes(memoSearch.toLowerCase()) ||
+                    memo.pengirim_name?.toLowerCase().includes(memoSearch.toLowerCase())
+                  )
+                  .map((memo, idx) => {
+                    const memoDate = memo.tgl_memo?.toDate ? memo.tgl_memo.toDate() : new Date();
+                    const isExpanded = expandedMemos[memo.id!] || false;
+                    const shouldTruncate = memo.isi.length > 200;
+                    const displayText = shouldTruncate && !isExpanded 
+                      ? memo.isi.slice(0, 200) + '...' 
+                      : memo.isi;
+
+                    return (
+                      <motion.div
+                        layout
+                        key={memo.id}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.03 }}
+                        className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden text-left flex flex-col justify-between"
+                        id={`memo-card-${memo.id}`}
+                      >
+                        <div className="absolute top-0 right-0 w-1.5 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                        
+                        <div className="space-y-4 w-full">
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2 md:gap-3">
+                               <div className="w-8 h-8 rounded-lg bg-[#d7ccc8] flex items-center justify-center text-[#3e2723] font-black italic shadow-inner shrink-0 text-xs">
+                                 {memo.pengirim_name?.charAt(0).toUpperCase() || 'M'}
+                               </div>
+                               <div className="text-left">
+                                 <p className="font-extrabold text-[#3e2723] text-[10px] leading-none italic">
+                                   {memo.pengirim_name}
+                                 </p>
+                                 <p className="text-[6px] font-black text-[#5d4037] uppercase tracking-[0.1em] bg-stone-50 px-1.5 py-0.5 rounded italic mt-1 inline-block leading-none">
+                                   Pimpinan
+                                 </p>
+                                </div>
+                            </div>
+                            
+                            <span className="text-[8px] font-black text-[#ea580c] uppercase tracking-widest italic bg-orange-50 px-2 py-0.5 rounded">
+                              {format(memoDate, 'dd MMM yyyy')}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <span className="text-[7.5px] font-black text-stone-300 uppercase tracking-[0.15em] font-mono block">
+                              #{memo.nomor_memo}
+                            </span>
+                            <h4 className="font-extrabold text-[#3e2723] text-xs leading-snug uppercase italic tracking-tight font-display hover:text-[#ea580c] transition-colors">
+                              {memo.perihal}
+                            </h4>
+                          </div>
+
+                          <div className="relative pl-3 border-l-2 border-[#3e2723]/10">
+                            <p className="text-[#3e2723] text-[11px] italic leading-relaxed whitespace-pre-wrap">
+                              "{displayText}"
+                            </p>
+                            {shouldTruncate && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpandMemo(memo.id!);
+                                }}
+                                className="text-[#5d4037] hover:text-[#3e2723] font-black text-[7px] uppercase tracking-widest italic mt-2 inline-flex items-center gap-1 bg-stone-50 hover:bg-stone-100 px-2 py-1 rounded transition-all select-none"
+                              >
+                                {isExpanded ? 'Sembunyikan' : 'Baca Selengkapnya'}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="text-[6px] font-black text-stone-400 uppercase tracking-widest block w-full mb-0.5 italic">Ditujukan Kepada:</span>
+                            {memo.penerima.map((role) => (
+                              <span key={role} className="px-2 py-0.5 bg-[#fcfaf6] text-[7px] font-black text-[#8b5e3c] uppercase tracking-wider rounded border border-[#ebdccb]/30">
+                                {getRoleLabel(role)}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-[7px] font-black uppercase text-stone-400 tracking-wider">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-[#3e2723]/40 shrink-0" />
+                              <span>{format(memoDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id })} WIB</span>
+                            </div>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                generateMemorandumPDF(memo);
+                              }}
+                              className="flex items-center gap-1 py-1 px-2.5 bg-[#ebdccb]/60 hover:bg-[#3e2723] hover:text-white text-[7px] font-black uppercase tracking-wider text-[#3e2723] rounded transition-all active:scale-95"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span>Cetak PDF</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+
+                {memos.length === 0 && (
+                  <div className="lg:col-span-2 flex flex-col items-center justify-center py-24 bg-white rounded-2xl border-2 border-dashed border-stone-100 text-center relative overflow-hidden">
+                    <Mail className="w-12 h-12 text-stone-100 mb-3 opacity-50" />
+                    <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic">Belum ada memorandum masuk</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -110,6 +110,7 @@ export default function JurnalKeperawatanView({ user }: JurnalKeperawatanViewPro
 
   // Filter state
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'all'>('hari_ini');
+  const [statusFilter, setStatusFilter] = useState<'dirawat' | 'sembuh'>('dirawat');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Clock state
@@ -210,6 +211,10 @@ export default function JurnalKeperawatanView({ user }: JurnalKeperawatanViewPro
 
       if (!matchesSearch) return false;
 
+      // Filter by status category
+      const currentStatus = rec.status || 'dirawat';
+      if (currentStatus !== statusFilter) return false;
+
       // Filter by time category
       const d = rec.tgl_mulai?.toDate ? rec.tgl_mulai.toDate() : (rec.tgl_mulai instanceof Date ? rec.tgl_mulai : null);
       if (!d) return false;
@@ -220,7 +225,7 @@ export default function JurnalKeperawatanView({ user }: JurnalKeperawatanViewPro
       if (timeFilter === 'bulan_ini') return isThisMonth(d);
       return true; // all
     });
-  }, [jurnalList, searchQuery, timeFilter]);
+  }, [jurnalList, searchQuery, timeFilter, statusFilter]);
 
   // Handle Form Submit
   const handleCreateJournal = async (e: React.FormEvent) => {
@@ -444,6 +449,44 @@ export default function JurnalKeperawatanView({ user }: JurnalKeperawatanViewPro
           >
             <Plus className="w-3.5 h-3.5 text-[#3e2723]" />
             Catat Diagnosa Baru
+          </button>
+        </div>
+      </div>
+
+      {/* Kategori Status Perawatan */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-white rounded-3xl border border-[#ebdccb] shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#3e2723]/5 flex items-center justify-center border border-[#ebdccb]/30">
+            <ClipboardCheck className="w-4 h-4 text-[#3e2723]" />
+          </div>
+          <div className="text-left">
+            <h3 className="text-xs font-black uppercase text-[#3e2723] italic leading-none">Status Klasifikasi Perawatan</h3>
+            <p className="text-[7.5px] font-bold text-stone-400 uppercase tracking-widest mt-1">Sakit (Dalam Perawatan) vs Sembuh (Riwayat)</p>
+          </div>
+        </div>
+
+        <div className="flex bg-[#ebdccb]/20 p-1 rounded-2xl border border-[#ebdccb]/40 w-full sm:w-auto sm:min-w-[280px]">
+          <button
+            onClick={() => setStatusFilter('dirawat')}
+            className={`flex-1 sm:px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+              statusFilter === 'dirawat'
+                ? 'bg-[#3e2723] text-amber-100 shadow-md translate-y-[-1px]'
+                : 'text-[#5d4037] hover:text-[#3e2723]'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 animate-pulse text-amber-200" />
+            Dirawat ({stats.active})
+          </button>
+          <button
+            onClick={() => setStatusFilter('sembuh')}
+            className={`flex-1 sm:px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+              statusFilter === 'sembuh'
+                ? 'bg-emerald-600 text-white shadow-md translate-y-[-1px]'
+                : 'text-[#5d4037] hover:text-[#3e2723]'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Sembuh ({stats.cured})
           </button>
         </div>
       </div>

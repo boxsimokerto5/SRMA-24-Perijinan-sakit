@@ -47,15 +47,17 @@ import {
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp, limit, deleteDoc } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, Announcement, ProgressRecord, UserRole, Ketidakhadiran } from '../types';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, Announcement, ProgressRecord, UserRole, Ketidakhadiran, SarprasReport, parseFirestoreDate } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { generatePermitPDF, generateMemorandumPDF, generateSummaryReportPDF, generateKetidakhadiranPDF, generateKetidakhadiranReportPDF } from '../pdfUtils';
+import { generatePermitPDF, generateMemorandumPDF, generateSummaryReportPDF, generateKetidakhadiranPDF, generateKetidakhadiranReportPDF, generateSarprasReportPDF, generateSarprasSummaryPDF } from '../pdfUtils';
 import MadingSekolahView from './MadingSekolahView';
 import ProfileView from './ProfileView';
 import Logo from './Logo';
 import AgendaView from './AgendaView';
+import JurnalKeperawatanView from './JurnalKeperawatanView';
+import ProgressRecordsView from './ProgressRecordsView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface KepalaSekolahViewProps {
@@ -64,7 +66,7 @@ interface KepalaSekolahViewProps {
 }
 
 export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahViewProps) {
-  const [viewMode, setViewMode] = useState<'beranda' | 'statistik' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'announcements' | 'perizinan_global' | 'cek_ketidakhadiran'>('beranda');
+  const [viewMode, setViewMode] = useState<'beranda' | 'statistik' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'announcements' | 'perizinan_global' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'sarpras' | 'catatan_perkembangan'>('beranda');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -91,6 +93,12 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
   const [perizinanSearch, setPerizinanSearch] = useState('');
   const [selectedPermit, setSelectedPermit] = useState<IzinSakit | null>(null);
+
+  // Sarpras states
+  const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
+  const [sarprasFilter, setSarprasFilter] = useState<'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
+  const [sarprasStatusFilter, setSarprasStatusFilter] = useState<'all' | 'pending' | 'on_progress' | 'fixed'>('all');
+  const [sarprasSearch, setSarprasSearch] = useState('');
   
   // Memorandum Form State
   const [showMemoForm, setShowMemoForm] = useState(false);
@@ -99,6 +107,73 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   const [memoRecipients, setMemoRecipients] = useState<UserRole[]>([]);
   const [isSubmittingMemo, setIsSubmittingMemo] = useState(false);
   const [memoSearch, setMemoSearch] = useState('');
+  const [expandedMemos, setExpandedMemos] = useState<Record<string, boolean>>({});
+
+  const toggleExpandMemo = (memoId: string) => {
+    setExpandedMemos(prev => ({
+      ...prev,
+      [memoId]: !prev[memoId]
+    }));
+  };
+
+  // Announcement management states
+  const [showAnnForm, setShowAnnForm] = useState(false);
+  const [newAnnTitle, setNewAnnTitle] = useState('');
+  const [newAnnContent, setNewAnnContent] = useState('');
+  const [newAnnIsActive, setNewAnnIsActive] = useState(true);
+  const [isSubmittingAnn, setIsSubmittingAnn] = useState(false);
+
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnnTitle || !newAnnContent) {
+      alert('Mohon lengkapi judul dan isi pengumuman.');
+      return;
+    }
+
+    setIsSubmittingAnn(true);
+    try {
+      const docData: Omit<Announcement, 'id'> = {
+        title: newAnnTitle,
+        content: newAnnContent,
+        createdAt: Timestamp.now(),
+        authorName: user.name || 'Kepala Sekolah',
+        authorUid: user.uid,
+        isActive: newAnnIsActive
+      };
+
+      await addDoc(collection(db, 'announcements'), docData);
+
+      // Notify all roles
+      await notifyAllRoles(
+        ['dokter', 'wali_asuh', 'wali_kelas', 'guru_mapel', 'wali_asrama'],
+        'Pengumuman Pimpinan',
+        `Pimpinan menerbitkan pengumuman baru: ${newAnnTitle}`
+      );
+
+      setNewAnnTitle('');
+      setNewAnnContent('');
+      setNewAnnIsActive(true);
+      setShowAnnForm(false);
+      alert('Pengumuman berhasil diterbitkan!');
+    } catch (error) {
+       console.error(error);
+       handleFirestoreError(error, OperationType.WRITE, 'announcements');
+    } finally {
+       setIsSubmittingAnn(false);
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      dokter: 'Dokter',
+      wali_asuh: 'Wali Asuh',
+      wali_kelas: 'Wali Kelas',
+      kepala_sekolah: 'Kepala Sekolah',
+      guru_mapel: 'Guru Mapel',
+      wali_asrama: 'Wali Asrama'
+    };
+    return labels[role] || role;
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -131,12 +206,17 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
       setKetidakhadiranData(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ketidakhadiran)));
     });
 
+    const unsubSarpras = onSnapshot(query(collection(db, 'sarpras_reports'), orderBy('tgl_lapor', 'desc')), (snap) => {
+      setSarprasReports(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SarprasReport)));
+    });
+
     return () => {
       unsubStudents();
       unsubPermits();
       unsubMemos();
       unsubAnn();
       unsubKh();
+      unsubSarpras();
     };
   }, []);
 
@@ -163,7 +243,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     agenda: 'Agenda Strategis',
     announcements: 'Kelola Pengumuman',
     perizinan_global: 'Log Perizinan Global',
-    cek_ketidakhadiran: 'Cek Ketidakhadiran'
+    cek_ketidakhadiran: 'Cek Ketidakhadiran',
+    jurnal_keperawatan: 'Jurnal Keperawatan',
+    sarpras: 'Inventaris & Sarpras',
+    catatan_perkembangan: 'Catatan Perkembangan'
   };
 
   const handleCreateMemo = async (e: React.FormEvent) => {
@@ -244,23 +327,36 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
 
       if (!matchesSearch) return false;
 
-      const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
-      if (!date) return false;
+      const date = parseFirestoreDate(rec.tgl_absen);
+      
+      let matchesTime = true;
+      if (khTimeFilter === 'hari_ini') matchesTime = date ? isToday(date) : false;
+      else if (khTimeFilter === 'kemarin') matchesTime = date ? isYesterday(date) : false;
+      else if (khTimeFilter === 'minggu_ini') matchesTime = date ? isThisWeek(date, { weekStartsOn: 1 }) : false;
+      else if (khTimeFilter === 'bulan_ini') matchesTime = date ? isThisMonth(date) : false;
 
-      if (khTimeFilter === 'hari_ini') return isToday(date);
-      if (khTimeFilter === 'kemarin') return isYesterday(date);
-      if (khTimeFilter === 'minggu_ini') return isThisWeek(date, { weekStartsOn: 1 });
-      if (khTimeFilter === 'bulan_ini') return isThisMonth(date);
-      return true;
+      return matchesTime;
     });
   }, [ketidakhadiranData, khTimeFilter, khSearchTerm]);
 
   const khStats = React.useMemo(() => {
     return {
-      hariIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isToday(rec.tgl_absen.toDate())).length,
-      kemarin: ketidakhadiranData.filter(rec => rec.tgl_absen && isYesterday(rec.tgl_absen.toDate())).length,
-      mingguIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisWeek(rec.tgl_absen.toDate(), { weekStartsOn: 1 })).length,
-      bulanIni: ketidakhadiranData.filter(rec => rec.tgl_absen && isThisMonth(rec.tgl_absen.toDate())).length,
+      hariIni: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isToday(date) : false;
+      }).length,
+      kemarin: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isYesterday(date) : false;
+      }).length,
+      mingguIni: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isThisWeek(date, { weekStartsOn: 1 }) : false;
+      }).length,
+      bulanIni: ketidakhadiranData.filter(rec => {
+        const date = parseFirestoreDate(rec.tgl_absen);
+        return date ? isThisMonth(date) : false;
+      }).length,
     };
   }, [ketidakhadiranData]);
 
@@ -268,7 +364,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     setLoading(true);
     try {
       const filtered = ketidakhadiranData.filter(rec => {
-        const date = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : (rec.tgl_absen instanceof Date ? rec.tgl_absen : null);
+        const date = parseFirestoreDate(rec.tgl_absen);
         if (!date) return false;
         if (periodType === 'Minggu Ini') return isThisWeek(date, { weekStartsOn: 1 });
         if (periodType === 'Bulan Ini') return isThisMonth(date);
@@ -327,6 +423,9 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                           { id: 'pangkalan_data', label: 'Arsip Peserta Didik', icon: Database },
                           { id: 'perizinan_global', label: 'Log Perizinan', icon: ClipboardList },
                           { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
+                          { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
+                          { id: 'sarpras', label: 'Inventaris & Sarpras', icon: Wrench },
+                          { id: 'catatan_perkembangan', label: 'Catatan Perkembangan', icon: FileText },
                           { id: 'agenda', label: 'Agenda Strategis', icon: Calendar },
                           { id: 'announcements', label: 'Pengumuman', icon: Bell },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
@@ -403,15 +502,80 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         </div>
       </header>
 
-      {/* Shrunken Real-time Clock Bar to match Wali Asrama */}
-      <div className="max-w-7xl mx-auto w-full px-4 mt-2">
-        <div className="p-[1px] rounded-lg bg-gradient-to-r from-[#d7ccc8]/30 via-[#8b5e3c]/30 to-[#d7ccc8]/30">
-          <div className="flex items-center justify-center gap-1.5 py-1 px-4 rounded-[calc(0.5rem-1px)] bg-white/80 backdrop-blur-sm">
-            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
-            <p className="text-[7px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
-              {formatRealTime(currentTime)}
-            </p>
-            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+      {/* Dynamic Styling for the Announcement Marquee */}
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+          display: inline-block;
+          animation: marquee 30s linear infinite;
+        }
+        .animate-marquee:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
+
+      {/* Magnificent Unified Strategic Header Banner & Real-time Clock */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-4">
+        <div className="p-[1px] rounded-2xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40 shadow-sm">
+          <div className="bg-gradient-to-br from-[#3e2723] to-[#5d4037] p-5 md:p-6 rounded-[15px] border border-[#5d4037]/60 relative overflow-hidden group text-white flex flex-col gap-4 text-left">
+            <div className="absolute bottom-0 right-0 w-64 h-64 bg-white/5 rounded-full -mb-32 -mr-32 blur-[60px]" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="w-6 h-0.5 bg-amber-200 rounded-full" />
+                  <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-200/95 italic">Portal Pimpinan Utama</h4>
+                </div>
+                <h1 className="text-lg md:text-xl font-black font-display text-white leading-tight italic">
+                  Selamat Datang, Bapak Kepala Sekolah
+                </h1>
+                <p className="text-[#ebdccb] font-bold uppercase text-[7.5px] tracking-[0.1em] italic opacity-90 mt-1">
+                  Sistem Real-Time Pemantauan, Respon, dan Kerja Strategis Civitas SRMA 24 Kediri
+                </p>
+              </div>
+
+              {/* Real-time Clock nested elegantly inside the banner */}
+              <div className="flex flex-col items-start md:items-end gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/5 shadow-inner">
+                  <span className="w-1.5 h-1.5 bg-amber-300 rounded-full animate-ping shrink-0" />
+                  <p className="text-[9.5px] font-mono font-black uppercase tracking-[0.15em] text-amber-200 leading-none">
+                    {formatRealTime(currentTime)}
+                  </p>
+                </div>
+                <div className="flex gap-4 text-[8px] font-bold text-stone-300 uppercase italic px-1">
+                  <span>Siswa: <strong className="text-white">{stats.totalSiswa}</strong></span>
+                  <span>Memo: <strong className="text-white">{memos.length}</strong></span>
+                  <span>Pengumuman: <strong className="text-white">{stats.activeAnnouncements}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Sliding Announcement Ticker */}
+            {announcements.filter(a => a.isActive).length > 0 ? (
+              <div className="relative z-10 bg-white/10 border border-white/5 rounded-xl p-2 md:p-2.5 flex items-center gap-3 overflow-hidden shadow-inner">
+                <div className="flex items-center gap-1 bg-[#8b5e3c] text-white px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-wider italic shrink-0 shadow-sm border border-[#a17855]/35">
+                  <Bell className="w-3 h-3 text-amber-250 animate-bounce" />
+                  <span>COMMUNIQUE</span>
+                </div>
+                <div className="flex-1 overflow-hidden relative h-4 flex items-center">
+                  <div className="animate-marquee flex gap-16 text-[9.5px] font-black italic tracking-wider text-amber-100">
+                    {announcements.filter(a => a.isActive).map((ann, i) => (
+                      <span key={ann.id || i} className="flex items-center gap-2">
+                        <span className="text-amber-300">★</span>
+                        <strong>{ann.title}:</strong> {ann.content}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="relative z-10 bg-white/5 border border-white/5 rounded-xl p-2 flex items-center gap-2 text-[8px] font-bold italic tracking-wide text-stone-300">
+                <Bell className="w-3.5 h-3.5 text-stone-300/45 shrink-0" />
+                <span>Belum ada pengumuman pimpinan yang aktif saat ini.</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -421,82 +585,355 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
 
-        {viewMode === 'beranda' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-gradient-to-br from-[#3e2723] to-[#5d4037] p-12 rounded-[3.5rem] border border-white/5 shadow-3xl relative overflow-hidden group text-white">
-               <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full -mb-48 -mr-48 blur-[100px] group-hover:scale-125 transition-transform" />
-               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-                 <div>
-                    <div className="flex items-center gap-3 mb-6">
-                      <span className="w-12 h-1 bg-amber-200 rounded-full" />
-                      <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-amber-200">Overview Strategis</h4>
+        {viewMode === 'jurnal_keperawatan' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <JurnalKeperawatanView user={user} />
+          </div>
+        )}
+
+        {viewMode === 'catatan_perkembangan' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <ProgressRecordsView user={user} />
+          </div>
+        )}
+
+        {viewMode === 'sarpras' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20 text-left">
+            {/* Header style */}
+            <div className="bg-[#3e2723] rounded-2xl p-4 lg:p-5 text-white shadow-md overflow-hidden border border-[#5d4037] relative">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shrink-0 -rotate-2">
+                    <Wrench className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Sarpras & Inventaris</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10 italic">
+                        PIMPINAN
+                      </span>
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-black font-display text-white leading-tight mb-4 italic">Selamat Datang,<br/>Bapak Kepala Sekolah</h1>
-                    <p className="text-[#d7ccc8] font-bold max-w-lg leading-relaxed uppercase text-[10px] tracking-[0.2em] italic">Sistem real-time terintegrasi untuk pemantauan kesehatan dan perizinan civitas SRMA 24 Kediri.</p>
-                 </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-8 bg-white/10 backdrop-blur-md rounded-[2.5rem] border border-white/10 text-center min-w-[180px]">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/60 mb-2">Total Peserta Didik</p>
-                       <p className="text-5xl font-black text-white italic">{stats.totalSiswa}</p>
-                    </div>
-                    <div className="p-8 bg-white/10 backdrop-blur-md rounded-[2.5rem] border border-white/10 text-center min-w-[180px]">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/60 mb-2">Pengumuman</p>
-                       <p className="text-5xl font-black text-white italic">{stats.activeAnnouncements}</p>
-                    </div>
-                 </div>
-               </div>
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-85">
+                      MONITORING KERUSAKAN FASILITAS ASRAMA & KLINIK
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex bg-[#5d4037] p-1 rounded-xl border border-[#3e2723] shadow-inner">
+                    <button 
+                      onClick={() => {
+                        const filtered = sarprasReports.filter(r => {
+                          const date = r.tgl_lapor && typeof r.tgl_lapor.toDate === 'function' ? r.tgl_lapor.toDate() : null;
+                          if (!date) return false;
+                          return isThisWeek(date);
+                        });
+                        generateSarprasSummaryPDF(filtered, 'minggu_ini', { name: user.name, role: user.role });
+                      }}
+                      className="px-2.5 py-1 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn border border-transparent"
+                    >
+                      <Printer className="w-3 h-3 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[7.5px] font-black uppercase tracking-wider italic">MINGGU</span>
+                    </button>
+                    <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
+                    <button 
+                      onClick={() => {
+                        const filtered = sarprasReports.filter(r => {
+                          const date = r.tgl_lapor && typeof r.tgl_lapor.toDate === 'function' ? r.tgl_lapor.toDate() : null;
+                          if (!date) return false;
+                          return isThisMonth(date);
+                        });
+                        generateSarprasSummaryPDF(filtered, 'bulan_ini', { name: user.name, role: user.role });
+                      }}
+                      className="px-2.5 py-1 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn border border-transparent"
+                    >
+                      <Printer className="w-3 h-3 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[7.5px] font-black uppercase tracking-wider italic">BULAN</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-               <div className="lg:col-span-2 space-y-8">
-                  <div className="bg-white p-10 rounded-[3rem] border border-[#d7ccc8]/30 shadow-sm">
-                    <div className="flex items-center justify-between mb-8">
-                       <h3 className="text-sm font-black uppercase tracking-widest text-[#3e2723] flex items-center gap-3 italic">
-                         <Activity className="w-5 h-5 text-[#8b5e3c]" />
+            {/* Sub Filter Controls */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+              {/* Filter By Status */}
+              <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full md:w-auto">
+                {[
+                  { id: 'all', label: 'Semua Laporan' },
+                  { id: 'pending', label: 'Menunggu' },
+                  { id: 'on_progress', label: 'Diproses' },
+                  { id: 'fixed', label: 'Selesai' }
+                ].map((f) => {
+                  const count = f.id === 'all' 
+                    ? sarprasReports.length 
+                    : sarprasReports.filter(r => r.status === f.id).length;
+
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setSarprasStatusFilter(f.id as any)}
+                      className={`px-3.5 py-2 rounded-lg text-[8px] font-black uppercase tracking-wider whitespace-nowrap transition-all italic border-b-2 ${
+                        sarprasStatusFilter === f.id 
+                          ? 'bg-[#3e2723] text-amber-200 border-black shadow-md scale-[1.02]' 
+                          : 'bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100/70'
+                      }`}
+                    >
+                      {f.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Filter By Time & Search bar */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+                <select
+                  value={sarprasFilter}
+                  onChange={(e) => setSarprasFilter(e.target.value as any)}
+                  className="w-full sm:w-auto bg-stone-50 border border-stone-100 rounded-lg py-2 px-3 text-[8.5px] font-black uppercase tracking-wider text-[#3e2723] transition-all italic outlook-none"
+                >
+                  <option value="semua">Semua Waktu</option>
+                  <option value="minggu_ini">Minggu Ini</option>
+                  <option value="bulan_ini">Bulan Ini</option>
+                </select>
+
+                <div className="relative w-full sm:w-48 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                  <input
+                    type="text"
+                    value={sarprasSearch}
+                    onChange={(e) => setSarprasSearch(e.target.value)}
+                    placeholder="Cari Sarpras..."
+                    className="w-full bg-stone-50 border border-stone-100 rounded-lg pl-8 pr-3 py-2 text-[8px] font-black uppercase tracking-widest outline-none focus:bg-white focus:border-[#3e2723] transition-all italic text-[#3e2723]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* List reports cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {sarprasReports
+                  .filter((report) => {
+                    // Search query matches
+                    const matchesSearch = sarprasSearch ? (
+                      report.item_name?.toLowerCase().includes(sarprasSearch.toLowerCase()) ||
+                      report.location?.toLowerCase().includes(sarprasSearch.toLowerCase()) ||
+                      report.damage_description?.toLowerCase().includes(sarprasSearch.toLowerCase()) ||
+                      report.author_name?.toLowerCase().includes(sarprasSearch.toLowerCase())
+                    ) : true;
+                    if (!matchesSearch) return false;
+
+                    // Filter with status
+                    if (sarprasStatusFilter !== 'all' && report.status !== sarprasStatusFilter) {
+                      return false;
+                    }
+
+                    // Filter with time
+                    const d = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? report.tgl_lapor.toDate() : null;
+                    if (!d) return true;
+                    if (sarprasFilter === 'minggu_ini') return isThisWeek(d);
+                    if (sarprasFilter === 'bulan_ini') return isThisMonth(d);
+                    
+                    return true;
+                  })
+                  .map((report, idx) => {
+                    const rDate = report.tgl_lapor && typeof report.tgl_lapor.toDate === 'function' ? report.tgl_lapor.toDate() : null;
+                    
+                    return (
+                      <motion.div
+                        key={report.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.98, y: 12 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ delay: idx * 0.02 }}
+                        className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-all relative group flex flex-col justify-between"
+                        id={`sarpras-card-${report.id}`}
+                      >
+                        <div className={`absolute top-0 right-0 w-1.5 h-full transition-all duration-300 ${
+                          report.status === 'fixed' ? 'bg-emerald-500' :
+                          report.status === 'on_progress' ? 'bg-blue-500' : 'bg-red-500'
+                        }`} />
+                        
+                        <div className="flex flex-col gap-3 w-full">
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                report.status === 'fixed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                report.status === 'on_progress' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                              }`}>
+                                <Wrench className="w-4 h-4" />
+                              </div>
+                              <div className="text-left">
+                                <p className="text-[7px] font-bold text-stone-300 uppercase tracking-wider italic">
+                                  {rDate ? format(rDate, 'dd MMM yyyy • HH:mm', { locale: id }) : '-'}
+                                </p>
+                                <h4 className="text-xs font-black text-[#3e2723] uppercase italic leading-tight">{report.item_name}</h4>
+                                <p className="text-[8px] font-bold text-[#8b5e3c] uppercase mt-0.5 italic">{report.asrama} <span className="text-stone-300">•</span> {report.location}</p>
+                              </div>
+                            </div>
+                            
+                            <span className={`px-2 py-0.5 rounded text-[6px] font-black uppercase tracking-wider italic ${
+                              report.status === 'fixed' ? 'bg-emerald-100 text-emerald-800' :
+                              report.status === 'on_progress' ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {report.status === 'fixed' ? 'Selesai' : report.status === 'on_progress' ? 'Diproses' : 'Menunggu'}
+                            </span>
+                          </div>
+
+                          <div className="p-2.5 bg-[#fcfaf6] rounded-lg border border-stone-50/85">
+                            <p className="text-[10px] font-medium text-slate-700 italic">
+                              "{report.damage_description}"
+                            </p>
+                          </div>
+
+                          {/* Action update status direct by Principal */}
+                          <div className="pt-2 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2 mt-auto">
+                            <div className="flex items-center gap-1.5 text-[8px] text-stone-400 font-bold italic">
+                              <span>Oleh: {report.author_name}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => generateSarprasReportPDF(report)}
+                                className="p-1.5 hover:bg-stone-50 text-[#3e2723] border border-stone-200/80 rounded transition-all active:scale-95"
+                                title="Cetak Detail"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                              
+                              <div className="flex items-center bg-stone-100/80 p-0.5 rounded border border-stone-200/40">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await updateDoc(doc(db, 'sarpras_reports', report.id!), { 
+                                        status: 'pending',
+                                        updatedAt: serverTimestamp(),
+                                        last_updated_by: user.name
+                                      });
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                  className={`px-1.5 py-0.5 text-[6.5px] font-black rounded uppercase tracking-wider transition-all ${
+                                    report.status === 'pending'
+                                      ? 'bg-rose-600 text-white'
+                                      : 'text-stone-400 hover:text-rose-600'
+                                  }`}
+                                >
+                                  Tunggu
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await updateDoc(doc(db, 'sarpras_reports', report.id!), { 
+                                        status: 'on_progress',
+                                        updatedAt: serverTimestamp(),
+                                        last_updated_by: user.name
+                                      });
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                  className={`px-1.5 py-0.5 text-[6.5px] font-black rounded uppercase tracking-wider transition-all ${
+                                    report.status === 'on_progress'
+                                      ? 'bg-blue-600 text-white'
+                                      : 'text-stone-400 hover:text-blue-600'
+                                  }`}
+                                >
+                                  Proses
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await updateDoc(doc(db, 'sarpras_reports', report.id!), { 
+                                        status: 'fixed',
+                                        updatedAt: serverTimestamp(),
+                                        last_updated_by: user.name
+                                      });
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                  className={`px-1.5 py-0.5 text-[6.5px] font-black rounded uppercase tracking-wider transition-all ${
+                                    report.status === 'fixed' ? 'bg-emerald-600 text-white' : 'text-stone-400 hover:text-emerald-600'
+                                  }`}
+                                >
+                                  Selesai
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+              </AnimatePresence>
+
+              {sarprasReports.length === 0 && (
+                <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+                  <ShieldCheck className="w-12 h-12 text-stone-100 mb-4 opacity-50" />
+                  <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic">Belum ada laporan kerusakan sarpras</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'beranda' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+               <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-white p-5 rounded-2xl border border-[#ebdccb]/50 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                       <h3 className="text-[11px] font-black uppercase tracking-wider text-[#3e2723] flex items-center gap-2 italic">
+                         <Activity className="w-4 h-4 text-[#8b5e3c]" />
                          Log Aktivitas Terbaru
                        </h3>
-                       <button onClick={() => setViewMode('perizinan_global')} className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-[#3e2723] transition-colors italic">Lihat Semua</button>
+                       <button onClick={() => setViewMode('perizinan_global')} className="text-[8.5px] font-black uppercase tracking-widest text-stone-400 hover:text-[#3e2723] transition-colors italic">Lihat Semua</button>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                        {recentPermits.map(permit => (
-                         <div key={permit.id} className="p-6 bg-[#f8f3ed] rounded-3xl border border-[#d7ccc8]/30 flex items-center justify-between group hover:bg-[#3e2723] hover:text-white transition-all duration-300">
-                           <div className="flex items-center gap-5">
-                             <div className="p-3 bg-white/50 text-[#3e2723] rounded-2xl group-hover:scale-110 group-hover:bg-white/10 group-hover:text-amber-200 transition-all">
-                               {permit.tipe === 'sakit' ? <Activity className="w-5 h-5" /> : <ClipboardList className="w-5 h-5" />}
+                         <div key={permit.id} className="p-3 bg-[#fcfaf6] rounded-xl border border-[#ebdccb]/30 flex items-center justify-between group hover:bg-[#3e2723] hover:text-white transition-all duration-300">
+                           <div className="flex items-center gap-3">
+                             <div className="p-2 bg-[#d7ccc8]/30 text-[#3e2723] rounded-lg group-hover:scale-105 group-hover:bg-white/10 group-hover:text-amber-200 transition-all shrink-0">
+                               {permit.tipe === 'sakit' ? <Activity className="w-4 h-4" /> : <ClipboardList className="w-4 h-4" />}
                              </div>
-                             <div>
-                               <h4 className="font-black uppercase tracking-tight group-hover:text-white transition-colors">{permit.nama_siswa}</h4>
-                               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest group-hover:text-amber-200/60 transition-colors uppercase italic">{permit.kelas} • {permit.tipe}</p>
+                             <div className="text-left">
+                               <h4 className="font-extrabold text-[11px] uppercase tracking-tight group-hover:text-white transition-colors">{permit.nama_siswa}</h4>
+                               <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest group-hover:text-amber-200/70 transition-colors uppercase italic leading-none mt-1">{permit.kelas} • {permit.tipe}</p>
                              </div>
                            </div>
                            <div className="text-right">
-                              <span className="px-4 py-1.5 bg-white/50 text-[#3e2723] text-[9px] font-black rounded-full uppercase tracking-widest group-hover:bg-white/10 group-hover:text-white uppercase italic">{permit.status}</span>
+                              <span className="px-3 py-1 bg-white border border-stone-200/50 text-[#3e2723] text-[7.5px] font-black rounded-lg uppercase tracking-wider group-hover:bg-white/10 group-hover:border-transparent group-hover:text-white uppercase italic leading-none">{permit.status}</span>
                            </div>
                          </div>
                        ))}
                        {recentPermits.length === 0 && (
-                         <div className="text-center py-20 text-stone-300 font-bold uppercase tracking-widest text-[10px] italic">Belum ada aktivitas terbaru</div>
+                         <div className="text-center py-12 text-stone-300 font-bold uppercase tracking-widest text-[8.5px] italic">Belum ada aktivitas terbaru</div>
                        )}
                     </div>
                   </div>
                </div>
 
-               <div className="space-y-8">
-                  <div className="bg-white p-10 rounded-[3rem] border border-[#d7ccc8]/30 shadow-sm flex flex-col h-full italic">
-                     <h3 className="text-sm font-black uppercase tracking-widest text-[#3e2723] mb-8 flex items-center gap-3 italic">
-                       <Mail className="w-5 h-5 text-[#8b5e3c]" />
+               <div className="space-y-6">
+                  <div className="bg-white p-5 rounded-2xl border border-[#ebdccb]/50 shadow-sm flex flex-col h-full italic">
+                     <h3 className="text-[11px] font-black uppercase tracking-wider text-[#3e2723] mb-4 flex items-center gap-2 italic">
+                       <Mail className="w-4 h-4 text-[#8b5e3c]" />
                        Pesan Memorandum
                      </h3>
-                     <div className="space-y-4 flex-1">
+                     <div className="space-y-2.5 flex-1">
                         {memos.slice(0, 5).map(memo => (
-                          <div key={memo.id} onClick={() => setSelectedMemo(memo)} className="p-5 bg-[#f8f3ed] rounded-2xl border border-[#d7ccc8]/30 cursor-pointer hover:bg-[#3e2723] hover:text-white transition-all duration-300 group">
-                            <h4 className="font-black text-[12px] uppercase tracking-tight line-clamp-1 italic group-hover:text-white">{memo.perihal}</h4>
-                            <p className="text-[9px] font-bold text-stone-400 mt-2 uppercase tracking-widest group-hover:text-amber-200/60 uppercase">DARI: {memo.pengirim_name}</p>
+                          <div key={memo.id} onClick={() => setSelectedMemo(memo)} className="p-3 bg-[#fcfaf6] rounded-xl border border-[#ebdccb]/35 cursor-pointer hover:bg-[#3e2723] hover:text-white transition-all duration-300 group text-left">
+                            <h4 className="font-extrabold text-[11px] uppercase tracking-tight line-clamp-1 italic text-[#3e2723] group-hover:text-white">{memo.perihal}</h4>
+                            <p className="text-[7px] font-bold text-stone-400 mt-1 uppercase tracking-widest group-hover:text-amber-200/70 uppercase">DARI: {memo.pengirim_name}</p>
                           </div>
                         ))}
                          {memos.length === 0 && (
-                          <div className="text-center py-10 text-stone-200">
-                            <Mail className="w-10 h-10 mx-auto opacity-20" />
+                          <div className="text-center py-8 text-stone-200">
+                            <Mail className="w-8 h-8 mx-auto opacity-20" />
                           </div>
                         )}
                      </div>
@@ -507,23 +944,24 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         )}
 
         {viewMode === 'memorandum' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Header Dashboard Style matching Catatan Kejadian */}
-            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 text-white relative overflow-hidden shadow-2xl border border-[#5d4037]">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 transition-transform hover:rotate-0">
-                    <Mail className="w-10 h-10 text-[#3e2723]" />
+          <div className="w-full mix-blend-normal space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12">
+            
+            {/* Dynamic Header Block (Compact, aligned with Mading/Memorandum style) */}
+            <div className="bg-[#3e2723] rounded-2xl p-4 md:p-5 text-white relative overflow-hidden shadow-md border border-[#5d4037]/60">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10 text-left">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shadow-black/20 shrink-0">
+                    <Mail className="w-5 h-5 text-[#3e2723]" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Memorandum</h1>
-                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Memorandum</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10">
                         OFFICIAL
                       </span>
                     </div>
-                    <p className="text-stone-400 text-[10px] font-black mt-3 uppercase tracking-[0.2em] italic opacity-80">
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-80 leading-snug">
                       Instruksi & Komunikasi Strategis Pimpinan
                     </p>
                   </div>
@@ -531,7 +969,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 
                 <button
                   onClick={() => setShowMemoForm(!showMemoForm)}
-                  className={`group px-8 py-4 rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.1em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl italic border-b-4 ${
+                  className={`group px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-[0.1em] flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm italic border-b-2 shrink-0 ${
                     showMemoForm 
                     ? 'bg-[#5d4037] text-stone-300 border-[#2d1e1a] hover:bg-[#2d1e1a]' 
                     : 'bg-[#fcfaf6] text-[#3e2723] border-[#d7ccc8] hover:bg-white'
@@ -539,7 +977,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                 >
                   {showMemoForm ? 'Batal' : (
                     <>
-                      <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                      <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
                       Terbitkan Memo
                     </>
                   )}
@@ -547,104 +985,115 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
             </div>
 
+            {/* Inline sliding post write form (Compact, aligned with Mading formulation) */}
             <AnimatePresence>
               {showMemoForm && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0, y: -20 }}
+                  initial={{ opacity: 0, height: 0, y: -10 }}
                   animate={{ opacity: 1, height: 'auto', y: 0 }}
-                  exit={{ opacity: 0, height: 0, y: -20 }}
+                  exit={{ opacity: 0, height: 0, y: -10 }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-[#fcfaf6] rounded-[3.5rem] p-10 lg:p-14 shadow-2xl border border-[#d7ccc8]/30">
-                    <form onSubmit={handleCreateMemo} className="space-y-12">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        <div className="space-y-4">
-                          <label className="block text-[11px] font-black text-stone-400 uppercase tracking-[0.2em] mb-4 ml-1 italic text-left">Subjek / Perihal Memorandum</label>
+                  <div className="bg-[#fcfaf6] rounded-2xl p-5 shadow-lg border border-[#d7ccc8]/30">
+                    <form onSubmit={handleCreateMemo} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2 text-left">
+                          <label className="block text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-0.5 italic">
+                            Subjek / Perihal Memorandum
+                          </label>
                           <div className="relative">
-                            <FileText className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300" />
+                            <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300" />
                             <input
                               type="text"
                               required
                               value={memoSubject}
                               onChange={(e) => setMemoSubject(e.target.value)}
                               placeholder="Input perihal perintah strategis..."
-                              className="w-full bg-white border-2 border-stone-50 rounded-[1.5rem] pl-20 pr-8 py-5 focus:border-[#3e2723] focus:ring-8 focus:ring-[#3e2723]/5 outline-none transition-all font-black text-[#3e2723] text-sm italic placeholder:text-stone-200 shadow-inner"
+                              className="w-full bg-white border border-stone-200 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-[#3e2723] italic outline-none focus:ring-1 focus:ring-[#3e2723] shadow-inner"
                             />
                           </div>
                         </div>
 
-                        <div className="space-y-6">
-                          <div className="flex items-center justify-between ml-1">
-                            <label className="block text-[11px] font-black text-stone-400 uppercase tracking-[0.2em] italic text-left">Unit / Staff Tujuan</label>
-                            <div className="flex gap-4">
+                        <div className="space-y-2 text-left">
+                          <div className="flex items-center justify-between ml-0.5">
+                            <label className="block text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] italic">
+                              Unit / Staff Tujuan
+                            </label>
+                            <div className="flex gap-2">
                               <button 
                                 type="button"
                                 onClick={() => setMemoRecipients([])}
-                                className="text-[9px] font-black text-stone-400 uppercase tracking-widest hover:text-rose-500 italic transition-colors"
+                                className="text-[7px] font-black text-[#5d4037] hover:underline uppercase tracking-wider italic transition-colors"
                               >
                                 Bersihkan
                               </button>
                               <button 
                                 type="button"
                                 onClick={selectAllRoles}
-                                className="text-[9px] font-black text-[#5d4037] px-4 py-1.5 bg-[#d7ccc8] rounded-full uppercase tracking-widest hover:bg-[#3e2723] hover:text-white transition-all italic border-b-2 border-black/20"
+                                className="text-[7px] font-black text-[#5d4037] px-2 py-0.5 bg-[#d7ccc8]/60 rounded uppercase tracking-wider hover:bg-[#3e2723] hover:text-white transition-all italic border-b"
                               >
-                                Pilih Semua Staff
+                                Semua Staff
                               </button>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#fdfcf0] p-6 rounded-[2rem] border border-[#d7ccc8]/30 shadow-inner">
+                          
+                          <div className="flex flex-wrap gap-1.5 bg-[#fdfcf0]/80 p-2 rounded-xl border border-[#d7ccc8]/30 shadow-inner">
                             {[
-                              { id: 'wali_asrama', label: 'Wali Asrama', icon: Home },
-                              { id: 'dokter', label: 'Dokter UJS', icon: Activity },
-                              { id: 'wali_asuh', label: 'Wali Asuh', icon: User },
-                              { id: 'guru_mapel', label: 'Guru Mapel', icon: BookOpen },
-                              { id: 'wali_kelas', label: 'Wali Kelas', icon: IdCard }
-                            ].map((role) => (
-                              <button
-                                key={role.id}
-                                type="button"
-                                onClick={() => toggleRecipient(role.id as UserRole)}
-                                className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all border-b-4 italic flex flex-col items-center gap-2 ${
-                                  memoRecipients.includes(role.id as UserRole)
-                                  ? 'bg-[#3e2723] text-white border-black shadow-xl scale-105'
-                                  : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
-                                }`}
-                              >
-                                <role.icon className={`w-5 h-5 ${memoRecipients.includes(role.id as UserRole) ? 'text-amber-200' : 'text-stone-200'}`} />
-                                {role.label}
-                              </button>
-                            ))}
+                              { id: 'wali_asrama', label: 'Asrama', icon: Home },
+                              { id: 'dokter', label: 'Dokter', icon: Activity },
+                              { id: 'wali_asuh', label: 'Asuh', icon: User },
+                              { id: 'guru_mapel', label: 'Mapel', icon: BookOpen },
+                              { id: 'wali_kelas', label: 'Kelas', icon: IdCard }
+                            ].map((role) => {
+                              const isSelected = memoRecipients.includes(role.id as UserRole);
+                              return (
+                                <button
+                                  key={role.id}
+                                  type="button"
+                                  onClick={() => toggleRecipient(role.id as UserRole)}
+                                  className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase tracking-wider transition-all border-b italic flex items-center gap-1.5 shrink-0 ${
+                                    isSelected
+                                    ? 'bg-[#3e2723] text-white border-black shadow-md'
+                                    : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <role.icon className={`w-3 h-3 ${isSelected ? 'text-amber-200' : 'text-stone-300'}`} />
+                                  {role.label}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <label className="block text-[11px] font-black text-stone-400 uppercase tracking-[0.2em] mb-4 ml-1 italic text-left">Narasi Instruksi</label>
+                      <div className="space-y-1 text-left">
+                        <label className="block text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-0.5 italic">
+                          Narasi Instruksi
+                        </label>
                         <textarea
                           required
                           value={memoContent}
                           onChange={(e) => setMemoContent(e.target.value)}
                           placeholder="Tuliskan detail instruksi atau informasi strategis di sini secara jelas..."
-                          className="w-full bg-white border-2 border-stone-50 rounded-[2.5rem] px-8 py-8 focus:border-[#3e2723] outline-none transition-all font-medium text-stone-700 min-h-[320px] text-lg italic shadow-inner placeholder:text-stone-200"
+                          className="w-full bg-white border border-stone-200 rounded-xl p-3 min-h-[120px] text-xs font-semibold text-stone-700 focus:outline-none focus:ring-1 focus:ring-[#3e2723] shadow-inner placeholder:text-stone-300 italic"
                         />
                       </div>
 
-                      <div className="flex justify-end pt-6 border-t border-stone-100">
+                      <div className="flex justify-end pt-3 border-t border-stone-150">
                         <button
                           type="submit"
                           disabled={isSubmittingMemo}
-                          className="w-full md:w-auto bg-[#3e2723] text-white px-16 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50 text-sm italic border-b-8 border-stone-900 flex items-center justify-center gap-4"
+                          className="w-full sm:w-auto bg-[#3e2723] text-white px-5 py-2 rounded-xl font-black uppercase tracking-[0.2em] shadow hover:bg-black transition-all active:scale-95 disabled:opacity-50 text-[9px] italic border-b-2 border-stone-950 flex items-center justify-center gap-2"
                         >
                           {isSubmittingMemo ? (
                             <>
-                              <Loader2 className="w-5 h-5 animate-spin text-amber-200" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-200" />
                               Memproses...
                             </>
                           ) : (
                             <>
-                              <Send className="w-5 h-5 text-amber-200 rotate-45" />
-                              Sahkan & Kirim Pesan Strategis
+                              <Send className="w-3.5 h-3.5 text-amber-200 rotate-45" />
+                              Sahkan & Kirim Memo
                             </>
                           )}
                         </button>
@@ -655,94 +1104,149 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               )}
             </AnimatePresence>
 
-            {/* List Section Dashboard Style */}
-            <div className="space-y-10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center border border-stone-100 shadow-xl shadow-stone-200/50 -rotate-3 transition-transform hover:rotate-0">
-                    <History className="w-8 h-8 text-[#3e2723]" />
+            {/* Archives and Listing (Compact, aligned with Mading exactly) */}
+            <div className="space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-stone-100 shadow-sm shrink-0">
+                    <History className="w-5 h-5 text-[#3e2723]" />
                   </div>
                   <div>
-                    <h3 className="text-3xl font-black text-[#3e2723] tracking-tight uppercase italic leading-none font-display">Arsip Memorandum</h3>
-                    <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.2em] italic mt-3 underline decoration-amber-200 decoration-4 underline-offset-4">Log Komunikasi Internal</p>
+                    <h3 className="text-base font-black text-[#3e2723] tracking-tight uppercase italic leading-none font-display">Arsip Memorandum</h3>
+                    <p className="text-[8px] font-black text-stone-300 uppercase tracking-[0.15em] italic mt-1 leading-none">
+                      Log Komunikasi Internal
+                    </p>
                   </div>
                 </div>
                 
-                <div className="relative w-full md:w-96 group">
-                  <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                <div className="relative w-full md:w-64 group">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
                   <input
                     type="text"
                     value={memoSearch}
                     onChange={(e) => setMemoSearch(e.target.value)}
                     placeholder="Filter memo..."
-                    className="w-full bg-white border-2 border-stone-50 rounded-[1.5rem] pl-20 pr-8 py-5 text-sm font-black uppercase tracking-widest focus:outline-none focus:border-[#3e2723] transition-all italic text-[#3e2723] shadow-inner placeholder:text-stone-200"
+                    className="w-full bg-white border border-stone-100 rounded-xl pl-9 pr-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:border-[#3e2723] transition-all italic text-[#3e2723] shadow-inner placeholder:text-stone-300"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {filteredMemos.map((memo, idx) => (
-                  <motion.div
-                    layout
-                    key={memo.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    onClick={() => setSelectedMemo(memo)}
-                    className="bg-white p-10 rounded-[3rem] border border-stone-50 shadow-sm hover:shadow-2xl hover:shadow-stone-900/5 transition-all group cursor-pointer relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 w-3 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-700" />
-                    
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                           <div className="p-2 bg-stone-50 rounded-xl">
-                              <Mail className="w-4 h-4 text-[#3e2723]/30 group-hover:text-[#3e2723] transition-colors" />
-                           </div>
-                           <span className="text-[10px] font-black text-stone-300 uppercase tracking-[0.2em] italic group-hover:text-stone-400">{memo.nomor_memo}</span>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {filteredMemos.map((memo, idx) => {
+                  const isAdminUser = user.role === 'kepala_sekolah';
+                  const memoDate = memo.tgl_memo?.toDate ? memo.tgl_memo.toDate() : new Date();
+
+                  const isExpanded = expandedMemos[memo.id!] || false;
+                  const shouldTruncate = memo.isi.length > 200;
+                  const displayText = shouldTruncate && !isExpanded 
+                    ? memo.isi.slice(0, 200) + '...' 
+                    : memo.isi;
+
+                  return (
+                    <motion.div
+                      layout
+                      key={memo.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                      className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden text-left flex flex-col justify-between"
+                    >
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                      
+                      <div className="space-y-4 w-full">
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-2 md:gap-3">
+                             <div className="w-8 h-8 rounded-lg bg-[#d7ccc8] flex items-center justify-center text-[#3e2723] font-black italic shadow-inner shrink-0 text-xs">
+                               {memo.pengirim_name?.charAt(0).toUpperCase() || 'M'}
+                             </div>
+                             <div className="text-left">
+                               <p className="font-extrabold text-[#3e2723] text-[10px] leading-none italic">
+                                 {memo.pengirim_name}
+                               </p>
+                               <p className="text-[6px] font-black text-[#5d4037] uppercase tracking-[0.1em] bg-stone-50 px-1.5 py-0.5 rounded italic mt-1 inline-block leading-none">
+                                 Pimpinan
+                               </p>
+                             </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-black text-[#ea580c] uppercase tracking-widest italic bg-orange-50 px-2 py-0.5 rounded">
+                              {format(memoDate, 'dd MMM yyyy')}
+                            </span>
+                            {isAdminUser && (
+                              <button
+                                onClick={(e) => handleDeleteMemo(e, memo.id!)}
+                                className="w-7 h-7 bg-stone-50 text-stone-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all flex items-center justify-center border border-transparent hover:border-rose-100 shrink-0"
+                                title="Hapus Memorandum"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-[10px] font-black text-[#ea580c] uppercase tracking-widest italic bg-orange-50 px-3 py-1 rounded-lg">
-                            {format(memo.tgl_memo.toDate(), 'dd MMM yyyy')}
+                        
+                        <div className="space-y-1">
+                          <span className="text-[7.5px] font-black text-stone-300 uppercase tracking-[0.15em] font-mono block">
+                            #{memo.nomor_memo}
                           </span>
+                          <h4 className="font-extrabold text-[#3e2723] text-xs leading-snug uppercase italic tracking-tight font-display hover:text-[#ea580c] transition-colors">
+                            {memo.perihal}
+                          </h4>
+                        </div>
+
+                        <div className="relative pl-3 border-l-2 border-[#3e2723]/10">
+                          <p className="text-[#3e2723] text-[11px] italic leading-relaxed whitespace-pre-wrap">
+                            "{displayText}"
+                          </p>
+                          {shouldTruncate && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpandMemo(memo.id!);
+                              }}
+                              className="text-[#5d4037] hover:text-[#3e2723] font-black text-[7px] uppercase tracking-widest italic mt-2 inline-flex items-center gap-1 bg-stone-50 hover:bg-stone-100 px-2 py-1 rounded transition-all select-none"
+                            >
+                              {isExpanded ? 'Sembunyikan' : 'Baca Selengkapnya'}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Destination list inside memorandum styled beautifully */}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="text-[6px] font-black text-stone-400 uppercase tracking-widest block w-full mb-0.5 italic">Ditujukan Kepada:</span>
+                          {memo.penerima.map((role) => (
+                            <span key={role} className="px-2 py-0.5 bg-[#fcfaf6] text-[7px] font-black text-[#8b5e3c] uppercase tracking-wider rounded border border-[#ebdccb]/30">
+                              {getRoleLabel(role)}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-[7px] font-black uppercase text-stone-400 tracking-wider">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-[#3e2723]/40 shrink-0" />
+                            <span>{format(memoDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id })} WIB</span>
+                          </div>
+                          
                           <button
-                            onClick={(e) => handleDeleteMemo(e, memo.id!)}
-                            className="w-10 h-10 bg-stone-50 text-stone-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex items-center justify-center border border-transparent hover:border-rose-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              generateMemorandumPDF(memo);
+                            }}
+                            className="flex items-center gap-1 py-1 px-2.5 bg-[#ebdccb]/60 hover:bg-[#3e2723] hover:text-white text-[7px] font-black uppercase tracking-wider text-[#3e2723] rounded transition-all active:scale-95"
                           >
-                            <Trash2 className="w-5 h-5" />
+                            <Printer className="w-3 h-3" />
+                            <span>Cetak PDF</span>
                           </button>
                         </div>
                       </div>
-                      
-                      <h3 className="text-2xl font-black text-[#3e2723] tracking-tight uppercase italic group-hover:text-[#ea580c] transition-colors line-clamp-2 leading-tight font-display">{memo.perihal}</h3>
-                      
-                      <div className="relative pl-8 border-l-4 border-stone-50">
-                        <p className="text-stone-500 text-sm italic line-clamp-2 leading-relaxed">
-                          "{memo.isi}"
-                        </p>
-                      </div>
-
-                      <div className="pt-6 border-t border-stone-50 flex items-center justify-between">
-                        <div className="flex flex-wrap gap-2">
-                          {memo.penerima.slice(0, 3).map((role) => (
-                            <span key={role} className="px-4 py-2 bg-stone-50 text-[9px] font-black text-stone-400 uppercase tracking-widest rounded-xl italic">
-                              {role.replace('_', ' ')}
-                            </span>
-                          ))}
-                          {memo.penerima.length > 3 && <span className="text-[9px] font-black text-stone-300 uppercase">+{memo.penerima.length - 3} Units</span>}
-                        </div>
-                        <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center group-hover:bg-[#3e2723] transition-colors group-hover:shadow-lg">
-                           <ChevronRight className="w-5 h-5 text-stone-200 group-hover:text-white" />
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
 
                 {filteredMemos.length === 0 && (
-                  <div className="lg:col-span-2 flex flex-col items-center justify-center py-40 bg-white rounded-[4rem] border-4 border-dashed border-stone-50 relative overflow-hidden">
-                    <Mail className="w-20 h-20 text-stone-100 mb-6 opacity-50" />
-                    <p className="text-sm font-black text-stone-300 uppercase tracking-[0.3em] italic">No active directives found</p>
+                  <div className="lg:col-span-2 flex flex-col items-center justify-center py-24 bg-white rounded-2xl border-2 border-dashed border-stone-50 relative overflow-hidden">
+                    <Mail className="w-12 h-12 text-stone-100 mb-3 opacity-50" />
+                    <p className="text-[10px] font-black text-stone-300 uppercase tracking-[0.2em] italic">Arsip memorandum tidak ditemukan</p>
                   </div>
                 )}
               </div>
@@ -751,35 +1255,35 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         )}
 
         {viewMode === 'perizinan_global' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Minimal High-Contrast Header */}
-            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 shadow-3xl text-white relative overflow-hidden border border-[#5d4037]">
-              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 group-hover:rotate-0 transition-transform">
-                    <ClipboardList className="w-10 h-10 text-[#3e2723]" />
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20 text-left">
+            {/* Minimal Proportional Header */}
+            <div className="bg-[#3e2723] rounded-2xl p-4 lg:p-5 shadow-md text-white relative overflow-hidden border border-[#5d4037]">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shrink-0">
+                    <ClipboardList className="w-5 h-5 text-[#3e2723]" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Kendali Perizinan</h1>
-                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10">GLOBAL AUDIT</span>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Kendali Perizinan</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10 italic">GLOBAL AUDIT</span>
                     </div>
-                    <p className="text-stone-400 text-[10px] font-black mt-3 uppercase tracking-[0.2em] italic opacity-80">Monitoring Surat Keterangan Sakit & Izin Umum</p>
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-85">Monitoring Surat Keterangan Sakit & Izin Umum Bimbel/Dormitory</p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex bg-[#5d4037] p-1.5 rounded-[1.5rem] border border-[#3e2723] shadow-inner">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex bg-[#5d4037] p-1 rounded-xl border border-[#3e2723] shadow-inner">
                     <button 
                       onClick={() => {
                         const filtered = permits.filter(p => isThisWeek(p.tgl_surat.toDate()));
                         generateSummaryReportPDF(filtered, 'Minggu Ini', user.name, 'Kepala Sekolah');
                       }}
-                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                      className="px-2.5 py-1 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn border border-transparent"
                     >
-                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
-                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Minggu</span>
+                      <Printer className="w-3 h-3 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[7.5px] font-black uppercase tracking-wider italic">MINGGU</span>
                     </button>
                     <div className="w-[1px] bg-[#3e2723] mx-1 self-stretch" />
                     <button 
@@ -787,36 +1291,36 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                         const filtered = permits.filter(p => isThisMonth(p.tgl_surat.toDate()));
                         generateSummaryReportPDF(filtered, 'Bulan Ini', user.name, 'Kepala Sekolah');
                       }}
-                      className="px-5 py-3 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-xl transition-all flex items-center gap-2 group/btn"
+                      className="px-2.5 py-1 text-stone-300 hover:text-white hover:bg-[#3e2723] rounded-lg transition-all flex items-center gap-1.5 group/btn border border-transparent"
                     >
-                      <Printer className="w-4 h-4 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
-                      <span className="text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Bulan</span>
+                      <Printer className="w-3 h-3 text-amber-200/50 group-hover/btn:text-amber-200 transition-colors" />
+                      <span className="text-[7.5px] font-black uppercase tracking-wider italic">BULAN</span>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-stone-100 flex flex-col md:flex-row gap-8 items-center border-b-[12px]">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="relative w-full group">
-                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
                 <input 
                   type="text" 
                   placeholder="Audit nama siswa atau no surat..."
-                  className="w-full pl-24 pr-8 py-6 bg-[#fcfaf6] border-2 border-stone-50 rounded-[2rem] focus:border-[#3e2723] focus:ring-8 focus:ring-[#3e2723]/5 outline-none transition-all font-black text-[#3e2723] text-sm italic placeholder:text-stone-200 shadow-inner"
+                  className="w-full pl-8 pr-3 py-2 bg-stone-50 border border-stone-100 rounded-lg outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[#3e2723] text-[9px] font-black uppercase tracking-widest italic placeholder:text-stone-300 shadow-inner"
                   value={perizinanSearch}
                   onChange={(e) => setPerizinanSearch(e.target.value)}
                 />
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar w-full md:w-auto">
+              <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full md:w-auto">
                 {(['hari_ini', 'kemarin', 'minggu_ini', 'bulan_ini', 'semua'] as const).map((filter) => (
                   <button
                     key={filter}
                     onClick={() => setTimeFilter(filter)}
-                    className={`px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all italic border-b-4 ${
+                    className={`px-3.5 py-2 rounded-lg text-[8px] font-black uppercase tracking-wider whitespace-nowrap transition-all italic border-b-2 ${
                       timeFilter === filter 
-                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-xl scale-105' 
-                        : 'bg-white text-stone-400 border-stone-100 hover:bg-stone-50'
+                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-md scale-[1.02]' 
+                        : 'bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100/70'
                     }`}
                   >
                     {filter.replace('_', ' ')}
@@ -825,7 +1329,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnimatePresence mode="popLayout">
                 {permits
                   .filter(p => {
@@ -846,58 +1350,58 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                     <motion.div
                       key={permit.id}
                       layout
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
+                      initial={{ opacity: 0, scale: 0.98, y: 12 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
                       onClick={() => setSelectedPermit(permit)}
-                      className="bg-white p-10 rounded-[3.5rem] border border-stone-50 shadow-sm hover:shadow-2xl transition-all group relative border-b-[12px] border-stone-100 overflow-hidden cursor-pointer"
+                      className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden cursor-pointer flex flex-col justify-between h-full"
                     >
-                      <div className="absolute top-0 right-0 w-3 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-700" />
+                      <div className="absolute top-0 right-0 w-1 h-full bg-[#3e2723] opacity-0 group-hover:opacity-100 transition-all duration-300" />
                       
-                      <div className="flex flex-col h-full gap-8">
-                        <div className="flex justify-between items-start pt-2">
-                           <div className="flex gap-6">
-                              <div className="w-14 h-14 rounded-2xl bg-[#fcfaf6] flex items-center justify-center border-2 border-stone-50 group-hover:bg-[#3e2723] transition-colors duration-500">
-                                <FileText className="w-7 h-7 text-[#3e2723]/30 group-hover:text-amber-200" />
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic mb-1">LOG #{permit.nomor_surat}</p>
-                                <h4 className="text-2xl font-black text-[#3e2723] uppercase italic tracking-tight font-display">{permit.nama_siswa}</h4>
-                                <p className="text-[11px] font-bold text-stone-400 mt-2 uppercase tracking-widest italic">{permit.kelas}</p>
-                              </div>
-                           </div>
+                      <div className="flex flex-col gap-3 w-full">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#fcfaf6] flex items-center justify-center border border-stone-100 group-hover:bg-[#3e2723] transition-all duration-300 shrink-0">
+                              <FileText className="w-4 h-4 text-[#3e2723]/60 group-hover:text-amber-200" />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-[7px] font-bold text-stone-300 uppercase tracking-widest italic leading-none">LOG #{permit.nomor_surat}</p>
+                              <h4 className="text-xs font-black text-[#3e2723] uppercase italic leading-tight mt-1">{permit.nama_siswa}</h4>
+                              <p className="text-[8px] font-bold text-[#8b5e3c] uppercase mt-0.5 italic">{permit.kelas}</p>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="bg-[#fcfaf6] p-8 rounded-[2.5rem] border border-stone-50 relative group-hover:border-[#3e2723]/10 transition-colors">
-                          <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.2em] mb-4 italic leading-none">Keperluan / Diagnosa:</p>
-                          <p className="text-lg font-black text-[#5d4037] italic leading-relaxed whitespace-pre-wrap">"{permit.diagnosa || permit.alasan || '-'}"</p>
+                        <div className="bg-[#fcfaf6] p-2.5 rounded-lg border border-stone-50/85 relative">
+                          <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-1 italic">Keperluan / Diagnosa:</p>
+                          <p className="text-[9.5px] font-semibold text-slate-700 italic leading-normal">"{permit.diagnosa || permit.alasan || '-'}"</p>
                         </div>
 
-                        <div className="flex items-center justify-between pt-6 border-t border-stone-50 mt-auto">
-                           <div className="flex items-center gap-3">
-                              <Clock className="w-4 h-4 text-stone-200" />
-                              <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest italic">
-                                {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy', { locale: id }) : '-'}
-                              </span>
-                           </div>
-                           
-                           <div className="flex items-center gap-3">
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 generatePermitPDF(permit);
-                               }}
-                               className="p-4 bg-stone-50 text-stone-300 hover:text-[#3e2723] hover:bg-white rounded-xl transition-all shadow-sm hover:shadow-xl border border-transparent hover:border-stone-100"
-                               title="Cetak PDF"
-                             >
-                               <Printer className="w-5 h-5" />
-                             </button>
-                             <div className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest italic border-b-4 ${
-                               permit.status === 'approved' ? 'bg-emerald-600 text-white border-emerald-800' : 'bg-amber-600 text-white border-amber-800'
-                             }`}>
-                               {(permit.status || 'PENDING').replace('_', ' ')}
-                             </div>
-                           </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-stone-100 mt-auto">
+                          <div className="flex items-center gap-1.5 text-[8px] text-stone-400 font-bold italic">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>
+                              {permit.tgl_surat ? format(permit.tgl_surat.toDate(), 'dd MMM yyyy', { locale: id }) : '-'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                generatePermitPDF(permit);
+                              }}
+                              className="p-1 text-[#3e2723] border border-stone-200 hover:bg-[#3e2723] hover:text-white rounded transition-colors duration-200"
+                              title="Cetak PDF"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                            <span className={`px-2 py-0.5 rounded text-[6px] font-black uppercase tracking-wider italic border-b [transition:all_300ms_ease] ${
+                              permit.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {(permit.status || 'PENDING').replace('_', ' ')}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -905,10 +1409,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </AnimatePresence>
 
               {permits.length === 0 && (
-                <div className="col-span-full py-40 bg-white rounded-[4rem] border-4 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-10">
-                  <FileSearch className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
-                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Data Nihil</h3>
-                  <p className="text-[11px] font-black text-stone-300 uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Sistem audit tidak menemukan adanya rekaman data perizinan pada kategori ini.</p>
+                <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+                  <FileSearch className="w-12 h-12 text-stone-100 mb-4 opacity-50" />
+                  <h3 className="text-xs font-black text-stone-300 uppercase tracking-widest italic leading-tight mb-2">Data Nihil</h3>
+                  <p className="text-[9px] font-semibold text-stone-400 uppercase tracking-widest leading-relaxed max-w-xs italic text-center">Sistem audit tidak menemukan rekaman data perizinan.</p>
                 </div>
               )}
             </div>
@@ -916,50 +1420,50 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         )}
 
         {viewMode === 'cek_ketidakhadiran' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Header banner */}
-            <div className="bg-[#3e2723] rounded-[3rem] p-8 lg:p-10 shadow-3xl text-white relative overflow-hidden border border-[#5d4037]">
-              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
-                <div className="flex items-center gap-8 text-left">
-                  <div className="w-20 h-20 bg-[#d7ccc8] rounded-[2rem] flex items-center justify-center shadow-2xl shadow-black/40 rotate-3 transition-transform shrink-0">
-                    <ClipboardCheck className="w-10 h-10 text-[#3e2723]" />
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20 text-left">
+            {/* Minimal Proportional Header */}
+            <div className="bg-[#3e2723] rounded-2xl p-4 lg:p-5 shadow-md text-white relative overflow-hidden border border-[#5d4037]">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4 text-left">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shrink-0">
+                    <ClipboardCheck className="w-5 h-5 text-[#3e2723]" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Cek Ketidakhadiran</h1>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Cek Ketidakhadiran</h1>
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ebdccb]/70 mt-3 italic leading-relaxed">
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-85">
                       Monitoring & Audit Riwayat Ketidakhadiran Peserta Didik oleh Wali Asuh / Wali Asrama
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                   <button
                     onClick={() => handlePrintSummaryPDF('Minggu Ini')}
                     disabled={loading}
-                    className="bg-[#4e342e] hover:bg-black/40 text-amber-200 text-[10px] font-black uppercase tracking-widest py-4 px-6 rounded-2xl border border-amber-500/10 transition-all flex items-center justify-center gap-2 italic active:scale-95 disabled:opacity-50"
+                    className="bg-[#4e342e] hover:bg-black/30 text-amber-200 text-[7.5px] font-black uppercase tracking-wider py-1.5 px-3 rounded-lg border border-amber-500/10 transition-all flex items-center justify-center gap-1.5 italic active:scale-95 disabled:opacity-50"
                   >
-                    <Printer className="w-4 h-4 text-amber-400" />
-                    <span>Rekap Mingguan</span>
+                    <Printer className="w-3.5 h-3.5 text-amber-400" />
+                    <span>REKAP MINGGUAN</span>
                   </button>
                   <button
                     onClick={() => handlePrintSummaryPDF('Bulan Ini')}
                     disabled={loading}
-                    className="bg-[#4e342e] hover:bg-black/40 text-amber-200 text-[10px] font-black uppercase tracking-widest py-4 px-6 rounded-2xl border border-amber-500/10 transition-all flex items-center justify-center gap-2 italic active:scale-95 disabled:opacity-50"
+                    className="bg-[#4e342e] hover:bg-black/30 text-amber-200 text-[7.5px] font-black uppercase tracking-wider py-1.5 px-3 rounded-lg border border-amber-500/10 transition-all flex items-center justify-center gap-1.5 italic active:scale-95 disabled:opacity-50"
                   >
-                    <Printer className="w-4 h-4 text-amber-400" />
-                    <span>Rekap Bulanan</span>
+                    <Printer className="w-3.5 h-3.5 text-amber-400" />
+                    <span>REKAP BULANAN</span>
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Filter and Search controls */}
-            <div className="flex flex-col md:flex-row gap-6 items-stretch md:items-center justify-between">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col md:flex-row gap-4 items-center justify-between">
               {/* Category Time Filters */}
-              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full md:w-auto">
                 {[
                   { id: 'hari_ini', label: `Hari Ini (${khStats.hariIni})` },
                   { id: 'kemarin', label: `Kemarin (${khStats.kemarin})` },
@@ -970,10 +1474,10 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   <button
                     key={cat.id}
                     onClick={() => setKhTimeFilter(cat.id as any)}
-                    className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-4 ${
+                    className={`px-3.5 py-2 rounded-lg text-[8px] font-black uppercase tracking-wider whitespace-nowrap transition-all italic border-b-2 ${
                       khTimeFilter === cat.id
-                        ? 'bg-[#5d4037] text-amber-100 border-[#3e2723] shadow-lg translate-y-[-1px]'
-                        : 'bg-white text-[#8b5e3c] border-stone-200/50 hover:bg-[#faf6f0]'
+                        ? 'bg-[#3e2723] text-amber-200 border-black shadow-md scale-[1.02]' 
+                        : 'bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100/70'
                     }`}
                   >
                     {cat.label}
@@ -982,74 +1486,74 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               </div>
 
               {/* Search input field */}
-              <div className="relative max-w-sm w-full md:self-center">
+              <div className="relative max-w-sm w-full md:w-48 group shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-300 group-focus-within:text-[#3e2723] transition-colors" />
                 <input
                   type="text"
-                  placeholder="Cari kegiatan, kelas, atau nama peserta didik..."
+                  placeholder="Cari kegiatan, kelas, atau nama..."
                   value={khSearchTerm}
                   onChange={(e) => setKhSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-6 py-4 bg-white border border-[#ebdccb] rounded-2xl text-xs font-bold text-[#3e2723] shadow-inner focus:outline-none focus:ring-2 focus:ring-[#3e2723]/35 placeholder-stone-400 italic"
+                  className="w-full bg-stone-50 border border-stone-100 rounded-lg pl-8 pr-3 py-2 text-[8px] outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[#3e2723] font-black uppercase tracking-widest italic placeholder:text-stone-300 shadow-inner"
                 />
-                <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
               </div>
             </div>
 
             {/* List / Grid of records */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left font-sans">
               {filteredKetidakhadiran.length > 0 ? (
                 filteredKetidakhadiran.map((rec) => {
-                  const recDate = rec.tgl_absen?.toDate ? rec.tgl_absen.toDate() : new Date();
-                  const formattedDate = format(recDate, 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+                  const recDate = parseFirestoreDate(rec.tgl_absen) || new Date();
+                  const formattedDate = format(recDate, 'EEEE, d MMM yyyy • HH:mm', { locale: id });
                   return (
                     <div 
                       key={rec.id}
-                      className="bg-white rounded-3xl border border-[#ebdccb] hover:border-[#a1887f] p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-5"
+                      className="bg-white rounded-xl border border-stone-100 shadow-sm hover:shadow-md p-4 transition-all duration-300 flex flex-col justify-between space-y-3"
                     >
-                      <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#ebdccb]/45">
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-12 h-12 rounded-2xl bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-sm shadow-inner shrink-0 italic border border-[#ebdccb]/30">
+                      <div className="flex items-start justify-between pb-2 border-b border-stone-100">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-[#f5ebe0] text-[#3e2723] font-black flex items-center justify-center text-[10px] shadow-inner shrink-0 italic border border-[#ebdccb]/30">
                             {rec.kelas?.charAt(0).toUpperCase() || '?'}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 text-left">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="font-black text-sm text-[#3e2723] font-display uppercase italic tracking-tight leading-none truncate mt-0.5">
+                              <h4 className="font-extrabold text-xs text-[#3e2723] uppercase italic tracking-tight leading-none truncate">
                                 {rec.keterangan_kegiatan}
                               </h4>
-                              <span className="bg-[#5d4037] text-amber-200 text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-widest leading-none">
+                              <span className="bg-[#5d4037] text-amber-200 text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
                                 {rec.kelas}
                               </span>
                             </div>
-                            <p className="text-[9px] font-bold text-[#8d6e63]/85 uppercase mt-1.5 italic">
+                            <p className="text-[7px] font-bold text-[#8d6e63]/85 uppercase mt-1 italic">
                               Oleh: {rec.author_name} ({rec.author_role === 'wali_asuh' ? 'Wali Asuh' : 'Wali Asrama'})
                             </p>
                           </div>
                         </div>
-                        <span className="text-[9px] font-black text-[#8d6e63]/60 uppercase tracking-widest shrink-0 font-mono">
+                        <span className="text-[7.5px] font-black text-stone-300 font-mono tracking-wider shrink-0 mt-0.5">
                           {rec.nomor_surat || ''}
                         </span>
                       </div>
 
-                      <div className="bg-[#fcfaf6] p-4 rounded-2xl border border-[#ebdccb]/45 space-y-3">
-                        <div className="flex items-center gap-2 text-[8px] font-black text-[#8d6e63] uppercase tracking-wider">
-                          <ClipboardCheck className="w-4 h-4 text-[#5d4037] shrink-0" />
+                      <div className="bg-[#fcfaf6] p-2.5 rounded-lg border border-stone-50/85 space-y-2 text-left">
+                        <div className="flex items-center gap-1 text-[7px] font-bold text-stone-400 uppercase tracking-widest">
+                          <ClipboardCheck className="w-3.5 h-3.5" />
                           <span>Siswa Tidak Hadir ({rec.daftar_siswa.length})</span>
                         </div>
-                        <p className="text-[11px] font-semibold text-slate-600 leading-relaxed font-sans pl-1.5 break-words">
+                        <p className="text-[9.5px] font-semibold text-slate-700 font-sans pl-1 break-words leading-normal italic">
                           {rec.daftar_siswa.join(', ')}
                         </p>
                       </div>
 
                       {rec.deskripsi && (
-                        <div className="text-[11px] text-[#5d4037] pl-1">
-                          <span className="font-bold text-[#3e2723] block mb-1 uppercase text-[8px] tracking-wider">Keterangan:</span>
-                          <p className="leading-relaxed font-sans">{rec.deskripsi}</p>
+                        <div className="text-[9.5px] text-[#5d4037] pl-1 text-left">
+                          <span className="font-bold text-[#3e2723] block mb-0.5 uppercase text-[7px] tracking-widest">Keterangan:</span>
+                          <p className="leading-normal font-sans italic">"{rec.deskripsi}"</p>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between pt-3 border-t border-[#ebdccb]/30">
-                        <div className="flex items-center gap-1.5 text-[8.5px] font-black uppercase text-[#8d6e63] tracking-wider">
-                          <Clock className="w-3.5 h-3.5 text-[#3e2723]/60 shrink-0" />
-                          <span>Dicatat: {formattedDate} WIB</span>
+                      <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                        <div className="flex items-center gap-1 text-[7.5px] font-bold text-stone-400 mt-auto">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{formattedDate}</span>
                         </div>
                         <button
                           onClick={async () => {
@@ -1063,12 +1567,12 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                             }
                           }}
                           disabled={khPdfLoading === rec.id}
-                          className="flex items-center gap-1.5 py-2 px-4 bg-[#3e2723] hover:bg-black text-[9px] font-black uppercase tracking-wider text-white rounded-lg transition-all active:scale-95 shadow-sm disabled:opacity-50"
+                          className="flex items-center gap-1 py-1 px-2.5 bg-[#ebdccb]/60 hover:bg-[#3e2723] hover:text-white text-[7px] font-black uppercase tracking-wider text-[#3e2723] rounded transition-all active:scale-95 disabled:opacity-50"
                         >
                           {khPdfLoading === rec.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <Printer className="w-3.5 h-3.5 text-amber-200" />
+                            <Printer className="w-3 h-3 text-amber-200" />
                           )}
                           <span>Detail PDF</span>
                         </button>
@@ -1077,30 +1581,222 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                   );
                 })
               ) : (
-                <div className="col-span-full py-40 bg-white rounded-[4rem] border border-dashed border-[#ebdccb]/40 text-center flex flex-col items-center justify-center px-10">
-                  <ClipboardCheck className="w-20 h-20 text-stone-100 mb-8 opacity-50" />
-                  <h3 className="text-3xl font-black text-stone-200 uppercase tracking-widest italic font-display leading-tight mb-4 text-center">Data Nihil</h3>
-                  <p className="text-[11px] font-black text-[#8d6e63] uppercase tracking-[0.3em] italic max-w-sm leading-relaxed text-center">Tidak ada rekaman data ketidakhadiran pada kategori ini.</p>
+                <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+                  <ClipboardCheck className="w-12 h-12 text-stone-100 mb-4 opacity-50" />
+                  <h3 className="text-xs font-black text-stone-300 uppercase tracking-widest italic leading-tight mb-2">Data Nihil</h3>
+                  <p className="text-[9px] font-semibold text-stone-400 uppercase tracking-widest leading-relaxed max-w-xs italic text-center">Tidak ada rekaman data ketidakhadiran pada kategori ini.</p>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {(viewMode === 'statistik' || viewMode === 'pangkalan_data' || viewMode === 'announcements') && (
-          <div className="bg-white p-20 rounded-[4rem] border border-[#d7ccc8]/30 text-center flex flex-col items-center justify-center space-y-8 py-40 min-h-[60vh] shadow-xl italic animate-in fade-in duration-700">
-             <div className="p-10 bg-[#f8f3ed] rounded-full border border-[#d7ccc8]/50 animate-pulse">
-                <FileSearch className="w-20 h-20 text-[#8b5e3c]" />
+        {(viewMode === 'statistik' || viewMode === 'pangkalan_data') && (
+          <div className="bg-white p-6 rounded-2xl border border-stone-100 text-center flex flex-col items-center justify-center space-y-4 py-12 min-h-[40vh] shadow-sm italic animate-in fade-in duration-500">
+             <div className="p-4 bg-[#fcfaf6] rounded-full border border-[#d7ccc8]/30 animate-pulse">
+                <FileSearch className="w-10 h-10 text-[#8b5e3c]" />
              </div>
-             <div className="max-w-md">
-                <h2 className="text-3xl font-black italic mb-4 text-[#3e2723]">Layanan Data Strategis</h2>
-                <p className="text-stone-400 font-bold uppercase tracking-[0.2em] text-[10px] leading-relaxed italic">
+             <div className="max-w-sm">
+                <h2 className="text-sm font-black italic mb-2 text-[#3e2723]">Layanan Data Strategis</h2>
+                <p className="text-stone-400 font-bold uppercase tracking-[0.15em] text-[8px] leading-relaxed italic">
                   Modul ini sedang disinkronisasikan untuk akurasi data pimpinan. Silakan gunakan dashboard utama untuk pemantauan operasional real-time.
                 </p>
              </div>
-             <button onClick={() => setViewMode('beranda')} className="px-10 py-5 bg-[#3e2723] text-white font-black rounded-3xl uppercase tracking-widest text-xs shadow-2xl shadow-black/20 hover:opacity-90 transition-all uppercase italic">
+             <button onClick={() => setViewMode('beranda')} className="px-5 py-2 bg-[#3e2723] text-white font-black rounded-xl uppercase tracking-wider text-[9px] shadow-sm hover:opacity-90 transition-all italic active:scale-95">
                 Kembali ke Dashboard
              </button>
+          </div>
+        )}
+
+        {viewMode === 'announcements' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
+            {/* Header section with brown style */}
+            <div className="bg-[#3e2723] rounded-2xl p-4 lg:p-5 text-white shadow-md overflow-hidden border border-[#5d4037] relative">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-[#d7ccc8] rounded-xl flex items-center justify-center shadow-md shrink-0 -rotate-2">
+                    <Bell className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-black font-display tracking-tight leading-none italic uppercase">Kelola Pengumuman</h1>
+                      <span className="bg-[#d7ccc8]/20 text-amber-200 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border border-white/10 italic">
+                        AKTIF
+                      </span>
+                    </div>
+                    <p className="text-stone-300 text-[8px] font-bold mt-1 uppercase tracking-[0.15em] italic opacity-85">
+                      Diterbitkan ke dashboard Guru, Wali Asuh, Wali Kelas, Wali Asrama, dan Dokter
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAnnForm(!showAnnForm)}
+                  className="px-3.5 py-2 rounded-lg font-black text-[8px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-amber-600 hover:bg-amber-700 text-white italic shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Buat Baru</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live New Announcement Form */}
+            {showAnnForm && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white p-5 rounded-2xl border border-stone-200/50 shadow-md space-y-4"
+              >
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#3e2723] flex items-center gap-2 italic">
+                  <Bell className="w-4 h-4 text-[#8b5e3c]" />
+                  Tulis Pengumuman Baru
+                </h3>
+
+                <form onSubmit={handleCreateAnnouncement} className="space-y-4 font-sans text-left pb-2">
+                  <div>
+                    <label className="block text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Judul Pengumuman</label>
+                    <input
+                      type="text"
+                      required
+                      value={newAnnTitle}
+                      onChange={(e) => setNewAnnTitle(e.target.value)}
+                      placeholder="Masukkan judul singkat, padat, jelas..."
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-100 rounded-lg outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[10px] font-semibold text-slate-700 italic placeholder:text-stone-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Isi Pengumuman</label>
+                    <textarea
+                      required
+                      value={newAnnContent}
+                      onChange={(e) => setNewAnnContent(e.target.value)}
+                      placeholder="Deskripsikan pengumuman secara informatif..."
+                      rows={3}
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-100 rounded-lg outline-none focus:bg-white focus:border-[#3e2723] transition-all text-[10px] font-semibold text-slate-600 leading-normal italic resize-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2.5 bg-stone-50 p-3 rounded-lg border border-stone-100/50 max-w-max">
+                    <input
+                      type="checkbox"
+                      id="is_active_ann"
+                      checked={newAnnIsActive}
+                      onChange={(e) => setNewAnnIsActive(e.target.checked)}
+                      className="w-3.5 h-3.5 text-[#3e2723] focus:ring-[#3e2723] border-stone-300 rounded"
+                    />
+                    <label htmlFor="is_active_ann" className="text-[9px] font-black text-stone-500 uppercase tracking-wider cursor-pointer select-none italic">
+                      Aktifkan Langsung di Banner Marquee
+                    </label>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingAnn}
+                      className="px-4 py-2 bg-[#3e2723] hover:bg-[#5d4037] text-amber-200 rounded-lg font-black text-[9px] uppercase tracking-wider transition-all flex items-center gap-1.5 disabled:opacity-50 italic"
+                    >
+                      {isSubmittingAnn ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )}
+                      Diterbitkan Pengumuman
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAnnForm(false)}
+                      className="px-4 py-2 bg-stone-50 text-stone-400 rounded-lg font-black text-[9px] uppercase tracking-wider border border-stone-200 hover:bg-stone-100 transition-all italic"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+
+            {/* List of Announcements */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {announcements.length === 0 ? (
+                <div className="col-span-full py-20 bg-white rounded-xl border-2 border-dashed border-stone-100 text-center flex flex-col items-center justify-center px-6">
+                  <Bell className="w-12 h-12 text-stone-100 mb-4 opacity-50 animate-bounce" />
+                  <h3 className="text-xs font-black text-stone-300 uppercase tracking-widest italic leading-none mb-2">Belum Ada Pengumuman</h3>
+                  <p className="text-[9px] font-semibold text-stone-400 uppercase tracking-widest leading-relaxed max-w-xs italic text-center">
+                    Klik tombol "Buat Baru" untuk menyebarkan pengumuman atau instruksi pimpinan.
+                  </p>
+                </div>
+              ) : (
+                announcements.map((ann, idx) => {
+                  const annDate = ann.createdAt && typeof ann.createdAt.toDate === 'function' ? ann.createdAt.toDate() : null;
+                  return (
+                    <motion.div
+                      key={ann.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.02 }}
+                      className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm relative group flex flex-col justify-between text-left"
+                    >
+                      <div className={`absolute top-0 right-0 w-1 h-full rounded-r-xl ${ann.isActive ? 'bg-emerald-500' : 'bg-stone-300'}`} />
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[7px] font-bold text-stone-400 uppercase tracking-wider italic">
+                              {annDate ? format(annDate, 'dd MMMM yyyy HH:mm', { locale: id }) : '-'}
+                            </span>
+                            <h4 className="text-xs font-black text-[#3e2723] uppercase italic tracking-tight">{ann.title}</h4>
+                          </div>
+                          
+                          <button
+                            onClick={async () => {
+                              try {
+                                const newStatus = !ann.isActive;
+                                await updateDoc(doc(db, 'announcements', ann.id!), { isActive: newStatus });
+                              } catch (err) {
+                                console.error('Error toggling announcement active status: ', err);
+                              }
+                            }}
+                            className={`px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-wider italic active:scale-95 transition-all ${
+                              ann.isActive 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                            }`}
+                          >
+                            {ann.isActive ? 'Aktif' : 'Nonaktif'}
+                          </button>
+                        </div>
+
+                        <p className="text-[10px] text-slate-600 leading-normal italic bg-stone-50 p-2.5 rounded-lg border border-stone-100 shadow-inner">
+                          "{ann.content}"
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-stone-100 mt-4 flex items-center justify-between">
+                        <span className="text-[8px] font-bold text-stone-400 uppercase italic">
+                          Oleh: {ann.authorName}
+                        </span>
+
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm('Apakah Anda yakin ingin menghapus pengumuman ini?')) return;
+                            try {
+                              await deleteDoc(doc(db, 'announcements', ann.id!));
+                            } catch (error) {
+                              console.error(error);
+                              alert('Gagal menghapus pengumuman!');
+                            }
+                          }}
+                          className="p-1 px-1.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border border-stone-200/50 active:scale-95 transition-all text-[8px] font-semibold flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </main>
@@ -1112,46 +1808,46 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                initial={{ scale: 0.9, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.9, opacity: 0 }}
-               className="bg-white w-full max-w-2xl rounded-[3.5rem] shadow-3xl border border-[#d7ccc8]/30 overflow-hidden relative"
+               className="bg-white w-full max-w-xl rounded-2xl shadow-lg border border-stone-200/50 overflow-hidden relative"
              >
-                <div className="p-8 border-b border-[#f8f3ed] bg-[#3e2723] flex items-center justify-between text-white italic">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-amber-200" />
-                    <h3 className="font-black uppercase tracking-widest text-[10px] italic">Arsip Memorandum Strategis</h3>
+                <div className="p-4 border-b border-stone-100 bg-[#3e2723] flex items-center justify-between text-white italic">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-amber-200" />
+                    <h3 className="font-black uppercase tracking-widest text-[8px] italic">Arsip Memorandum Strategis</h3>
                   </div>
-                  <button onClick={() => setSelectedMemo(null)} className="p-2 text-amber-200 hover:bg-white/10 rounded-full transition-all"><X className="w-6 h-6" /></button>
+                  <button onClick={() => setSelectedMemo(null)} className="p-1 hover:bg-white/10 rounded-full transition-all"><X className="w-5 h-5 text-amber-200" /></button>
                 </div>
                 
-                <div className="p-12 space-y-10 bg-white">
+                <div className="p-5 space-y-4 bg-white">
                   {selectedMemo && (
                     <>
-                      <div>
-                        <h2 className="text-3xl font-black italic text-[#3e2723] leading-tight mb-6">{selectedMemo.perihal}</h2>
-                        <div className="p-10 bg-[#f8f3ed] rounded-[2.5rem] border border-[#d7ccc8]/30 text-[#5d4037] mt-8 leading-relaxed italic text-base whitespace-pre-wrap">
+                      <div className="text-left font-sans">
+                        <h2 className="text-sm font-black italic text-[#3e2723] leading-snug mb-3 uppercase tracking-tight">{selectedMemo.perihal}</h2>
+                        <div className="p-3.5 bg-[#fcfaf6] rounded-lg border border-stone-100 text-[10px] leading-relaxed text-slate-700 whitespace-pre-wrap italic">
                           {selectedMemo.isi}
                         </div>
-                        <div className="mt-6 flex flex-wrap gap-2">
-                          <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest block w-full mb-1 italic">Ditujukan Kepada:</span>
+                        <div className="mt-3.5 flex flex-wrap gap-1">
+                          <span className="text-[7px] font-bold text-stone-400 uppercase tracking-widest block w-full mb-0.5 italic">Ditujukan Kepada:</span>
                           {selectedMemo.penerima.map((role) => (
-                            <span key={role} className="px-3 py-1 bg-white text-[8px] font-black text-[#8b5e3c] uppercase tracking-widest rounded-lg border border-[#d7ccc8]/30">
+                            <span key={role} className="px-1.5 py-0.5 bg-stone-50 text-[7px] font-black text-[#8b5e3c] uppercase tracking-wider rounded border border-stone-250/20 italic">
                               {role.replace('_', ' ')}
                             </span>
                           ))}
                         </div>
                       </div>
-                      <div className="pt-10 border-t border-[#f8f3ed] flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-[#3e2723] rounded-2xl flex items-center justify-center font-black text-white italic border border-white/20">
+                      <div className="pt-3 border-t border-[#f8f3ed] flex items-center justify-between text-left">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[#3e2723] rounded-lg flex items-center justify-center font-black text-white text-[10px] italic border border-white/20">
                             {selectedMemo.pengirim_name.charAt(0)}
                           </div>
                           <div>
-                            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Diterbitkan Oleh</p>
-                            <p className="text-sm font-black text-[#3e2723] italic uppercase tracking-tight">{selectedMemo.pengirim_name}</p>
+                            <p className="text-[7px] font-black text-stone-400 uppercase tracking-widest mb-0.5 italic">Diterbitkan Oleh</p>
+                            <p className="text-[9.5px] font-black text-[#3e2723] italic uppercase tracking-tight">{selectedMemo.pengirim_name}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                           <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1 italic">Tanggal Dokumen</p>
-                           <p className="text-sm font-black text-[#3e2723] italic uppercase tracking-tight">{format(selectedMemo.tgl_memo.toDate(), 'dd MMMM yyyy', { locale: id })}</p>
+                           <p className="text-[7px] font-black text-stone-400 uppercase tracking-widest mb-0.5 italic">Tanggal Dokumen</p>
+                           <p className="text-[9.5px] font-black text-[#3e2723] italic uppercase tracking-tight">{format(selectedMemo.tgl_memo.toDate(), 'dd MMM yyyy', { locale: id })}</p>
                         </div>
                       </div>
                     </>

@@ -347,3 +347,27 @@ export const normalizeKelas = (kelas: string): string => {
   // Ensure "X - 1" or "X 1" becomes "X-1"
   return cleanKelas.replace(/\s*[-–—]\s*/g, '-').replace(/\s+/g, '-').replace('--', '-');
 };
+
+export const parseFirestoreDate = (val: any): Date | null => {
+  if (!val) return null;
+  if (typeof val.toDate === 'function') {
+    try {
+      return val.toDate();
+    } catch (_) {
+      // fallback
+    }
+  }
+  if (val instanceof Date) return val;
+  if (typeof val === 'string' || typeof val === 'number') {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof val === 'object') {
+    const s = val.seconds ?? val._seconds;
+    if (typeof s === 'number') {
+      return new Date(s * 1000);
+    }
+  }
+  return null;
+};
+
