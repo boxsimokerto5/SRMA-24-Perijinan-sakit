@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -2547,5 +2547,394 @@ export const generateKetidakhadiranReportPDF = async (
     doc.save(fileName);
   }
 };
+
+export const generateJurnalKeperawatanPDF = async (journal: JurnalKeperawatan) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- DESIGN: Border & Background ---
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287); // Page border
+  
+  // --- HEADER (Centered without Logo for Stability) ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(62, 39, 35); // Deep Chocolate theme to match Jurnal Keperawatan UI
+  doc.text('UNIT PELAYANAN KESEHATAN SEKOLAH (UKS) & ASRAMA', 105, 32, { align: 'center' });
+  
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 38, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 43, { align: 'center' });
+  doc.text(`Email: srma24kediri@gmail.com   |   Kode Pos: 64152`, 105, 48, { align: 'center' });
+  
+  doc.setDrawColor(62, 39, 35);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+  doc.setLineWidth(0.2);
+  doc.line(20, 53.5, 190, 53.5);
+
+  // --- TITLE ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KARTU JURNAL REHABILITASI & PERAWATAN MEDIS PESERTA DIDIK', 105, 64, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(40, 65.5, 170, 65.5);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Nomor Dokumen : JK-${journal.id || 'NEW'}-${Date.now().toString().slice(-6)}`, 105, 71, { align: 'center' });
+
+  // --- STUDENT DETAILS PANEL ---
+  doc.setFillColor(248, 245, 240); // Soft Warm Cream background
+  doc.rect(20, 78, 170, 36, 'F');
+  doc.setDrawColor(220, 210, 200);
+  doc.rect(20, 78, 170, 36, 'S');
+
+  // Details
+  const startD = journal.tgl_mulai?.toDate ? journal.tgl_mulai.toDate() : new Date();
+  const formatMulai = format(startD, 'dd MMMM yyyy (HH:mm)', { locale: id });
+  
+  const finishD = journal.tgl_sembuh?.toDate ? journal.tgl_sembuh.toDate() : null;
+  const formatSembuh = finishD ? format(finishD, 'dd MMMM yyyy (HH:mm)', { locale: id }) : '-';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(62, 39, 35);
+  doc.text('INFORMASI PASIEN / PESERTA DIDIK', 24, 84);
+  doc.line(24, 85, 80, 85);
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold'); doc.text('Nama Lengkap', 24, 91);
+  doc.setFont('helvetica', 'normal'); doc.text(`: ${journal.nama_siswa.toUpperCase()}`, 62, 91);
+  
+  doc.setFont('helvetica', 'bold'); doc.text('Kelas / Kamar', 24, 96);
+  doc.setFont('helvetica', 'normal'); doc.text(`: Kelas ${journal.kelas}`, 62, 96);
+
+  doc.setFont('helvetica', 'bold'); doc.text('Keterangan Sakit', 24, 101);
+  doc.setFont('helvetica', 'normal'); doc.text(`: ${journal.keterangan_sakit}`, 62, 101, { maxWidth: 120 });
+
+  doc.setFont('helvetica', 'bold'); doc.text('Mulai Dirawat', 24, 109);
+  doc.setFont('helvetica', 'normal'); doc.text(`: ${formatMulai} WIB`, 62, 109);
+
+  // Status Info inside box
+  doc.setFont('helvetica', 'bold'); doc.text('Status Medis', 132, 91);
+  const statusLabel = journal.status === 'sembuh' ? 'SIB Sembuh' : 'DIRAWAT / PEMANTAUAN';
+  doc.setFont('helvetica', 'bold');
+  if (journal.status === 'sembuh') {
+    doc.setTextColor(16, 124, 65);
+    doc.text('SEMBUH', 132, 96);
+  } else {
+    doc.setTextColor(180, 40, 40);
+    doc.text('DALAM PERAWATAN', 132, 96);
+  }
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold'); doc.text('Tanggal Pulih', 132, 104);
+  doc.setFont('helvetica', 'normal'); doc.text(formatSembuh, 132, 109);
+
+  // --- SEPARATOR ---
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(62, 39, 35);
+  doc.text('RIWAYAT TINDAKAN & PERKEMBANGAN MEDIS (CLINICAL TIMELINE)', 20, 122);
+  doc.line(20, 123.5, 190, 123.5);
+
+  // Actions Table Data
+  const tableHeaders = [['NO', 'TANGGAL & WAKTU', 'TINDAKAN / PENANGANAN YANG DILAKUKAN', 'PETUGAS MEDIS / WALI']];
+  const tableBody = (journal.penanganan || []).map((action, idx) => {
+    const actD = action.waktu?.toDate ? action.waktu.toDate() : new Date();
+    const formattedActD = format(actD, 'dd MMMM yyyy\nHH:mm', { locale: id });
+    return [
+      (idx + 1).toString(),
+      formattedActD,
+      action.tindakan || '-',
+      `${action.oleh_name}\n(${action.oleh_role})`
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 128,
+    head: tableHeaders,
+    body: tableBody,
+    theme: 'grid',
+    headStyles: { fillColor: [62, 39, 35], textColor: [255, 255, 255], fontSize: 8.5, fontStyle: 'bold' },
+    styles: { fontSize: 8, font: 'helvetica', overflow: 'linebreak', cellPadding: 3 },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 85 },
+      3: { cellWidth: 40 }
+    }
+  });
+
+  // Calculate final pos
+  let finalY = (doc as any).lastAutoTable.finalY + 15;
+  if (finalY > 230) {
+    doc.addPage();
+    // Re-draw border on second page
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.1);
+    doc.rect(5, 5, 200, 287);
+    finalY = 25;
+  }
+
+  // --- SIGNATURE AREA ---
+  const signatureX = 150;
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kediri, ' + format(new Date(), 'd MMMM yyyy', { locale: id }), signatureX, finalY, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  const signerRole = journal.status === 'sembuh' ? 'TIM KESEHATAN / PENASUH' : 'MEMBER UNIT UKS';
+  doc.text(signerRole + ',', signatureX, finalY + 5, { align: 'center' });
+  
+  // Add an authenticity QR Code
+  try {
+    const qrText = `VERIFIED_HEALTH_JOURNAL_${journal.id || 'NEW'}_Siswa:${journal.nama_siswa}_Status:${journal.status}`;
+    const qrDataUrl = await QRCode.toDataURL(qrText);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, finalY + 10, 25, 25);
+  } catch (e) {
+    console.error(e);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(journal.created_by_name || 'Petugas UKS', signatureX, finalY + 41, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Digital Identity Verified', signatureX, finalY + 45, { align: 'center' });
+
+  // Page Footer security note
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Laporan Jurnal Keperawatan ini diterbitkan secara sah dan terekam dalam sistem informasi kesehatan SRMA 24.', 105, 276, { align: 'center' });
+  doc.text('Semua tindakan medis yang tertulis di atas telah disetujui dan diawasi oleh tim medis sekolah.', 105, 280, { align: 'center' });
+
+  const fileName = `Jurnal_Medis_${(journal.nama_siswa || '').replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: `Jurnal Medis ${journal.nama_siswa}`,
+        url: savedFile.uri
+      });
+    } catch (error) {
+      console.error(error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateJurnalKeperawatanSummaryPDF = async (
+  journals: JurnalKeperawatan[],
+  rangeLabel: string,
+  userName: string = 'SRMA 24 KEDIRI'
+) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- DESIGN: Border & Background ---
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287); // Page border
+  
+  // --- HEADER ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KEMENTERIAN SOSIAL REPUBLIK INDONESIA', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SEKOLAH RAKYAT MENENGAH ATAS 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(62, 39, 35); // Deep Chocolate theme
+  doc.text('UNIT PELAYANAN KESEHATAN SEKOLAH (UKS) & ASRAMA', 105, 32, { align: 'center' });
+  
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Balai Pengembangan Kompetensi Aparatur Sipil Negara', 105, 38, { align: 'center' });
+  doc.text('Gg. 2 Bulusari Utara, Bulusari, Kec. Tarokan, Kab. Kediri, Jawa Timur', 105, 43, { align: 'center' });
+  doc.text(`Email: srma24kediri@gmail.com   |   Kode Pos: 64152`, 105, 48, { align: 'center' });
+  
+  doc.setDrawColor(62, 39, 35);
+  doc.setLineWidth(0.8);
+  doc.line(20, 52, 190, 52);
+  doc.setLineWidth(0.2);
+  doc.line(20, 53.5, 190, 53.5);
+
+  // --- TITLE ---
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`LAPORAN REKAPITULASI ${rangeLabel.toUpperCase()} JURNAL KEPERAWATAN`, 105, 64, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(30, 65.5, 180, 65.5);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Tanggal Cetak: ${format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: id })} WIB`, 105, 71, { align: 'center' });
+
+  // --- REKAP STATS PANEL ---
+  const activeCount = journals.filter(j => j.status === 'dirawat').length;
+  const curedCount = journals.filter(j => j.status === 'sembuh').length;
+  
+  doc.setFillColor(248, 245, 240); // Soft Warm Cream background
+  doc.rect(20, 78, 170, 22, 'F');
+  doc.setDrawColor(220, 210, 200);
+  doc.rect(20, 78, 170, 22, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(62, 39, 35);
+  doc.text('RINGKASAN STATISTIK LAPORAN', 24, 84);
+  doc.line(24, 85, 76, 85);
+
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Total Penanganan Kasus: ${journals.length} Pasien Peserta Didik`, 24, 91);
+  doc.text(`Dalam Perawatan: ${activeCount} Pasien`, 24, 95);
+  
+  doc.text(`Sembuh / Selesai Rawat: ${curedCount} Pasien`, 110, 91);
+  doc.text(`Petugas Penanggung Jawab: ${userName}`, 110, 95);
+
+  // --- TABLE OF HEALTH RECORDS ---
+  const tableHeaders = [['NO', 'PESERTA DIDIK / KELAS', 'KETERANGAN SAKIT', 'TGL MULAI', 'STATUS / PULIH', 'DAFTAR TINDAKAN PERAWATAN']];
+  
+  const tableBody = journals.map((j, idx) => {
+    const startD = j.tgl_mulai?.toDate ? j.tgl_mulai.toDate() : new Date();
+    const formattedStart = format(startD, 'dd/MM/yy', { locale: id });
+    
+    let formattedFinish = '-';
+    if (j.status === 'sembuh' && j.tgl_sembuh) {
+      const finishD = j.tgl_sembuh.toDate ? j.tgl_sembuh.toDate() : new Date();
+      formattedFinish = format(finishD, 'dd/MM/yy', { locale: id });
+    }
+
+    const statusBadge = j.status === 'sembuh' ? `Sembuh\n(${formattedFinish})` : 'Dirawat';
+    
+    const actionsList = j.penanganan && j.penanganan.length > 0
+      ? j.penanganan.map((action) => {
+          const actD = action.waktu?.toDate ? action.waktu.toDate() : (action.waktu instanceof Date ? action.waktu : new Date());
+          const formattedActD = format(actD, 'dd/MM HH:mm', { locale: id });
+          return `• [${formattedActD}] ${action.tindakan} (${action.oleh_name})`;
+        }).join('\n')
+      : 'Belum ada tindakan';
+
+    return [
+      (idx + 1).toString(),
+      `${j.nama_siswa.toUpperCase()}\nKelas: ${j.kelas}`,
+      j.keterangan_sakit,
+      formattedStart,
+      statusBadge,
+      actionsList
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 108,
+    head: tableHeaders,
+    body: tableBody,
+    theme: 'grid',
+    headStyles: { fillColor: [62, 39, 35], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+    styles: { fontSize: 7, font: 'helvetica', overflow: 'linebreak', cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 32 },
+      2: { cellWidth: 38 },
+      3: { cellWidth: 15, halign: 'center' },
+      4: { cellWidth: 20, halign: 'center' },
+      5: { cellWidth: 57 }
+    }
+  });
+
+  // Calculate final pos
+  let finalY = (doc as any).lastAutoTable.finalY + 15;
+  if (finalY > 230) {
+    doc.addPage();
+    // Re-draw border on second page
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.1);
+    doc.rect(5, 5, 200, 287);
+    finalY = 25;
+  }
+
+  // --- SIGNATURE AREA ---
+  const signatureX = 150;
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kediri, ' + format(new Date(), 'd MMMM yyyy', { locale: id }), signatureX, finalY, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('KOORDINATOR POSKESTREN / UKS,', signatureX, finalY + 5, { align: 'center' });
+  
+  // Add validation QR Code
+  try {
+    const qrText = `REKAP_HEALTH_JOURNAL_${rangeLabel.toUpperCase()}_Cetak_At:${Date.now()}_Oleh:${userName}`;
+    const qrDataUrl = await QRCode.toDataURL(qrText);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, finalY + 10, 25, 25);
+  } catch (e) {
+    console.error(e);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(userName, signatureX, finalY + 41, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Digital Signature Verified', signatureX, finalY + 45, { align: 'center' });
+
+  // Page Footer security note
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Laporan Rekapitulasi Jurnal Keperawatan ini diterbitkan secara sah dan terekam dalam sistem informasi SRMA 24.', 105, 276, { align: 'center' });
+
+  const fileName = `Rekap_${rangeLabel}_Jurnal_Keperawatan_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: `Rekap ${rangeLabel} Jurnal Keperawatan`,
+        url: savedFile.uri
+      });
+    } catch (error) {
+      console.error(error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
 
 

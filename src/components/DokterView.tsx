@@ -23,6 +23,7 @@ import { generatePermitPDF, generateMemorandumPDF, generateHealthCheckProposalPD
 import ProfileView from './ProfileView';
 import MadingSekolahView from './MadingSekolahView';
 import AgendaView from './AgendaView';
+import JurnalKeperawatanView from './JurnalKeperawatanView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface DokterViewProps {
@@ -91,7 +92,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
   // View Mode
-  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek' | 'statistik' | 'profil' | 'memorandum' | 'buat_surat' | 'riwayat_skd' | 'mading' | 'agenda'>('statistik');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek' | 'statistik' | 'profil' | 'memorandum' | 'buat_surat' | 'riwayat_skd' | 'mading' | 'agenda' | 'jurnal_keperawatan'>('statistik');
 
   const viewTitles: Record<string, string> = {
     'perizinan': 'Riwayat Perizinan',
@@ -103,7 +104,8 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     'buat_surat': 'Buat Surat Keterangan',
     'riwayat_skd': 'Riwayat Surat (SKD)',
     'mading': 'Mading Kampus',
-    'agenda': 'Agenda Dokter'
+    'agenda': 'Agenda Dokter',
+    'jurnal_keperawatan': 'Jurnal Keperawatan'
   };
 
   useEffect(() => {
@@ -638,6 +640,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                       <nav className="space-y-2">
                         {[
                           { id: 'statistik', label: 'Dashboard Klinik', icon: LayoutDashboard },
+                          { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'buat_surat', label: 'Penerbitan SKD', icon: FileText },
@@ -807,6 +810,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
+        {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
 
         {viewMode === 'buat_surat' && (
           <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

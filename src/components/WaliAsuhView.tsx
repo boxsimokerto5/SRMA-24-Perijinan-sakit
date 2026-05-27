@@ -29,6 +29,7 @@ import AgendaView from './AgendaView';
 import WallView from './WallView';
 import DormitoryIncidentsView from './DormitoryIncidentsView';
 import EvaluationNotesView from './EvaluationNotesView';
+import JurnalKeperawatanView from './JurnalKeperawatanView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -50,7 +51,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'jurnal_keperawatan'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -1285,7 +1286,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     settings: 'Pengaturan',
     mading: 'Mading Sekolah',
     sarpras_asrama: 'Sarpras Asrama',
-    laporan_bulanan: 'Laporan Bulanan'
+    laporan_bulanan: 'Laporan Bulanan',
+    jurnal_keperawatan: 'Jurnal Keperawatan'
   };
 
   const getRoleLabel = (role: string) => {
@@ -1361,6 +1363,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'memos', label: 'Memorandum', icon: Mail },
                           { id: 'sarpras_asrama', label: 'Sarpras Asrama', icon: Wrench },
+                          { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
                           { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
                           { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone },
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
@@ -1616,6 +1619,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
+        {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -2427,7 +2431,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
             <div className="space-y-4">
               <h2 className="text-xl font-black text-slate-900 font-display italic">Akses Menu Cepat:</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                 <button
                   onClick={() => setViewMode('perizinan')}
                   className="py-5 px-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-xl hover:bg-slate-950 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-slate-950"
@@ -2441,6 +2445,13 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 >
                    <User size={24} className="text-white" />
                   Database Siswa
+                </button>
+                <button
+                  onClick={() => setViewMode('jurnal_keperawatan')}
+                  className="py-5 px-6 bg-[#3e2723] text-white font-black rounded-[2rem] shadow-xl hover:bg-[#5d4037] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-black"
+                >
+                  <Activity size={24} className="text-rose-400 animate-pulse" />
+                  Jurnal Perawatan
                 </button>
                 <button
                   onClick={() => setViewMode('laporan_bulanan')}

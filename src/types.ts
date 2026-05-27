@@ -301,6 +301,27 @@ export interface Ketidakhadiran {
   createdAt: Timestamp;
 }
 
+export interface PenangananJurnal {
+  waktu: Timestamp;
+  oleh_name: string;
+  oleh_role: string;
+  tindakan: string;
+}
+
+export interface JurnalKeperawatan {
+  id?: string;
+  nama_siswa: string;
+  kelas: string;
+  keterangan_sakit: string;
+  tgl_mulai: Timestamp;
+  status: 'dirawat' | 'sembuh';
+  tgl_sembuh?: Timestamp;
+  penanganan: PenangananJurnal[];
+  created_by_name: string;
+  created_by_uid: string;
+  created_by_role: string;
+}
+
 
 export const normalizeKelas = (kelas: string): string => {
   if (!kelas) return '';
