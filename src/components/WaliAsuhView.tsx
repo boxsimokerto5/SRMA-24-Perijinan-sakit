@@ -2567,7 +2567,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       Layanan Izin Umum
                     </h2>
                     <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
-                      Pengajuan & Rekapitulasi Izin Umum Santri Non-Medis
+                      Pengajuan & Rekapitulasi Izin Umum Peserta Didik Non-Medis
                     </p>
                   </div>
 
@@ -2765,7 +2765,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     Layanan Perizinan Sakit
                   </h2>
                   <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
-                    Sistem Monitor Data Sakit & Rekapitulasi Kesehatan Santri
+                    Sistem Monitor Data Sakit & Rekapitulasi Kesehatan Peserta Didik
                   </p>
                 </div>
 
@@ -2802,7 +2802,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     <span className="text-[7.5px] font-black text-[#ebdccb]/60 uppercase tracking-widest block mb-1">{stat.label}</span>
                     <div className="flex items-baseline gap-1.5">
                       <span className={`text-2xl sm:text-3xl font-black font-display ${stat.color}`}>{stat.value}</span>
-                      <span className="text-[8px] font-black uppercase tracking-wider opacity-60">Santri</span>
+                      <span className="text-[8px] font-black uppercase tracking-wider opacity-60">Peserta Didik</span>
                     </div>
                   </div>
                 ))}
@@ -3056,7 +3056,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     Peminjaman Laptop
                   </h2>
                   <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
-                    Sistem Persetujuan & Monitoring Distribusi Laptop Santri
+                    Sistem Persetujuan & Monitoring Distribusi Laptop Peserta Didik
                   </p>
                 </div>
               </div>
@@ -3285,7 +3285,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     Peminjaman Smartphone
                   </h2>
                   <p className="text-[9.5px] sm:text-[11px] font-semibold text-[#ebdccb]/85 uppercase tracking-widest leading-relaxed">
-                    Sistem Persetujuan & Monitoring Distribusi Gadget Santri
+                    Sistem Persetujuan & Monitoring Distribusi Gadget Peserta Didik
                   </p>
                 </div>
               </div>

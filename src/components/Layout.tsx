@@ -45,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, onTabChange, hideChrom
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'students', label: 'Data Santri', icon: Users },
+    { id: 'students', label: 'Data Peserta Didik', icon: Users },
     { id: 'reports', label: 'Laporan', icon: FileText },
     { id: 'health', label: 'Kesehatan', icon: Heart },
     { id: 'messages', label: 'Pesan', icon: MessageCircle },

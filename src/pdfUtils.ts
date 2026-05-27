@@ -134,7 +134,7 @@ export const generatePermitPDF = async (permit: IzinSakit) => {
   if (permit.tipe === 'sakit') {
     details.push({ 
       label: 'Lokasi / Catatan', 
-      value: permit.catatan_kamar || 'Kamar Santri' 
+      value: permit.catatan_kamar || 'Kamar Peserta Didik' 
     });
   }
 

@@ -143,7 +143,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {
           id: 'def-1',
           title: "Informasi Akademik",
-          content: "Pastikan untuk mencatat perkembangan setiap santri secara berkala guna melengkapi laporan bulanan asrama.",
+          content: "Pastikan untuk mencatat perkembangan setiap peserta didik secara berkala guna melengkapi laporan bulanan asrama.",
           color: "from-slate-900 to-slate-950",
           icon: Info,
           author: "Kurikulum"
@@ -151,7 +151,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {
           id: 'def-2',
           title: "Sistem Terpadu",
-          content: "Platform ini terintegrasi langsung dengan database Wali Asrama dan Wali Kelas demi pemantauan santri yang sinergis.",
+          content: "Platform ini terintegrasi langsung dengan database Wali Asrama dan Wali Kelas demi pemantauan peserta didik yang sinergis.",
           color: "from-[#8b5e3c] to-[#c0b298]",
           icon: ShieldCheck,
           author: "Sistem"
@@ -382,14 +382,14 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
 
             {/* Analytical cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Card 1: Total Santri */}
+              {/* Card 1: Total Peserta Didik */}
               <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left flex flex-col justify-between hover:border-stone-200 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-650 opacity-70" />
                 <div>
                   <div className="flex items-center justify-between mb-2 pl-2">
                     <div className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                      <span className="text-[8px] font-black text-amber-700 tracking-wider uppercase italic">DATABASE SANTRI</span>
+                      <span className="text-[8px] font-black text-amber-700 tracking-wider uppercase italic">DATABASE PESERTA DIDIK</span>
                     </div>
                     <span className="text-[9px] font-mono text-stone-400 font-bold bg-stone-50 px-2 py-0.5 rounded-md">Aktif</span>
                   </div>
@@ -397,7 +397,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   <div className="pl-2 mb-4">
                     <div className="bg-[#fcfaf6] p-3 rounded-xl border border-stone-100/60 flex flex-col">
                       <span className="text-[7px] text-stone-400 font-black uppercase tracking-wider block">TOTAL SISWA</span>
-                      <span className="text-2xl font-black text-[#3e2723] leading-tight mt-1">{students.length} Santri</span>
+                      <span className="text-2xl font-black text-[#3e2723] leading-tight mt-1">{students.length} Peserta Didik</span>
                       <span className="text-[8px] text-stone-400 mt-1 uppercase font-semibold">Database Pusat</span>
                     </div>
                   </div>
@@ -482,7 +482,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   {
                     id: 'catatan_perkembangan',
                     title: 'Laporan Catatan Siswa',
-                    desc: 'Input umpan balik, feedback akademik, serta evaluasi karakter dan prestasi santri.',
+                    desc: 'Input umpan balik, feedback akademik, serta evaluasi karakter dan prestasi peserta didik.',
                     icon: IdCard,
                     borderColor: 'group-hover:border-amber-600',
                     dotColor: 'bg-amber-500',
@@ -491,7 +491,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   {
                     id: 'dinding',
                     title: 'Dinding Akademik Kelas',
-                    desc: 'Forum interaksi, mading digital, pengumuman tugas, dan forum diskusi antar pengajar santri.',
+                    desc: 'Forum interaksi, mading digital, pengumuman tugas, dan forum diskusi antar pengajar peserta didik.',
                     icon: MessageSquare,
                     borderColor: 'group-hover:border-indigo-600',
                     dotColor: 'bg-indigo-500',
@@ -509,7 +509,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                   {
                     id: 'mading',
                     title: 'Mading Sekolah',
-                    desc: 'Kumpulan artikel mading santri, karya ilmiah remaja, cerpen santri, dan berita harian sekolah.',
+                    desc: 'Kumpulan artikel mading peserta didik, karya ilmiah remaja, cerpen peserta didik, dan berita harian sekolah.',
                     icon: BookOpen,
                     borderColor: 'group-hover:border-[#8b5e3c]',
                     dotColor: 'bg-[#8b5e3c]',

@@ -326,7 +326,7 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
                 </span>
               </div>
               <p className="text-slate-400 text-[10px] font-semibold mt-1 uppercase tracking-widest italic">
-                Evaluasi Tumbuh Kembang Santri
+                Evaluasi Tumbuh Kembang Peserta Didik
               </p>
             </div>
           </div>
@@ -430,7 +430,7 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
               <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white">
                 <div>
                   <h3 className="text-xl font-bold">Laporan Tumbuh Kembang Bulanan</h3>
-                  <p className="text-teal-100 text-sm">Input evaluasi perkembangan santri</p>
+                  <p className="text-teal-100 text-sm">Input evaluasi perkembangan peserta didik</p>
                 </div>
                 <button onClick={() => setShowForm(false)} className="hover:bg-teal-700 p-2 rounded-full transition-colors">
                   <X size={24} />
@@ -460,7 +460,7 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-sm font-semibold text-gray-700">Foto Profil Santri</label>
+                      <label className="text-sm font-semibold text-gray-700">Foto Profil Peserta Didik</label>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
                           {studentPhotoFile ? (

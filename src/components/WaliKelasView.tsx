@@ -494,7 +494,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                         <p className="text-5xl font-black font-display text-amber-200 italic shadow-amber-900/50">{permits.filter(p => p.status === 'pending_kelas').length}</p>
                       </div>
                       <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 border border-white/10 text-center relative">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white opacity-60 mb-3 italic">Total Santri</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white opacity-60 mb-3 italic">Total Peserta Didik</p>
                         <p className="text-5xl font-black font-display text-white italic">{students.length}</p>
                       </div>
                        <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 border border-white/10 text-center relative">

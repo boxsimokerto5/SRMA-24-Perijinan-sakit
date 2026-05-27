@@ -157,7 +157,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
     beranda: 'Pusat Kendali SRMA 24',
     statistik: 'Monitoring Statistik',
     memorandum: 'Kelola Memorandum',
-    pangkalan_data: 'Arsip Data Santri',
+    pangkalan_data: 'Arsip Data Peserta Didik',
     profil: 'Profil Pimpinan',
     mading: 'Mading Sekolah',
     agenda: 'Agenda Strategis',
@@ -286,7 +286,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-amber-50' : 'bg-[#fcfaf6] text-[#3e2723]'} font-sans antialiased selection:bg-[#3e2723] selection:text-white`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-white' : 'bg-[#fcfaf6] text-[#3e2723]'} font-sans antialiased selection:bg-[#3e2723] selection:text-white`}>
        <AnimatePresence>
         {showSidebar && (
           <>
@@ -295,67 +295,72 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSidebar(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
             />
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`fixed inset-y-0 left-0 w-[320px] z-[70] shadow-2xl flex flex-col ${isDarkMode ? 'bg-stone-900 border-white/5' : 'bg-white border-stone-100'}`}
+              className={`fixed inset-y-0 left-0 w-[280px] z-[70] shadow-2xl flex flex-col bg-slate-900 text-white border-r border-white/10`}
             >
-              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                <div className={`rounded-[3rem] p-8 mb-10 border shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-stone-950 border-white/5' : 'bg-[#fcfaf6] border-stone-200'}`}>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#3e2723]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-125 transition-transform" />
-                  <div className="relative z-10 flex flex-col items-center gap-6 text-center">
-                    <div className="w-20 h-20 bg-[#3e2723] rounded-[1.75rem] flex items-center justify-center shadow-2xl shadow-black/20 -rotate-3 transition-transform group-hover:rotate-0">
-                      <GraduationCap className="w-10 h-10 text-amber-200" />
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-6 font-sans">
+                  <div className={`rounded-[2.5rem] p-5 mb-8 border border-white/5 relative overflow-hidden group bg-stone-950`}>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-[#3e2723]/10 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
+                    <div className="flex items-center gap-4 relative z-10 font-display text-left">
+                      <Logo size="sm" showText={false} className="shadow-xl" />
+                      <div className="flex flex-col">
+                        <span className="font-black text-white text-base leading-tight tracking-tight uppercase italic text-amber-100">SRMA 24</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 italic text-amber-200/60`}>Principal Portal</span>
+                      </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-8 text-left">
                     <div>
-                      <h2 className="text-xl font-black tracking-tight italic uppercase leading-none font-display">Kepala Sekolah</h2>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mt-3 opacity-60 italic">SRMA 24 KEDIRI</p>
+                      <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-2 italic text-stone-500`}>MENU PIMPINAN</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { id: 'beranda', label: 'Pusat Kendali', icon: LayoutDashboard },
+                          { id: 'statistik', label: 'Monitor Analitik', icon: BarChart3 },
+                          { id: 'pangkalan_data', label: 'Arsip Peserta Didik', icon: Database },
+                          { id: 'perizinan_global', label: 'Log Perizinan', icon: ClipboardList },
+                          { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
+                          { id: 'agenda', label: 'Agenda Strategis', icon: Calendar },
+                          { id: 'announcements', label: 'Pengumuman', icon: Bell },
+                          { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
+                          { id: 'memorandum', label: 'Memorandum', icon: Mail },
+                          { id: 'profil', label: 'Profil Saya', icon: User }
+                        ].map((item: any) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setViewMode(item.id);
+                              setShowSidebar(false);
+                            }}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-sm font-black transition-all duration-300 italic ${
+                              viewMode === item.id 
+                                ? 'bg-[#3e2723] text-white shadow-xl shadow-black/40 border-b-4 border-black' 
+                                : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-amber-200' : 'text-stone-600'}`} />
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  {[
-                    { id: 'beranda', label: 'Pusat Kendali', icon: LayoutDashboard },
-                    { id: 'statistik', label: 'Monitor Analitik', icon: BarChart3 },
-                    { id: 'pangkalan_data', label: 'Arsip Santri', icon: Database },
-                    { id: 'perizinan_global', label: 'Log Perizinan', icon: ClipboardList },
-                    { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
-                    { id: 'agenda', label: 'Agenda Strategis', icon: Calendar },
-                    { id: 'announcements', label: 'Pengumuman', icon: Bell },
-                    { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
-                    { id: 'memorandum', label: 'Memorandum', icon: Mail },
-                    { id: 'profil', label: 'Profil Saya', icon: User }
-                  ].map((item: any) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setViewMode(item.id);
-                        setShowSidebar(false);
-                      }}
-                      className={`w-full flex items-center gap-5 px-6 py-4 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all italic border-b-4 ${
-                        viewMode === item.id 
-                          ? 'bg-[#3e2723] text-white border-black shadow-xl' 
-                          : 'text-stone-400 hover:text-[#3e2723] hover:bg-stone-50 border-transparent'
-                      }`}
-                    >
-                      <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-amber-200' : 'text-stone-300'}`} />
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
-               <div className="p-8 border-t border-stone-100">
+              <div className="p-6 border-t border-white/5 bg-stone-950">
                 <button
                   onClick={() => auth.signOut()}
-                  className="w-full flex items-center gap-5 px-6 py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest text-white bg-rose-600 border-b-4 border-rose-900 transition-all active:scale-95 shadow-lg shadow-rose-200 italic"
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest text-white bg-rose-600 border-b-4 border-rose-900 transition-all active:scale-95 shadow-lg shadow-rose-900/30 italic"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4" />
                   Logout Sistem
                 </button>
               </div>
@@ -364,39 +369,54 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
         )}
       </AnimatePresence>
 
-      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-[#3e2723]/80 border-white/5' : 'bg-[#fcfaf6]/80 border-stone-200'} backdrop-blur-xl border-b shadow-sm`}>
-        <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+      <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-stone-950/80 border-white/5' : 'bg-[#fcfaf6]/80 border-stone-200'} backdrop-blur-xl border-b shadow-sm`}>
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between relative font-sans">
+          <div className="flex items-center gap-3 text-left">
             <button
               onClick={() => setShowSidebar(true)}
-              className={`p-4 rounded-[1.25rem] transition-all duration-300 ${
+              className={`p-2 rounded-lg transition-all duration-300 ${
                 isDarkMode 
                   ? 'bg-stone-900 text-amber-200 shadow-lg shadow-black/20' 
-                  : 'bg-white text-[#3e2723] shadow-xl shadow-stone-200/50'
-              } active:scale-95 border border-stone-100/50`}
+                  : 'bg-white text-[#3e2723] shadow-sm border border-stone-100'
+              } active:scale-95`}
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
             <div className="flex flex-col">
-              <h1 className={`text-xl font-black uppercase tracking-tight font-display italic ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
+              <h1 className={`text-[11px] font-black uppercase tracking-widest font-display italic ${isDarkMode ? 'text-amber-200' : 'text-[#3e2723]'}`}>
                 {viewTitles[viewMode] || 'Dashboard'}
               </h1>
-              <div className="flex items-center gap-2 mt-1 text-left">
-                <span className="w-1.5 h-1.5 bg-[#3e2723] rounded-full animate-pulse opacity-30" />
-                <p className={`text-[9px] font-black uppercase tracking-[0.2em] opacity-40 italic ${isDarkMode ? 'text-amber-200/50' : 'text-[#3e2723]'}`}>Management Portal Strategis</p>
-              </div>
+              <p className={`text-[8px] font-bold uppercase tracking-widest opacity-50 italic ${isDarkMode ? 'text-amber-100' : 'text-[#8b5e3c]'}`}>
+                Principal Portal
+              </p>
             </div>
           </div>
-          <div className="hidden lg:flex items-center gap-3 bg-[#3e2723]/5 px-6 py-2 rounded-2xl border border-[#3e2723]/10">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#3e2723]/60 italic">
-              {formatRealTime(currentTime)}
-            </p>
+
+          <div className="flex items-center gap-3">
+             <button
+               onClick={() => setIsDarkMode(!isDarkMode)}
+               className={`w-9 h-9 flex items-center justify-center rounded-xl ${isDarkMode ? 'bg-stone-800 text-amber-200' : 'bg-white text-[#3e2723]'} shadow-sm border border-stone-100 transition-all active:scale-90`}
+             >
+               <Activity className={`w-4 h-4 transition-transform duration-500 ${isDarkMode ? 'rotate-180' : 'rotate-0'}`} />
+             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-10 pb-32 mt-10">
+      {/* Shrunken Real-time Clock Bar to match Wali Asrama */}
+      <div className="max-w-7xl mx-auto w-full px-4 mt-2">
+        <div className="p-[1px] rounded-lg bg-gradient-to-r from-[#d7ccc8]/30 via-[#8b5e3c]/30 to-[#d7ccc8]/30">
+          <div className="flex items-center justify-center gap-1.5 py-1 px-4 rounded-[calc(0.5rem-1px)] bg-white/80 backdrop-blur-sm">
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+            <p className="text-[7px] font-black uppercase tracking-[0.2em] flex items-center gap-1 text-[#5d4037] italic">
+              {formatRealTime(currentTime)}
+            </p>
+            <span className="w-1 h-1 bg-[#8b5e3c] rounded-full animate-ping" />
+          </div>
+        </div>
+      </div>
+
+      <main className={`p-4 ${viewMode === 'mading' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24`}>
         {viewMode === 'profil' && <ProfileView user={user} />}
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
@@ -416,7 +436,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                  </div>
                  <div className="grid grid-cols-2 gap-4">
                     <div className="p-8 bg-white/10 backdrop-blur-md rounded-[2.5rem] border border-white/10 text-center min-w-[180px]">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/60 mb-2">Total Santri</p>
+                       <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/60 mb-2">Total Peserta Didik</p>
                        <p className="text-5xl font-black text-white italic">{stats.totalSiswa}</p>
                     </div>
                     <div className="p-8 bg-white/10 backdrop-blur-md rounded-[2.5rem] border border-white/10 text-center min-w-[180px]">
@@ -910,7 +930,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                       <h1 className="text-4xl font-black font-display tracking-tight leading-none italic uppercase">Cek Ketidakhadiran</h1>
                     </div>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ebdccb]/70 mt-3 italic leading-relaxed">
-                      Monitoring & Audit Riwayat Ketidakhadiran Santri oleh Wali Asuh / Wali Asrama
+                      Monitoring & Audit Riwayat Ketidakhadiran Peserta Didik oleh Wali Asuh / Wali Asrama
                     </p>
                   </div>
                 </div>
@@ -965,7 +985,7 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
               <div className="relative max-w-sm w-full md:self-center">
                 <input
                   type="text"
-                  placeholder="Cari kegiatan, kelas, atau nama santri..."
+                  placeholder="Cari kegiatan, kelas, atau nama peserta didik..."
                   value={khSearchTerm}
                   onChange={(e) => setKhSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-6 py-4 bg-white border border-[#ebdccb] rounded-2xl text-xs font-bold text-[#3e2723] shadow-inner focus:outline-none focus:ring-2 focus:ring-[#3e2723]/35 placeholder-stone-400 italic"
