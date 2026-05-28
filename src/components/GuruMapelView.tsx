@@ -52,6 +52,7 @@ import Logo from './Logo';
 import AgendaView from './AgendaView';
 import WallView from './WallView';
 import ProgressRecordsView from './ProgressRecordsView';
+import SarprasAsramaView from './SarprasAsramaView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface GuruMapelViewProps {
@@ -60,7 +61,7 @@ interface GuruMapelViewProps {
 }
 
 export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
-  const [viewMode, setViewMode] = useState<'beranda' | 'catatan_perkembangan' | 'request_fasilitas' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'dinding'>('beranda');
+  const [viewMode, setViewMode] = useState<'beranda' | 'catatan_perkembangan' | 'request_fasilitas' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'dinding' | 'sarpras_asrama'>('beranda');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -217,6 +218,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                         {[
                           { id: 'beranda', label: 'Dashboard', icon: LayoutDashboard },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: IdCard },
+                          { id: 'sarpras_asrama', label: 'Sarpras Asrama', icon: Wrench },
                           { id: 'agenda', label: 'Agenda Akademik', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Kelas', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
@@ -354,6 +356,7 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {viewMode === 'agenda' && <AgendaView user={user} />}
         {viewMode === 'dinding' && <WallView user={user} wallType="kelas" title="Dinding Kelas" />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'sarpras_asrama' && <SarprasAsramaView user={user} />}
 
         {viewMode === 'beranda' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 text-left">

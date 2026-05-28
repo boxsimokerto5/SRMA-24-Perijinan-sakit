@@ -232,6 +232,9 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     asrama: ''
   });
   const [submittingSarpras, setSubmittingSarpras] = useState(false);
+  const [selectedSarprasForTindakan, setSelectedSarprasForTindakan] = useState<SarprasReport | null>(null);
+  const [tindakanStatus, setTindakanStatus] = useState<'pending' | 'on_progress' | 'fixed'>('on_progress');
+  const [tindakanKeterangan, setTindakanKeterangan] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -597,6 +600,45 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
       alert('Laporan berhasil dikirim');
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'sarpras_reports');
+    } finally {
+      setSubmittingSarpras(false);
+    }
+  };
+
+  const handleSaveTindakanLanjut = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSarprasForTindakan) return;
+
+    setSubmittingSarpras(true);
+    try {
+      const newAction = {
+        waktu: Timestamp.now(),
+        oleh_name: user.name,
+        oleh_role: user.role === 'wali_asuh' ? 'Wali Asuh' : (user.role === 'wali_asrama' ? 'Wali Asrama' : user.role),
+        tindakan: tindakanKeterangan
+      };
+
+      const updatedTindakanList = [
+        ...(selectedSarprasForTindakan.tindakan_list || []),
+        newAction
+      ];
+
+      await updateDoc(doc(db, 'sarpras_reports', selectedSarprasForTindakan.id!), {
+        status: tindakanStatus,
+        tindakan_list: updatedTindakanList,
+        tindakan_oleh_name: user.name,
+        tindakan_oleh_role: user.role === 'wali_asuh' ? 'Wali Asuh' : (user.role === 'wali_asrama' ? 'Wali Asrama' : user.role),
+        tgl_tindakan: Timestamp.now(),
+        keterangan_tindakan: tindakanKeterangan,
+        updatedAt: serverTimestamp()
+      });
+
+      setSelectedSarprasForTindakan(null);
+      setTindakanKeterangan('');
+      alert('Tindak lanjut berhasil disimpan!');
+    } catch (err) {
+      console.error('Error updating sarpras follow up:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `sarpras_reports/${selectedSarprasForTindakan.id}`);
     } finally {
       setSubmittingSarpras(false);
     }
@@ -2164,6 +2206,72 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                            "{report.damage_description}"
                          </p>
                       </div>
+
+                      {/* Actions chronological log (adopted from Jurnal Keperawatan) */}
+                      {(() => {
+                        const actions = report.tindakan_list || (report.keterangan_tindakan ? [{
+                          waktu: report.tgl_tindakan || report.tgl_lapor,
+                          oleh_name: report.tindakan_oleh_name || 'Petugas',
+                          oleh_role: report.tindakan_oleh_role || 'Staff',
+                          tindakan: report.keterangan_tindakan
+                        }] : []);
+
+                        if (actions.length === 0) {
+                          return (
+                            <div className="p-3 bg-[#fcfaf6] rounded-xl text-center border border-dashed border-[#ebdccb]/30">
+                              <p className="text-[9px] font-bold text-stone-400 uppercase italic">Belum ada tindakan lanjut</p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-2 mt-2 bg-stone-50 border border-stone-100 rounded-xl p-3">
+                            <span className="text-[8px] font-black text-[#5d4037] uppercase tracking-widest block">Riwayat Tindakan Perbaikan ({actions.length})</span>
+                            <div className="border-l border-[#ebdccb] pl-3.5 py-1 space-y-3">
+                              {actions.map((action, actionIdx) => {
+                                const actionD = action.waktu?.toDate ? action.waktu.toDate() : new Date();
+                                return (
+                                  <div key={actionIdx} className="relative text-left">
+                                    <div className="absolute -left-[18px] top-1.5 w-1.5 h-1.5 rounded-full bg-[#5d4037] border border-white" />
+                                    <div className="text-[10px] leading-relaxed">
+                                      <span className="font-semibold text-slate-700">{action.tindakan}</span>
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-[8px] text-[#8d6e63]/85 font-black uppercase italic">
+                                          Oleh: {action.oleh_name} ({action.oleh_role})
+                                        </span>
+                                        <span className="text-[7.5px] font-semibold text-stone-400 font-mono">
+                                          {format(actionD, 'd MMM • HH:mm', { locale: id })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Footer with action buttons */}
+                      <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                        <span className="text-[8.5px] font-bold text-stone-400 uppercase tracking-widest font-mono">
+                          PELAPOR: {report.author_name}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setSelectedSarprasForTindakan(report);
+                              setTindakanStatus(report.status || 'on_progress');
+                              setTindakanKeterangan('');
+                            }}
+                            className="flex items-center gap-1.5 py-1.5 px-3 bg-[#3e2723] hover:bg-black text-[9px] text-white font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 shadow-sm shrink-0"
+                          >
+                            <Check className="w-3 h-3 text-amber-200" />
+                            Tindak Lanjut
+                          </button>
+                        </div>
+                      </div>
+
                     </div>
                   </motion.div>
                 ))}
@@ -2175,6 +2283,86 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                 <p className="text-[10px] font-black text-stone-200 uppercase tracking-[0.2em] italic">No active maintenance reports</p>
               </div>
             )}
+
+            {/* Modal Pop Up Tindak Lanjut */}
+            <AnimatePresence>
+              {selectedSarprasForTindakan && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    className="bg-white rounded-[2.5rem] border border-[#ebdccb] shadow-2xl max-w-md w-full overflow-hidden text-left"
+                  >
+                    <div className="bg-[#5d4037] p-6 text-white relative">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[8px] font-black tracking-widest bg-white/15 px-2.5 py-0.5 rounded uppercase font-mono">FOLLOW UP ACTIONS</span>
+                          <h3 className="text-lg font-black uppercase tracking-tight font-display mt-1">Tindak Lanjut Kerusakan</h3>
+                        </div>
+                        <button
+                          onClick={() => setSelectedSarprasForTindakan(null)}
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-[#f5ebe0] transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSaveTindakanLanjut} className="p-6 space-y-4">
+                      <div className="bg-[#fcfaf6] p-4 rounded-xl border border-[#ebdccb]/30 space-y-1">
+                        <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest block">Detail Item Kerusakan</span>
+                        <h4 className="text-xs font-black text-[#5d4037] uppercase">{selectedSarprasForTindakan.item_name}</h4>
+                        <p className="text-[10px] text-stone-500 font-sans italic">"{selectedSarprasForTindakan.damage_description}"</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Status Terbaru</label>
+                        <select
+                          value={tindakanStatus}
+                          onChange={(e) => setTindakanStatus(e.target.value as any)}
+                          className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-bold text-[#3e2723] font-sans"
+                        >
+                          <option value="pending">🟡 Pending (Belum Ditangani)</option>
+                          <option value="on_progress">🔵 Proses (Sedang Diperbaiki)</option>
+                          <option value="fixed">🟢 Selesai (Sudah Diperbaiki)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase tracking-wider text-[#8b5e3c] block">Catatan Tindakan Lengkap</label>
+                        <textarea
+                          rows={3}
+                          placeholder="Contoh: Lampu telah diganti baru oleh tim sarpras asrama pada sore hari tadi."
+                          value={tindakanKeterangan}
+                          onChange={(e) => setTindakanKeterangan(e.target.value)}
+                          required
+                          className="w-full px-4 py-3 bg-[#fcfaf6] border border-[#ebdccb]/60 rounded-xl focus:ring-2 focus:ring-[#3e2723] outline-none text-xs font-semibold text-stone-800 font-sans"
+                        />
+                      </div>
+
+                      <div className="pt-4 border-t border-[#ebdccb]/40 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSarprasForTindakan(null)}
+                          className="flex-1 py-3 bg-[#f5ebe0] hover:bg-[#e3d5ca] text-[#3e2723] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingSarpras}
+                          className="flex-1 py-3 bg-[#3e2723] hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 shadow-md"
+                        >
+                          {submittingSarpras && <Loader2 className="w-4 h-4 animate-spin" />}
+                          Simpan Tindakan
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       )}

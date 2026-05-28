@@ -522,17 +522,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   }, []);
 
   React.useEffect(() => {
-    // Only fetch records for the current user if they are wali_asuh, unless they are admin/kepsek
-    const pinjamQuery = user.role === 'wali_asuh' 
-      ? query(
-          collection(db, 'pinjam_hp'),
-          where('wali_asuh_uid', '==', user.uid),
-          orderBy('tgl_pinjam', 'desc')
-        )
-      : query(
-          collection(db, 'pinjam_hp'),
-          orderBy('tgl_pinjam', 'desc')
-        );
+    const pinjamQuery = query(
+      collection(db, 'pinjam_hp'),
+      orderBy('tgl_pinjam', 'desc')
+    );
 
     const unsubscribe = onSnapshot(pinjamQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => {
@@ -827,11 +820,23 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
     setLoading(true);
     try {
+      const newAction = {
+        waktu: Timestamp.now(),
+        oleh_name: user.name,
+        oleh_role: user.role === 'wali_asuh' ? 'Wali Asuh' : (user.role === 'wali_asrama' ? 'Wali Asrama' : user.role),
+        tindakan: tindakanKeterangan
+      };
+
+      const updatedTindakanList = [
+        ...(selectedSarprasForTindakan.tindakan_list || []),
+        newAction
+      ];
+
       await updateDoc(doc(db, 'sarpras_reports', selectedSarprasForTindakan.id!), {
         status: tindakanStatus,
+        tindakan_list: updatedTindakanList,
         tindakan_oleh_name: user.name,
-        tindakan_oleh_role: user.role === 'wali_asuh' ? 'Wali Asuh' : 'Wali Asrama',
-        tindakan_oleh_uid: user.uid,
+        tindakan_oleh_role: user.role === 'wali_asuh' ? 'Wali Asuh' : (user.role === 'wali_asrama' ? 'Wali Asrama' : user.role),
         tgl_tindakan: Timestamp.now(),
         keterangan_tindakan: tindakanKeterangan,
         updatedAt: serverTimestamp()
@@ -2160,28 +2165,49 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           </p>
                         </div>
 
-                        {report.tindakan_oleh_name ? (
-                          <div className="bg-[#f5ebe0]/40 border border-[#ebdccb]/40 rounded-2xl p-3 space-y-1">
-                            <div className="flex items-center gap-1.5 text-[9px] font-black text-[#5d4037] uppercase tracking-wider">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              <span>Tindak Lanjut Oleh: {report.tindakan_oleh_name}</span>
+                        {(() => {
+                          const actions = report.tindakan_list || (report.keterangan_tindakan ? [{
+                            waktu: report.tgl_tindakan || report.tgl_lapor,
+                            oleh_name: report.tindakan_oleh_name || 'Petugas',
+                            oleh_role: report.tindakan_oleh_role || 'Staff',
+                            tindakan: report.keterangan_tindakan
+                          }] : []);
+
+                          if (actions.length === 0) {
+                            return (
+                              <div className="p-3 bg-[#fcfaf6] rounded-xl text-center border border-dashed border-[#ebdccb]/30">
+                                <p className="text-[9px] font-bold text-[#8d6e63]/60 uppercase italic">Belum ada tindakan lanjut</p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-2 mt-2 bg-[#f5ebe0]/20 border border-[#ebdccb]/40 rounded-2xl p-4">
+                              <span className="text-[8px] font-black text-[#5d4037] uppercase tracking-widest block">Riwayat Tindakan Perbaikan ({actions.length})</span>
+                              <div className="border-l-2 border-[#ebdccb] pl-4 py-1.5 space-y-3.5">
+                                {actions.map((action, actionIdx) => {
+                                  const actionD = action.waktu?.toDate ? action.waktu.toDate() : new Date();
+                                  return (
+                                    <div key={actionIdx} className="relative text-left">
+                                      <div className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-[#5d4037] border border-white" />
+                                      <div className="text-[10.5px] leading-relaxed">
+                                        <span className="font-semibold text-slate-800 font-sans">{action.tindakan}</span>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-[8px] font-black text-[#8d6e63]/85 uppercase italic">
+                                            Oleh: {action.oleh_name} ({action.oleh_role})
+                                          </span>
+                                          <span className="text-[7.5px] font-semibold text-stone-400 font-mono">
+                                            {format(actionD, 'd MMM • HH:mm', { locale: id })}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            {report.keterangan_tindakan && (
-                              <p className="text-[10.5px] text-stone-600 font-sans italic pl-5 leading-normal">
-                                "{report.keterangan_tindakan}"
-                              </p>
-                            )}
-                            {report.tgl_tindakan && (
-                              <p className="text-[8px] text-[#8d6e63]/60 font-mono text-right mt-1">
-                                Diupdate: {report.tgl_tindakan?.toDate ? format(report.tgl_tindakan.toDate(), 'd MMM yyyy HH:mm', { locale: id }) : ''} WIB
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="p-3 bg-[#fcfaf6] rounded-xl text-center border border-dashed border-[#ebdccb]/30">
-                            <p className="text-[9px] font-bold text-[#8d6e63]/60 uppercase italic">Belum ada tindakan lanjut</p>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
 
                       {/* Footer with action buttons */}

@@ -284,11 +284,11 @@ service cloud.firestore {
     }
 
     match /pinjam_hp/{pinjamId} {
-      allow list: if isSignedIn() && (isAdmin() || resource.data.wali_asuh_uid == request.auth.uid);
+      allow list: if isSignedIn();
       allow get: if isSignedIn() && isValidId(pinjamId);
-      allow create: if (hasRole('wali_asuh') || isAdmin()) && isValidId(pinjamId);
-      allow update: if (hasRole('wali_asuh') || isAdmin()) && isValidId(pinjamId);
-      allow delete: if isAdmin() || (isSignedIn() && existing().wali_asuh_uid == request.auth.uid);
+      allow create: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin()) && isValidId(pinjamId);
+      allow update: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin()) && isValidId(pinjamId);
+      allow delete: if isAdmin() || (isSignedIn() && (existing().wali_asuh_uid == request.auth.uid || hasRole('wali_asrama')));
     }
 
     match /siswa/{siswaId} {

@@ -271,6 +271,13 @@ export interface DormitoryIncident {
   createdAt: Timestamp;
 }
 
+export interface SarprasTindakan {
+  waktu: Timestamp;
+  oleh_name: string;
+  oleh_role: string;
+  tindakan: string;
+}
+
 export interface SarprasReport {
   id?: string;
   asrama: string;
@@ -285,6 +292,7 @@ export interface SarprasReport {
   tindakan_oleh_role?: string;
   tgl_tindakan?: Timestamp;
   keterangan_tindakan?: string;
+  tindakan_list?: SarprasTindakan[];
 }
 
 export interface Ketidakhadiran {
