@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal, StudentCounseling, DormitoryLoss } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -2935,6 +2935,261 @@ export const generateJurnalKeperawatanSummaryPDF = async (
     doc.save(fileName);
   }
 };
+
+export const generateCounselingReportPDF = async (data: StudentCounseling[], periodLabel: string, userName: string) => {
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const { format } = await import('date-fns');
+  const { id } = await import('date-fns/locale');
+
+  const dataToPrint = [...data].sort((a, b) => {
+    const da = a.tgl_konseling?.toDate ? a.tgl_konseling.toDate().getTime() : 0;
+    const db = b.tgl_konseling?.toDate ? b.tgl_konseling.toDate().getTime() : 0;
+    return da - db;
+  });
+
+  if (dataToPrint.length === 0) {
+    alert('Tidak ada data konseling untuk dicetak.');
+    return;
+  }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+
+  // Header Theme KOP
+  doc.setFontSize(14);
+  doc.setTextColor(30, 41, 59);
+  doc.text('ASRAMA SRMA 24 KEDIRI', centerX, 15, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REKAPITULASI CATATAN KONSELING SISWA', centerX, 25, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Periode: ${periodLabel}`, centerX, 33, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(16, 185, 129); // Emerald-500
+  doc.line(20, 36, pageWidth - 20, 36);
+
+  const tableData = dataToPrint.map(item => [
+    item.tgl_konseling?.toDate ? format(item.tgl_konseling.toDate(), 'dd/MM/yyyy HH:mm', { locale: id }) : '-',
+    item.siswa_name,
+    item.kelas,
+    item.kategori,
+    item.permasalahan,
+    item.solusi,
+    item.perkembangan,
+    item.author_name
+  ]);
+
+  autoTable(doc, {
+    startY: 42,
+    head: [['Waktu', 'Siswa', 'Kelas', 'Kategori', 'Permasalahan', 'Solusi', 'Perkembangan', 'Konselor']],
+    body: tableData,
+    theme: 'grid',
+    styles: { 
+      overflow: 'linebreak', 
+      cellPadding: 2, 
+      fontSize: 8, 
+      valign: 'top',
+      font: 'helvetica',
+      textColor: [50, 50, 50]
+    },
+    headStyles: { 
+      fillColor: [16, 185, 129], // Emerald-500
+      textColor: [255, 255, 255], 
+      fontSize: 8, 
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { cellWidth: 25, halign: 'center' }, // Waktu
+      1: { cellWidth: 30 }, // Siswa
+      2: { cellWidth: 12, halign: 'center' }, // Kelas
+      3: { cellWidth: 20 }, // Kategori
+      4: { cellWidth: 'auto', halign: 'justify' }, // Permasalahan
+      5: { cellWidth: 'auto', halign: 'justify' }, // Solusi
+      6: { cellWidth: 'auto', halign: 'justify' }, // Perkembangan
+      7: { cellWidth: 25 } // Konselor
+    },
+    margin: { left: 15, right: 15 }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, Math.min(finalY, pageHeight - 10));
+  
+  const signatureX = pageWidth - 60;
+  const sigY = Math.min(finalY, pageHeight - 60);
+
+  doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+  doc.text('Konselor / Wali Asuh', signatureX, sigY + 5, { align: 'center' });
+  
+  try {
+    const qrDataUrl = await QRCode.toDataURL(userName);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
+  } catch (e) {
+    console.error("QR Error", e);
+  }
+  
+  doc.setFontSize(10);
+  doc.text(userName, signatureX, sigY + 40, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
+
+  const fileName = `Rekap_Konseling_Siswa_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Rekap Konseling Siswa',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateLossesReportPDF = async (data: DormitoryLoss[], periodLabel: string, userName: string) => {
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const { format } = await import('date-fns');
+  const { id } = await import('date-fns/locale');
+
+  const dataToPrint = [...data].sort((a, b) => {
+    const da = a.tgl_kehilangan?.toDate ? a.tgl_kehilangan.toDate().getTime() : 0;
+    const db = b.tgl_kehilangan?.toDate ? b.tgl_kehilangan.toDate().getTime() : 0;
+    return da - db;
+  });
+
+  if (dataToPrint.length === 0) {
+    alert('Tidak ada data kehilangan untuk dicetak.');
+    return;
+  }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+
+  // Header Theme KOP (Nuansa Coklat #3e2723)
+  doc.setFontSize(14);
+  doc.setTextColor(62, 39, 35); // Dark Brown
+  doc.text('ASRAMA SRMA 24 KEDIRI', centerX, 15, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REKAPITULASI CATATAN KEHILANGAN DI ASRAMA', centerX, 25, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(93, 64, 37); // Brown
+  doc.text(`Periode: ${periodLabel}`, centerX, 33, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(93, 64, 37); // Brown
+  doc.line(20, 36, pageWidth - 20, 36);
+
+  const tableData = dataToPrint.map(item => [
+    item.tgl_kehilangan?.toDate ? format(item.tgl_kehilangan.toDate(), 'dd/MM/yyyy HH:mm', { locale: id }) : '-',
+    item.siswa_name,
+    item.kelas,
+    item.nama_barang,
+    item.deskripsi_barang,
+    item.lokasi_terakhir,
+    item.status,
+    item.perkembangan || '-',
+    item.author_name
+  ]);
+
+  autoTable(doc, {
+    startY: 42,
+    head: [['Waktu Hilang', 'Siswa', 'Kelas', 'Nama Barang', 'Deskripsi Barang', 'Lokasi Terakhir', 'Status', 'Perkembangan/Tindak Lanjut', 'Pelapor']],
+    body: tableData,
+    theme: 'grid',
+    styles: { 
+      overflow: 'linebreak', 
+      cellPadding: 2, 
+      fontSize: 8, 
+      valign: 'top',
+      font: 'helvetica',
+      textColor: [50, 50, 50]
+    },
+    headStyles: { 
+      fillColor: [93, 64, 37], // Brown
+      textColor: [255, 255, 255], 
+      fontSize: 8, 
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { cellWidth: 25, halign: 'center' }, // Waktu Hilang
+      1: { cellWidth: 25 }, // Siswa
+      2: { cellWidth: 12, halign: 'center' }, // Kelas
+      3: { cellWidth: 25 }, // Nama Barang
+      4: { cellWidth: 40 }, // Deskripsi Barang
+      5: { cellWidth: 25 }, // Lokasi Terakhir
+      6: { cellWidth: 25, halign: 'center' }, // Status
+      7: { cellWidth: 'auto' }, // Perkembangan
+      8: { cellWidth: 25 } // Pelapor
+    },
+    margin: { left: 15, right: 15 }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Dicetak pada: ${format(new Date(), 'dd MMMM yyyy HH:mm', { locale: id })}`, 20, Math.min(finalY, pageHeight - 10));
+  
+  const signatureX = pageWidth - 60;
+  const sigY = Math.min(finalY, pageHeight - 60);
+
+  doc.setFontSize(10);
+  doc.setTextColor(62, 39, 35);
+  doc.text('Mengetahui,', signatureX, sigY, { align: 'center' });
+  doc.text('Wali Asrama / Wali Asuh', signatureX, sigY + 5, { align: 'center' });
+  
+  try {
+    const qrDataUrl = await QRCode.toDataURL(userName);
+    doc.addImage(qrDataUrl, 'PNG', signatureX - 12.5, sigY + 8, 25, 25);
+  } catch (e) {
+    console.error("QR Error", e);
+  }
+  
+  doc.setFontSize(10);
+  doc.text(userName, signatureX, sigY + 40, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Digital Signature (Verified)', signatureX, sigY + 44, { align: 'center' });
+
+  const fileName = `Rekap_Kehilangan_Dormitory_${Date.now()}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Rekap Kehilangan di Asrama',
+        url: savedFile.uri
+      });
+    } catch (error) {
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
 
 
 

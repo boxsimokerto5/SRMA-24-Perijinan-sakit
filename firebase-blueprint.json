@@ -249,6 +249,44 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["nomor_surat", "tgl_absen", "keterangan_kegiatan", "kelas", "daftar_siswa", "deskripsi", "author_name", "author_uid", "author_role", "createdAt"]
+    },
+    "StudentCounseling": {
+      "title": "Student Counseling",
+      "description": "Student counseling input notes and records",
+      "type": "object",
+      "properties": {
+        "siswa_name": { "type": "string" },
+        "kelas": { "type": "string" },
+        "tgl_konseling": { "type": "string", "format": "date-time" },
+        "kategori": { "type": "string" },
+        "permasalahan": { "type": "string" },
+        "solusi": { "type": "string" },
+        "perkembangan": { "type": "string" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "author_email": { "type": "string" }
+      },
+      "required": ["siswa_name", "kelas", "tgl_konseling", "kategori", "permasalahan", "solusi", "perkembangan", "author_name", "author_uid", "author_email"]
+    },
+    "DormitoryLoss": {
+      "title": "Dormitory Loss",
+      "description": "Lost items and incident records in dormitory",
+      "type": "object",
+      "properties": {
+        "siswa_name": { "type": "string" },
+        "kelas": { "type": "string" },
+        "tgl_kehilangan": { "type": "string", "format": "date-time" },
+        "nama_barang": { "type": "string" },
+        "deskripsi_barang": { "type": "string" },
+        "lokasi_terakhir": { "type": "string" },
+        "status": { "type": "string", "enum": ["Belum Ditemukan", "Ditemukan", "Telah Diganti"] },
+        "perkembangan": { "type": "string" },
+        "author_name": { "type": "string" },
+        "author_uid": { "type": "string" },
+        "author_role": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["siswa_name", "kelas", "tgl_kehilangan", "nama_barang", "deskripsi_barang", "lokasi_terakhir", "status", "perkembangan", "author_name", "author_uid", "author_role", "createdAt"]
     }
   },
   "firestore": {
@@ -311,6 +349,14 @@
     "/ketidakhadiran/{khId}": {
       "schema": "Ketidakhadiran",
       "description": "Activity level and class-level attendance tracking and absence records"
+    },
+    "/student_counselings/{counselingId}": {
+      "schema": "StudentCounseling",
+      "description": "Student counseling input notes and records"
+    },
+    "/dormitory_losses/{lossId}": {
+      "schema": "DormitoryLoss",
+      "description": "Dormitory lost items and incident status tracking"
     }
   }
 }

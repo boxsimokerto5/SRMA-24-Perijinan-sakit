@@ -11,7 +11,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate } from '../types';
@@ -30,6 +30,8 @@ import WallView from './WallView';
 import DormitoryIncidentsView from './DormitoryIncidentsView';
 import EvaluationNotesView from './EvaluationNotesView';
 import JurnalKeperawatanView from './JurnalKeperawatanView';
+import StudentCounselingView from './StudentCounselingView';
+import DormitoryLossesView from './DormitoryLossesView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -51,7 +53,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'jurnal_keperawatan'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'konseling_siswa' | 'kehilangan_di_asrama'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -1310,7 +1312,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     mading: 'Mading Sekolah',
     sarpras_asrama: 'Sarpras Asrama',
     laporan_bulanan: 'Laporan Bulanan',
-    jurnal_keperawatan: 'Jurnal Keperawatan'
+    jurnal_keperawatan: 'Jurnal Keperawatan',
+    konseling_siswa: 'Konseling Siswa',
+    kehilangan_di_asrama: 'Kehilangan di Asrama'
   };
 
   const getRoleLabel = (role: string) => {
@@ -1377,6 +1381,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'dinding', label: 'Dinding Wali Asuh', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
+                           { id: 'konseling_siswa', label: 'Konseling Siswa', icon: Contact },
+                           { id: 'kehilangan_di_asrama', label: 'Kehilangan di Asrama', icon: Package },
                           { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
                           { id: 'catatan_evaluasi', label: 'Evaluasi Asrama', icon: FileText },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
@@ -1641,6 +1647,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'catatan_kejadian' && <DormitoryIncidentsView user={user} />}
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
+        {viewMode === 'konseling_siswa' && <StudentCounselingView user={user} students={students} />}
+        {viewMode === 'kehilangan_di_asrama' && <DormitoryLossesView user={user} students={students} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
         {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
 
@@ -4607,21 +4615,22 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       {/* Modal Detail Siswa */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 bg-indigo-600 flex items-center justify-between relative overflow-hidden shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#3e2723]/75 backdrop-blur-md animate-in fade-in duration-250">
+          <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(62,39,35,0.35)] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] border-b-8 border-[#5d4037]">
+            {/* Modal Header inside rich cozy brown palette */}
+            <div className="p-6 border-b border-[#ebdccb]/40 bg-[#5d4037] flex items-center justify-between relative overflow-hidden shrink-0">
                <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,rgba(255,255,255,1)_1px,transparent_0)] bg-[size:16px_16px]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,#ebdccb_1px,transparent_0)] bg-[size:16px_16px]" />
               </div>
               <div className="flex items-center gap-3 relative z-10">
-                <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl border border-white/20">
-                  <GraduationCap className="w-5 h-5 text-white" />
+                <div className="p-2.5 bg-[#fdfcf0]/20 backdrop-blur-md rounded-2xl border border-white/20">
+                  <GraduationCap className="w-5 h-5 text-amber-100" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white uppercase tracking-tight">
+                  <h3 className="font-black text-[#fdfcf0] uppercase tracking-wider text-sm leading-tight">
                     {isEditingStudent ? 'Edit Data Siswa' : 'Profil Lengkap Siswa'}
                   </h3>
-                  <p className="text-[10px] text-indigo-100 font-mono uppercase tracking-widest">SRMA 24 KEDIRI • SEKOLAH RAKYAT</p>
+                  <p className="text-[9px] text-amber-200/80 font-mono uppercase tracking-widest mt-0.5">SRMA 24 KEDIRI • KARTU DATA DIGITAL</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 relative z-10">
@@ -4631,9 +4640,9 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       setIsEditingStudent(true);
                       setEditStudentData({ ...selectedStudent });
                     }}
-                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all border border-white/10 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest"
                   >
-                    <Settings className="w-4 h-4" />
+                    <Settings className="w-3.5 h-3.5 text-amber-200" />
                     Edit Data
                   </button>
                 )}
@@ -4642,114 +4651,136 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     setSelectedStudent(null);
                     setIsEditingStudent(false);
                   }}
-                  className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
+                  className="p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors text-white"
                 >
-                  <Plus className="w-6 h-6 rotate-45" />
+                  <Plus className="w-6 h-6 rotate-45 text-amber-100" />
                 </button>
               </div>
-              <div className="absolute -right-12 -top-12 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+              <div className="absolute -right-12 -top-12 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
             </div>
             
-            <div className="p-8 space-y-8 flex-1 overflow-y-auto custom-scrollbar min-h-0">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar bg-white min-h-0">
               {isEditingStudent ? (
-                <div className="space-y-8">
+                <div className="space-y-6 text-left">
                   {/* Edit Identity Section */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Identitas Dasar</h4>
-                      <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] italic border-b border-[#f8f3ed] pb-1">Identitas Dasar</h4>
+                      <div className="space-y-3">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nama Lengkap</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Nama Lengkap</label>
                           <input 
                             type="text"
                             value={editStudentData.nama_lengkap || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, nama_lengkap: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">NIK</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">NISN</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.nisn || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, nisn: e.target.value })}
+                              placeholder="NISN siswa..."
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">NIK</label>
                             <input 
                               type="text"
                               value={editStudentData.nik || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, nik: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Kelas</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Kelas</label>
                             <select 
                               value={editStudentData.kelas || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, kelas: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             >
                               {['X-1', 'X-2', 'X-3', 'X-4', 'XI-1', 'XI-2', 'XI-3', 'XI-4', 'XII-1', 'XII-2', 'XII-3', 'XII-4'].map(k => (
                                 <option key={k} value={k}>{k}</option>
                               ))}
                             </select>
                           </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Tempat Lahir</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Asrama</label>
+                            <input 
+                              type="text"
+                              value={editStudentData.asrama || ''}
+                              onChange={(e) => setEditStudentData({ ...editStudentData, asrama: e.target.value })}
+                              placeholder="Nama Asrama..."
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Tempat Lahir</label>
                             <input 
                               type="text"
                               value={editStudentData.tempat_lahir || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, tempat_lahir: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Tanggal Lahir</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Tanggal Lahir</label>
                             <input 
                               type="text"
                               value={editStudentData.tanggal_lahir || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, tanggal_lahir: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                               placeholder="DD-MM-YYYY"
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Agama</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Agama</label>
                             <input 
                               type="text"
                               value={editStudentData.agama || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, agama: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Umur</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Umur</label>
                             <input 
                               type="number"
                               value={editStudentData.umur || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, umur: parseInt(e.target.value) || 0 })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Jenis Kelamin</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Jenis Kelamin</label>
                             <select 
                               value={editStudentData.jenis_kelamin || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, jenis_kelamin: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             >
                               <option value="Laki-laki">Laki-laki</option>
                               <option value="Perempuan">Perempuan</option>
                             </select>
                           </div>
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nomor KK</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Nomor KK</label>
                             <input 
                               type="text"
                               value={editStudentData.nomor_kk || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, nomor_kk: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
                         </div>
@@ -4757,43 +4788,43 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Data Orang Tua</h4>
-                      <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] italic border-b border-[#f8f3ed] pb-1">Data Orang Tua</h4>
+                      <div className="space-y-3">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nama Ayah</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Nama Ayah</label>
                           <input 
                             type="text"
                             value={editStudentData.ayah || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, ayah: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Nama Ibu</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Nama Ibu</label>
                           <input 
                             type="text"
                             value={editStudentData.ibu || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, ibu: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Anak Ke</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Anak Ke</label>
                             <input 
                               type="number"
                               value={editStudentData.anak_ke || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, anak_ke: parseInt(e.target.value) || 1 })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Jumlah Saudara</label>
+                            <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Jumlah Saudara</label>
                             <input 
                               type="number"
                               value={editStudentData.saudara || ''}
                               onChange={(e) => setEditStudentData({ ...editStudentData, saudara: parseInt(e.target.value) || 1 })}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                              className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                             />
                           </div>
                         </div>
@@ -4801,55 +4832,55 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Data Domisili</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4 pt-2">
+                    <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] italic border-b border-[#f8f3ed] pb-1">Data Domisili</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="md:col-span-2">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Alamat Jalan</label>
+                        <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Alamat Jalan</label>
                         <textarea 
                           value={editStudentData.alamat || ''}
                           onChange={(e) => setEditStudentData({ ...editStudentData, alamat: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold min-h-[80px]"
+                          className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold min-h-[60px] text-[#3e2723]"
                           placeholder="Alamat lengkap..."
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">RT</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">RT</label>
                           <input 
                             type="text"
                             value={editStudentData.rt || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, rt: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">RW</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">RW</label>
                           <input 
                             type="text"
                             value={editStudentData.rw || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, rw: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Kelurahan</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Kelurahan</label>
                           <input 
                             type="text"
                             value={editStudentData.kelurahan || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, kelurahan: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Kecamatan</label>
+                          <label className="text-[9px] font-black text-[#8b5e3c]/80 uppercase tracking-widest block mb-1">Kecamatan</label>
                           <input 
                             type="text"
                             value={editStudentData.kecamatan || ''}
                             onChange={(e) => setEditStudentData({ ...editStudentData, kecamatan: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full px-4 py-2.5 bg-[#fdfcf0]/50 border border-[#d7ccc8]/50 rounded-[1.25rem] focus:ring-2 focus:ring-[#5d4037] focus:border-[#5d4037] outline-none transition-all text-sm font-bold text-[#3e2723]"
                           />
                         </div>
                       </div>
@@ -4858,47 +4889,59 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                 </div>
               ) : (
                 <>
-                  {/* Header Info */}
+                  {/* Header Info - Highly Polished Profile Card with Gold Accent Details */}
                   <div className="flex flex-col items-center text-center pb-6 border-b border-[#f8f3ed]">
-                    <div className="w-24 h-24 bg-[#f8f3ed] rounded-[2.5rem] flex items-center justify-center text-[#5d4037] font-black text-4xl shadow-inner mb-4 relative group border border-[#d7ccc8]/20">
-                      <User className="w-10 h-10" />
-                      <div className="absolute inset-0 bg-[#5d4037]/0 group-hover:bg-[#5d4037]/10 transition-colors rounded-[2.5rem] flex items-center justify-center">
-                        <Camera className="w-6 h-6 text-[#5d4037] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="w-24 h-24 bg-[#fdfcf0] rounded-[2.5rem] flex items-center justify-center text-[#5d4037] font-black text-4xl shadow-[inset_0_4px_10px_rgba(93,64,55,0.1)] mb-3 relative group border-2 border-[#d7ccc8]">
+                      {selectedStudent.nama_lengkap ? selectedStudent.nama_lengkap.charAt(0) : 'S'}
+                      <div className="absolute inset-0 bg-[#5d4037]/0 group-hover:bg-[#5d4037]/5 transition-colors rounded-[2.5rem] flex items-center justify-center">
+                        <Camera className="w-5 h-5 text-[#8b5e3c] opacity-0 group-hover:opacity-80 transition-opacity" />
                       </div>
                     </div>
-                    <h2 className="text-2xl font-black text-[#3e2723] font-display leading-tight italic tracking-tight">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="px-4 py-1.5 bg-[#3e2723] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg shadow-black/10 italic">
+                    <h2 className="text-2xl font-black text-[#3e2723] font-display leading-tight italic tracking-tight uppercase">{selectedStudent.nama_lengkap || 'Tanpa Nama'}</h2>
+                    
+                    <div className="flex items-center flex-wrap justify-center gap-2 mt-3">
+                      <span className="px-4 py-1.5 bg-[#3e2723] text-amber-100 text-[10px] font-black rounded-full uppercase tracking-widest shadow-md italic">
                         Kelas {selectedStudent.kelas}
                       </span>
-                      <span className="px-4 py-1.5 bg-[#f8f3ed] text-[#8b5e3c] text-[10px] font-black rounded-full uppercase tracking-widest border border-[#d7ccc8]/20 italic">
+                      {selectedStudent.asrama && (
+                        <span className="px-4 py-1.5 bg-[#8b5e3c] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-md italic">
+                          🏠 Asrama {selectedStudent.asrama}
+                        </span>
+                      )}
+                      <span className="px-4 py-1.5 bg-[#f8f3ed] text-[#8b5e3c] text-[10px] font-black rounded-full uppercase tracking-widest border border-[#d7ccc8]/40 italic">
                         {selectedStudent.jenis_kelamin}
                       </span>
                     </div>
                   </div>
 
-                  {/* Data Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Complete & Informative Bento Grid of Student Detail Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                     {/* Identitas Section */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 italic">Identitas Dasar</h4>
-                      <div className="space-y-3">
-                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">NIK Siswa</label>
-                          <p className="text-sm font-black text-[#3e2723] font-mono tracking-wider">{selectedStudent.nik || '-'}</p>
+                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] italic border-b border-[#f8f3ed] pb-1">Identitas Dasar</h4>
+                      <div className="space-y-2.5">
+                        <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                          <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">NISN / NIK Siswa</label>
+                          <p className="text-xs font-black text-[#3e2723] font-mono tracking-wider">
+                            {selectedStudent.nisn || '-'} <span className="text-stone-300 mx-2">|</span> {selectedStudent.nik || '-'}
+                          </p>
                         </div>
-                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Tempat, Tgl Lahir</label>
-                          <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.tempat_lahir}, {selectedStudent.tanggal_lahir}</p>
+                        <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                          <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Nomor Kartu Keluarga (KK)</label>
+                          <p className="text-xs font-black text-[#3e2723] font-mono tracking-wider">{selectedStudent.nomor_kk || '-'}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                            <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Agama</label>
-                            <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.agama}</p>
+                        <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                          <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Tempat & Tanggal Lahir</label>
+                          <p className="text-xs font-black text-[#3e2723] italic">{selectedStudent.tempat_lahir || '-'}, {selectedStudent.tanggal_lahir || '-'}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                            <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Agama</label>
+                            <p className="text-xs font-black text-[#3e2723] italic">{selectedStudent.agama || '-'}</p>
                           </div>
-                          <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                            <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Umur</label>
-                            <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.umur} Tahun</p>
+                          <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                            <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Umur</label>
+                            <p className="text-xs font-black text-[#3e2723] italic">{selectedStudent.umur || '0'} Tahun</p>
                           </div>
                         </div>
                       </div>
@@ -4906,50 +4949,173 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
                     {/* Keluarga Section */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 italic">Data Keluarga</h4>
-                      <div className="space-y-3">
-                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Nama Ayah</label>
-                          <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.ayah || '-'}</p>
+                      <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] italic border-b border-[#f8f3ed] pb-1">Data Silsilah Wali / Keluarga</h4>
+                      <div className="space-y-2.5">
+                        <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                          <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Nama Ayah Kandung</label>
+                          <p className="text-xs font-black text-[#3e2723] italic">{selectedStudent.ayah || '-'}</p>
                         </div>
-                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Nama Ibu</label>
-                          <p className="text-sm font-black text-[#3e2723] italic">{selectedStudent.ibu || '-'}</p>
+                        <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                          <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Nama Ibu Kandung</label>
+                          <p className="text-xs font-black text-[#3e2723] italic">{selectedStudent.ibu || '-'}</p>
                         </div>
-                        <div className="bg-[#fdfcf0] p-4 rounded-2xl border border-[#d7ccc8]/30">
-                          <label className="text-[9px] font-black text-[#8b5e3c]/60 uppercase tracking-widest block mb-1">Anak Ke / Saudara</label>
-                          <p className="text-sm font-black text-[#3e2723] italic tracking-tight">Anak ke-{selectedStudent.anak_ke || '-'} dari {selectedStudent.saudara || '-'} bersaudara</p>
+                        <div className="bg-[#fdfcf0]/80 p-3.5 rounded-2xl border border-[#d7ccc8]/45">
+                          <label className="text-[8.5px] font-black text-[#8b5e3c]/70 uppercase tracking-widest block mb-0.5">Susunan Bersaudara</label>
+                          <p className="text-xs font-black text-[#3e2723] italic">
+                            Anak ke - <span className="font-mono text-[#5d4037]">{selectedStudent.anak_ke || '-'}</span> dari <span className="font-mono text-[#5d4037]">{selectedStudent.saudara || '-'}</span> bersaudara
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Alamat Section */}
-                  <div className="space-y-4 pt-4 border-t border-[#f8f3ed]">
-                    <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-4 italic">Alamat Domisili</h4>
-                    <div className="bg-[#fdfcf0] p-6 rounded-[2rem] border border-[#d7ccc8]/40 shadow-inner space-y-4">
+                  <div className="space-y-4 pt-2">
+                    <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] italic border-b border-[#f8f3ed] pb-1">Alamat Lengkap Domisili</h4>
+                    <div className="bg-[#fdfcf0]/70 p-5 rounded-3xl border border-[#d7ccc8]/45 text-left">
                       <div className="flex items-start gap-4">
-                        <div className="p-3 bg-white rounded-2xl shadow-sm border border-[#d7ccc8]/20">
+                        <div className="p-2.5 bg-white rounded-2xl border border-[#d7ccc8]/30 shadow-sm shrink-0">
                           <MapPin className="w-5 h-5 text-[#8b5e3c]" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-black text-[#3e2723] leading-relaxed italic">{selectedStudent.alamat || '-'}</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mt-6">
+                          <p className="text-xs font-black text-[#3e2723] leading-relaxed italic">{selectedStudent.alamat || 'Alamat tidak diinput'}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4 pt-3 border-t border-[#ebdccb]/30">
                             <div>
-                              <label className="text-[9px] font-black text-[#8b5e3c]/50 uppercase tracking-widest block mb-1 italic">RT / RW</label>
-                              <p className="text-xs font-black text-[#5d4037] italic">{selectedStudent.rt || '00'} / {selectedStudent.rw || '00'}</p>
+                              <span className="text-[8.5px] font-black text-[#8b5e3c]/65 uppercase tracking-wider block">RT / RW</span>
+                              <span className="text-xs font-black text-[#5d4037]">{selectedStudent.rt || '00'} / {selectedStudent.rw || '00'}</span>
                             </div>
                             <div>
-                              <label className="text-[9px] font-black text-[#8b5e3c]/50 uppercase tracking-widest block mb-1 italic">Kelurahan</label>
-                              <p className="text-xs font-black text-[#5d4037] italic">{selectedStudent.kelurahan || '-'}</p>
+                              <span className="text-[8.5px] font-black text-[#8b5e3c]/65 uppercase tracking-wider block">Kelurahan</span>
+                              <span className="text-xs font-black text-[#5d4037] truncate block">{selectedStudent.kelurahan || '-'}</span>
                             </div>
                             <div>
-                              <label className="text-[9px] font-black text-[#8b5e3c]/50 uppercase tracking-widest block mb-1 italic">Kecamatan</label>
-                              <p className="text-xs font-black text-[#5d4037] italic">{selectedStudent.kecamatan || '-'}</p>
+                              <span className="text-[8.5px] font-black text-[#8b5e3c]/65 uppercase tracking-wider block">Kecamatan</span>
+                              <span className="text-xs font-black text-[#5d4037] truncate block">{selectedStudent.kecamatan || '-'}</span>
                             </div>
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Riwayat Aktivitas Section (Student Card Personal History Log - Proportional styled using warm Chocolate nuance and tiny fonts) */}
+                  <div className="space-y-4 pt-4 border-t border-[#f8f3ed]">
+                    <h4 className="text-[10px] font-black text-[#5d4037] uppercase tracking-[0.2em] mb-1 italic">Riwayat Aktivitas Siswa</h4>
+                    
+                    <div className="grid grid-cols-3 gap-2 text-left">
+                      <div className="bg-[#fdfcf0] p-2.5 rounded-2xl border border-[#d7ccc8]/30 flex flex-col justify-center">
+                        <span className="text-[7.5px] font-black text-[#8b5e3c]/60 uppercase tracking-wider block">Ketidakhadiran</span>
+                        <span className="text-[11px] font-black text-[#3e2723] mt-0.5">
+                          {ketidakhadiranData.filter(rec => rec.daftar_siswa.includes(selectedStudent.nama_lengkap)).length} Sesi
+                        </span>
+                      </div>
+                      <div className="bg-[#fdfcf0] p-2.5 rounded-2xl border border-[#d7ccc8]/30 flex flex-col justify-center">
+                        <span className="text-[7.5px] font-black text-[#8b5e3c]/60 uppercase tracking-wider block">Izin Keluar</span>
+                        <span className="text-[11px] font-black text-[#3e2723] mt-0.5">
+                          {permits.filter(p => p.nama_siswa === selectedStudent.nama_lengkap).length} Kali
+                        </span>
+                      </div>
+                      <div className="bg-[#fdfcf0] p-2.5 rounded-2xl border border-[#d7ccc8]/30 flex flex-col justify-center">
+                        <span className="text-[7.5px] font-black text-[#8b5e3c]/60 uppercase tracking-wider block">Pinjam HP</span>
+                        <span className="text-[11px] font-black text-[#3e2723] mt-0.5">
+                          {pinjamHPList.filter(p => p.nama_siswa === selectedStudent.nama_lengkap).length} Kali
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto no-scrollbar pt-1 text-left">
+                      {/* permits history */}
+                      {permits.filter(p => p.nama_siswa === selectedStudent.nama_lengkap).map(permit => {
+                        const date = permit.tgl_surat?.toDate ? permit.tgl_surat.toDate() : new Date();
+                        return (
+                          <div key={permit.id} className="p-2.5 bg-white hover:bg-[#faf6f0] border border-[#ebdccb]/60 rounded-xl flex items-center justify-between gap-2.5 transition-colors">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-amber-50/50 border border-[#ebdccb]/50 flex items-center justify-center text-[#8b5e3c] shrink-0">
+                                <ClipboardList className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <h5 className="text-[10px] font-black text-[#3e2723] uppercase truncate leading-none mb-1">
+                                  Izin: {permit.tipe === 'sakit' ? (permit.diagnosa || 'Sakit') : (permit.alasan || 'Izin Umum')}
+                                </h5>
+                                <span className="text-[8px] font-bold text-stone-400 font-mono italic">
+                                  {format(date, 'd MMMM yyyy HH:mm', { locale: id })} WIB
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`px-1.5 py-0.5 text-[7px] font-black rounded uppercase tracking-wider shrink-0 select-none ${
+                              permit.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' :
+                              permit.status === 'rejected' ? 'bg-rose-50 text-rose-850 border border-rose-150' :
+                              'bg-amber-50 text-amber-805 border border-amber-150'
+                            }`}>
+                              {permit.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* hp borrows */}
+                      {pinjamHPList.filter(p => p.nama_siswa === selectedStudent.nama_lengkap).map(hp => {
+                        const date = hp.tgl_pinjam?.toDate ? hp.tgl_pinjam.toDate() : new Date();
+                        return (
+                          <div key={hp.id} className="p-2.5 bg-white hover:bg-[#faf6f0] border border-[#ebdccb]/60 rounded-xl flex items-center justify-between gap-2.5 transition-colors">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-[#fdfcf0] border border-[#ebdccb]/55 flex items-center justify-center text-[#8b5e3c] shrink-0">
+                                <Smartphone className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <h5 className="text-[10px] font-black text-[#3e2723] uppercase truncate leading-none mb-1">
+                                  Pinjam HP: {hp.keperluan}
+                                </h5>
+                                <span className="text-[8px] font-bold text-stone-400 font-mono italic">
+                                  {format(date, 'd MMMM yyyy HH:mm', { locale: id })} WIB
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`px-1.5 py-0.5 text-[7px] font-black rounded uppercase tracking-wider shrink-0 select-none ${
+                              hp.status === 'dipinjam' 
+                                ? 'bg-amber-100 text-[#3e2723] border border-amber-200' 
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                            }`}>
+                              {hp.status === 'dipinjam' ? 'DIPINJAM' : 'KEMBALI'}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* absences */}
+                      {ketidakhadiranData.filter(rec => rec.daftar_siswa.includes(selectedStudent.nama_lengkap)).map(rec => {
+                        const date = parseFirestoreDate(rec.tgl_absen) || new Date();
+                        return (
+                          <div key={rec.id} className="p-2.5 bg-white hover:bg-[#faf6f0] border border-[#ebdccb]/60 rounded-xl flex items-center justify-between gap-2.5 transition-colors">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-[#8b5e3c] shrink-0">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <h5 className="text-[10px] font-black text-rose-950 uppercase truncate leading-none mb-1">
+                                  Absen: {rec.keterangan_kegiatan}
+                                </h5>
+                                <span className="text-[8px] font-bold text-stone-400 font-mono italic">
+                                  {format(date, 'd MMMM yyyy HH:mm', { locale: id })} WIB
+                                </span>
+                              </div>
+                            </div>
+                            <span className="px-1.5 py-0.5 text-[7px] font-black rounded uppercase tracking-wider bg-[#f8f3ed] text-[#8b5e3c] border border-[#d7ccc8] shrink-0 select-none">
+                              Absen
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* Empty state */}
+                      {permits.filter(p => p.nama_siswa === selectedStudent.nama_lengkap).length === 0 &&
+                       pinjamHPList.filter(p => p.nama_siswa === selectedStudent.nama_lengkap).length === 0 &&
+                       ketidakhadiranData.filter(rec => rec.daftar_siswa.includes(selectedStudent.nama_lengkap)).length === 0 && (
+                        <div className="text-center py-6 bg-[#fdfcf0]/40 rounded-2xl border border-dashed border-[#d7ccc8]/45">
+                          <History className="w-6 h-6 text-[#d7ccc8] mx-auto mb-1 opacity-60" />
+                          <p className="text-[9px] font-black text-[#8d6e63] uppercase tracking-widest italic">Belum ada riwayat aktivitas</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>

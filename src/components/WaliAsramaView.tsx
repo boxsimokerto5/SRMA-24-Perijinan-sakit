@@ -37,7 +37,9 @@ import {
   Bell,
   BarChart3,
   X,
-  ClipboardCheck
+  ClipboardCheck,
+  Package,
+  Contact
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
@@ -54,6 +56,7 @@ import WallView from './WallView';
 import EvaluationNotesView from './EvaluationNotesView';
 import DormitoryIncidentsView from './DormitoryIncidentsView';
 import JurnalKeperawatanView from './JurnalKeperawatanView';
+import DormitoryLossesView from './DormitoryLossesView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -206,7 +209,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp' | 'cek_ketidakhadiran' | 'jurnal_keperawatan'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'kehilangan_di_asrama'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
   // Pinjam HP States
@@ -673,7 +676,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     catatan_evaluasi: 'Evaluasi Asrama',
     catatan_kejadian: 'Catatan Kejadian di Asrama',
     cek_ketidakhadiran: 'Cek Ketidakhadiran',
-    jurnal_keperawatan: 'Jurnal Keperawatan'
+    jurnal_keperawatan: 'Jurnal Keperawatan',
+    kehilangan_di_asrama: 'Kehilangan di Asrama'
   };
 
   const navItems = [
@@ -748,6 +752,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                             { id: 'dinding', label: 'Dinding Guardians', icon: MessageSquare },
                             { id: 'catatan_evaluasi', label: 'Evaluasi Asrama', icon: ClipboardList },
                             { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
+                            { id: 'kehilangan_di_asrama', label: 'Kehilangan di Asrama', icon: Package },
                             { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                             { id: 'cek_kesehatan', label: 'Usulan Cek Kesehatan', icon: Activity },
                             { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
@@ -881,6 +886,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'catatan_kejadian' && <DormitoryIncidentsView user={user} />}
         {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
+        {viewMode === 'kehilangan_di_asrama' && <DormitoryLossesView user={user} students={students} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

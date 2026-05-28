@@ -379,3 +379,36 @@ export const parseFirestoreDate = (val: any): Date | null => {
   return null;
 };
 
+export interface StudentCounseling {
+  id?: string;
+  siswa_name: string;
+  kelas: string;
+  tgl_konseling: Timestamp;
+  kategori: string;
+  permasalahan: string;
+  solusi: string;
+  perkembangan: string;
+  author_name: string;
+  author_uid: string;
+  author_email: string;
+}
+
+export type LossStatus = 'Belum Ditemukan' | 'Ditemukan' | 'Telah Diganti';
+
+export interface DormitoryLoss {
+  id?: string;
+  siswa_name: string;
+  kelas: string;
+  tgl_kehilangan: Timestamp;
+  nama_barang: string;
+  deskripsi_barang: string;
+  lokasi_terakhir: string;
+  status: LossStatus;
+  perkembangan: string;
+  author_name: string;
+  author_uid: string;
+  author_role: UserRole;
+  createdAt: Timestamp;
+}
+
+
