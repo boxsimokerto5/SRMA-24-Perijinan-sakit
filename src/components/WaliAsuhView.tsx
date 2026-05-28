@@ -162,6 +162,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [studentSuggestions, setStudentSuggestions] = useState<Siswa[]>([]);
   const [showStudentSuggestions, setShowStudentSuggestions] = useState(false);
   const [selectedPinjam, setSelectedPinjam] = useState<PinjamHP | null>(null);
+  const [hpStatusFilter, setHpStatusFilter] = useState<'semua' | 'dipinjam' | 'dikembalikan'>('dipinjam');
   
   const [phFilteredStudentsList, setPhFilteredStudentsList] = useState<Siswa[]>([]);
   const [phShowSuggestions, setPhShowSuggestions] = useState(false);
@@ -205,6 +206,12 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
   const filteredPinjamHP = pinjamHPList
     .filter(item => {
+      // 1. Status Filter
+      if (hpStatusFilter !== 'semua' && item.status !== hpStatusFilter) {
+        return false;
+      }
+
+      // 2. Time Filter
       const pinjamDate = item.tgl_pinjam?.toDate();
       
       // Active borrowings (dipinjam) are ALWAYS shown regardless of time filter
@@ -3602,25 +3609,51 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   </div>
                 </div>
                 
-                <div className="flex bg-[#f8f3ed] p-1 rounded-2xl border border-[#d7ccc8]/30 gap-1 overflow-x-auto no-scrollbar">
-                  {[ 
-                    { id: 'semua', label: 'SEMUA' },
-                    { id: 'hari_ini', label: 'HARI INI' },
-                    { id: 'kemarin', label: 'KEMARIN' },
-                    { id: 'minggu_ini', label: 'MINGGU INI' }
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setTimeFilter(cat.id as any)}
-                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all italic ${
-                        timeFilter === cat.id
-                          ? 'bg-[#3e2723] text-white shadow-lg'
-                          : 'text-[#3e2723]/40 hover:text-[#3e2723]'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+                <div className="flex flex-col lg:flex-row gap-2">
+                  {/* Status Filter */}
+                  <div className="flex bg-[#f8f3ed] p-1 rounded-2xl border border-[#d7ccc8]/30 gap-1 overflow-x-auto no-scrollbar">
+                    {[
+                      { id: 'dipinjam', label: 'MASIH DIPINJAM' },
+                      { id: 'dikembalikan', label: 'DIKEMBALIKAN' },
+                      { id: 'semua', label: 'SEMUA STATUS' }
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setHpStatusFilter(st.id as any)}
+                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all italic whitespace-nowrap ${
+                          hpStatusFilter === st.id
+                            ? 'bg-[#3e2723] text-white shadow-lg font-black'
+                            : 'text-[#3e2723]/40 hover:text-[#3e2723]'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Time Filter (Only applicable if status is 'dikembalikan' or user wants to see all) */}
+                  <div className="flex bg-[#f8f3ed] p-1 rounded-2xl border border-[#d7ccc8]/30 gap-1 overflow-x-auto no-scrollbar">
+                    {[ 
+                      { id: 'semua', label: 'SEMUA WAKTU' },
+                      { id: 'hari_ini', label: 'HARI INI' },
+                      { id: 'kemarin', label: 'KEMARIN' },
+                      { id: 'minggu_ini', label: 'MINGGU INI' }
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setTimeFilter(cat.id as any)}
+                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all italic whitespace-nowrap ${
+                          timeFilter === cat.id
+                            ? 'bg-[#5d4037] text-white shadow-lg font-black'
+                            : 'text-[#5d4037]/50 hover:text-[#3e2723]'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

@@ -218,6 +218,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [phShowSuggestions, setPhShowSuggestions] = useState(false);
   const [phFilteredStudentsList, setPhFilteredStudentsList] = useState<Siswa[]>([]);
   const [selectedPinjam, setSelectedPinjam] = useState<PinjamHP | null>(null);
+  const [hpStatusFilter, setHpStatusFilter] = useState<'semua' | 'dipinjam' | 'dikembalikan'>('dipinjam');
+  const [hpTimeFilter, setHpTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
 
   // ... (keep Sarpras states as they are)
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -510,15 +512,21 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
 
   const filteredPinjamHP = pinjamHPList
     .filter(item => {
+      // 1. Status Filter
+      if (hpStatusFilter !== 'semua' && item.status !== hpStatusFilter) {
+        return false;
+      }
+
+      // 2. Time Filter
       const pinjamDate = item.tgl_pinjam?.toDate();
       
-      let matchesTime = item.status === 'dipinjam' || timeFilter === 'semua';
+      let matchesTime = item.status === 'dipinjam' || hpTimeFilter === 'semua';
       
       if (!matchesTime && pinjamDate) {
-        if (timeFilter === 'hari_ini') matchesTime = isToday(pinjamDate);
-        else if (timeFilter === 'kemarin') matchesTime = isYesterday(pinjamDate);
-        else if (timeFilter === 'minggu_ini') matchesTime = isThisWeek(pinjamDate, { weekStartsOn: 1 });
-        else if (timeFilter === 'bulan_ini') matchesTime = isThisMonth(pinjamDate);
+        if (hpTimeFilter === 'hari_ini') matchesTime = isToday(pinjamDate);
+        else if (hpTimeFilter === 'kemarin') matchesTime = isYesterday(pinjamDate);
+        else if (hpTimeFilter === 'minggu_ini') matchesTime = isThisWeek(pinjamDate, { weekStartsOn: 1 });
+        else if (hpTimeFilter === 'bulan_ini') matchesTime = isThisMonth(pinjamDate);
       }
 
       const matchesSearch = !searchTerm || item.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1337,13 +1345,63 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
             </AnimatePresence>
  
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-stone-100 shadow-md -rotate-2">
-                  <History className="w-5 h-5 text-[#3e2723]" />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-stone-100 shadow-md -rotate-2">
+                    <History className="w-5 h-5 text-[#3e2723]" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-xl font-black text-[#3e2723] tracking-tight uppercase italic leading-none font-display">Log Peminjaman</h3>
+                    <p className="text-[8px] font-black text-stone-300 uppercase tracking-[0.2em] italic mt-1 underline decoration-amber-200 decoration-2 underline-offset-2">TRACKING AKTIF & ARSIP SMARTPHONE</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <h3 className="text-xl font-black text-[#3e2723] tracking-tight uppercase italic leading-none font-display">Log Peminjaman</h3>
-                  <p className="text-[8px] font-black text-stone-300 uppercase tracking-[0.2em] italic mt-1 underline decoration-amber-200 decoration-2 underline-offset-2">TRACKING AKTIF & ARSIP SMARTPHONE</p>
+
+                {/* Filter Controls for Handphone Lending */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {/* Status Filter */}
+                  <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200/50 gap-1 overflow-x-auto no-scrollbar">
+                    {[
+                      { id: 'dipinjam', label: 'MASIH DIPINJAM' },
+                      { id: 'dikembalikan', label: 'DIKEMBALIKAN' },
+                      { id: 'semua', label: 'SEMUA STATUS' }
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setHpStatusFilter(st.id as any)}
+                        className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all italic whitespace-nowrap ${
+                          hpStatusFilter === st.id
+                            ? 'bg-[#3e2723] text-white shadow-sm'
+                            : 'text-stone-400 hover:text-[#3e2723]'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Time Filter */}
+                  <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200/50 gap-1 overflow-x-auto no-scrollbar">
+                    {[ 
+                      { id: 'semua', label: 'SEMUA WAKTU' },
+                      { id: 'hari_ini', label: 'HARI INI' },
+                      { id: 'kemarin', label: 'KEMARIN' },
+                      { id: 'minggu_ini', label: 'MINGGU INI' }
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setHpTimeFilter(cat.id as any)}
+                        className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all italic whitespace-nowrap ${
+                          hpTimeFilter === cat.id
+                            ? 'bg-stone-600 text-white shadow-sm'
+                            : 'text-stone-400 hover:text-stone-600'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
  
