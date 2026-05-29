@@ -288,6 +288,40 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
     setDocPhotoFiles([null, null, null]);
   };
 
+  const getWhatsAppShareLink = (report: MonthlyReport) => {
+    const starString = (score: number) => {
+      return Array(score || 0).fill('⭐').join('');
+    };
+
+    const text = `*LAPORAN PERKEMBANGAN BULANAN*\n` +
+      `*SRMA 24 KEDIRI*\n\n` +
+      `*💡 Biodata Siswa:*\n` +
+      `• *Siswa:* ${report.nama_siswa}\n` +
+      `• *Kelas:* ${report.kelas}\n` +
+      `• *Asrama:* ${report.asrama || '-'}\n` +
+      `• *Periode:* ${report.periode_bulan}\n\n` +
+      `*🩺 Perkembangan Fisik & Kesehatan:*\n` +
+      `• *Tinggi / Berat:* ${report.tinggi_badan || 0} cm / ${report.berat_badan || 0} kg\n` +
+      `• *Kondisi:* ${report.status_kesehatan || 'Sehat'}\n` +
+      `• *Catatan:* ${report.catatan_kesehatan || '-'}\n\n` +
+      `*⭐ Evaluasi Karakter & Kepribadian:*\n` +
+      `• *Ibadah:* ${starString(report.ibadah_score)} (${report.ibadah_score || 0}/5)\n` +
+      `• *Adab:* ${starString(report.adab_score)} (${report.adab_score || 0}/5)\n` +
+      `• *Skor Kemandirian:* ${report.kemandirian_score || 0}/100 (${report.kemandirian_level || 'Mandiri'})\n` +
+      `• *Deskripsi:* ${report.karakter_deskripsi || '-'}\n\n` +
+      `*📚 Akademik & Minat Bakat:*\n` +
+      `• *Evaluasi Belajar:* ${report.akademik_deskripsi || '-'}\n` +
+      `• *Kegiatan Eskul:* ${report.ekstrakurikuler?.join(', ') || '-'}\n` +
+      `• *Capaian Khusus:* ${report.capaian_khusus || '-'}\n\n` +
+      `*🎥 Pesan Ananda & Wali Asuh:*\n` +
+      `• *Link Video:* ${report.video_url || '-'}\n` +
+      `• *Pesan Wali Asuh:* ${report.pesan_wali_asuh || '-'}\n\n` +
+      `------------------------\n` +
+      `_Laporan ini dikirim melalui Sistem Informasi SRMA 24 Kediri_`;
+
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Hapus laporan ini?')) {
       try {
@@ -363,6 +397,17 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
                   <FileText className="text-slate-400 group-hover:text-emerald-500 transition-colors" size={24} />
                 </div>
                 <div className="flex gap-2">
+                  <a
+                    href={getWhatsAppShareLink(report)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all border border-emerald-100 flex items-center justify-center"
+                    title="Kirim Laporan via WhatsApp"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" stroke="none">
+                      <path d="M12 .002c-6.627 0-12 5.373-12 12 0 2.159.57 4.187 1.564 5.947l-1.564 5.717 5.86-1.53c1.7.94 3.642 1.47 5.704 1.47 6.628 0 12-5.373 12-12s-5.372-12-12-12zm6.209 15.885c-.269.756-1.566 1.429-2.158 1.517-.514.077-1.18.14-1.91-.093-.456-.146-1.022-.357-1.748-.673-3.155-1.373-5.184-4.57-5.342-4.783-.158-.211-1.282-1.713-1.282-3.267v-.002c0-1.42.716-2.146 1.001-2.438.257-.263.666-.392 1.077-.392.128 0 .245.006.35.011.309.011.52.023.743.514.28.618.96 2.339 1.042 2.51.082.17.135.369.023.597-.101.21-.164.339-.328.531-.164.193-.344.433-.491.58-.164.163-.334.34-.143.668.191.319.851 1.4 1.821 2.261.97.861 2.459 1.488 2.822 1.637.363.15.576.126.791-.122s.918-1.071 1.164-1.439c.246-.368.497-.305.828-.182.332.123 2.102 1.05 2.438 1.218.336.168.56.249.643.393.082.144.082.833-.188 1.589z" />
+                    </svg>
+                  </a>
                   <button
                     onClick={() => generateMonthlyReportPDF(report)}
                     className="p-2.5 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl transition-all border border-slate-100"

@@ -56,7 +56,18 @@ jobs:
 
       - name: Generate Release Keystore
         run: |
-          keytool -genkey -v -keystore release.keystore -alias srma_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass srma123456 -keypass srma123456 -dname "CN=SRMA 24, OU=IT, O=SRMA, L=Kediri, S=East Java, C=ID"
+          if [ -f "release.keystore" ]; then
+            echo "=========================================================================="
+            echo "KUNCI KEYSTORE DETECTED: Menggunakan keystore yang ada di repository."
+            echo "Ini akan menjaga tanda tangan/signature APK tetap konsisten & bisa ditimpa!"
+            echo "=========================================================================="
+          else
+            echo "=========================================================================="
+            echo "KE STORE TIDAK DITEMUKAN: Membuat keystore baru secara otomatis."
+            echo "Perhatian: Ini akan menghasilkan kunci unik baru sehingga APK sebelumnya harus di-uninstall."
+            echo "=========================================================================="
+            keytool -genkey -v -keystore release.keystore -alias srma_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass srma123456 -keypass srma123456 -dname "CN=SRMA 24, OU=IT, O=SRMA, L=Kediri, S=East Java, C=ID"
+          fi
 
       - name: Build Release APK
         run: |

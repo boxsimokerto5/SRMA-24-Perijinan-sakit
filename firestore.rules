@@ -234,6 +234,20 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidSerahTerima(data) {
+      return data.keys().hasAll(['hari_tanggal', 'waktu_serah_terima', 'lokasi', 'total_siswa_hadir', 'siswa_sakit', 'kondisi_umum', 'kegiatan_dilaksanakan', 'author_name', 'author_uid', 'createdAt']) &&
+             data.hari_tanggal is string && data.hari_tanggal.size() <= 128 &&
+             data.waktu_serah_terima is string && data.waktu_serah_terima.size() <= 32 &&
+             data.lokasi is string && data.lokasi.size() <= 256 &&
+             data.total_siswa_hadir is number &&
+             data.siswa_sakit is list &&
+             data.kondisi_umum is string && data.kondisi_umum.size() <= 256 &&
+             data.kegiatan_dilaksanakan is list &&
+             data.author_name is string && data.author_name.size() <= 128 &&
+             data.author_uid == request.auth.uid &&
+             data.createdAt is timestamp;
+    }
+
     function isMadingAuthor(authId) {
       return isSignedIn() && authId == request.auth.uid;
     }
@@ -476,6 +490,14 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(lossId) && isValidDormitoryLoss(incoming());
       allow update: if isSignedIn() && isValidId(lossId) && (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com' || existing().author_role == 'wali_asrama') && isValidDormitoryLoss(incoming());
       allow delete: if isSignedIn() && isValidId(lossId) && (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com');
+    }
+
+    match /serah_terima/{handoverId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(handoverId);
+      allow create: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(handoverId) && isValidSerahTerima(incoming());
+      allow update: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(handoverId) && isValidSerahTerima(incoming());
+      allow delete: if isAdmin() || isMasterAdmin() || (existing().author_uid == request.auth.uid);
     }
   }
 }

@@ -411,4 +411,23 @@ export interface DormitoryLoss {
   createdAt: Timestamp;
 }
 
+export interface StudentSakit {
+  nama_siswa: string;
+  keluhan: string;
+}
+
+export interface SerahTerima {
+  id?: string;
+  hari_tanggal: string;
+  waktu_serah_terima: string;
+  lokasi: string;
+  total_siswa_hadir: number;
+  siswa_sakit: StudentSakit[];
+  kondisi_umum: string;
+  kegiatan_dilaksanakan: string[];
+  author_name: string;
+  author_uid: string;
+  createdAt: Timestamp;
+}
+
 

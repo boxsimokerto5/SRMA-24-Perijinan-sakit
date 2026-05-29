@@ -32,6 +32,7 @@ import EvaluationNotesView from './EvaluationNotesView';
 import JurnalKeperawatanView from './JurnalKeperawatanView';
 import StudentCounselingView from './StudentCounselingView';
 import DormitoryLossesView from './DormitoryLossesView';
+import SerahTerimaView from './SerahTerimaView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -53,7 +54,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'konseling_siswa' | 'kehilangan_di_asrama'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'konseling_siswa' | 'kehilangan_di_asrama' | 'serah_terima'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -1314,7 +1315,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     laporan_bulanan: 'Laporan Bulanan',
     jurnal_keperawatan: 'Jurnal Keperawatan',
     konseling_siswa: 'Konseling Siswa',
-    kehilangan_di_asrama: 'Kehilangan di Asrama'
+    kehilangan_di_asrama: 'Kehilangan di Asrama',
+    serah_terima: 'Serah Terima Wali Asuh ke Wali Asrama'
   };
 
   const getRoleLabel = (role: string) => {
@@ -1377,6 +1379,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'serah_terima', label: 'Serah Terima', icon: ClipboardCheck },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Wali Asuh', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
@@ -1651,6 +1654,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'kehilangan_di_asrama' && <DormitoryLossesView user={user} students={students} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
         {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
+        {viewMode === 'serah_terima' && <SerahTerimaView user={user} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
