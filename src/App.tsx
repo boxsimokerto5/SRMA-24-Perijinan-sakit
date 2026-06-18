@@ -103,9 +103,25 @@ export default function App() {
       if (firebaseUser) {
         try {
           // Attempt to fetch user data
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as AppUser;
+          let userData: AppUser | null = null;
+          try {
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userDoc.exists()) {
+              userData = userDoc.data() as AppUser;
+              // Cache it locally for offline recovery
+              localStorage.setItem('cached_app_user_' + firebaseUser.uid, JSON.stringify(userData));
+            }
+          } catch (fetchErr) {
+            console.warn('Firestore fetch failed, checking local cache:', fetchErr);
+            const cached = localStorage.getItem('cached_app_user_' + firebaseUser.uid);
+            if (cached) {
+              userData = JSON.parse(cached);
+            } else {
+              throw fetchErr;
+            }
+          }
+
+          if (userData) {
             setAppUser(userData);
             setError(null);
             
@@ -119,12 +135,17 @@ export default function App() {
             }, 1000);
           } else {
             console.warn('User document not found for UID:', firebaseUser.uid);
-            // If user exists in Auth but not in Firestore, they might need to sign up again or be created
-            setAppUser(null);
+            // If user exists in Auth but not in Firestore, check localstorage or clear
+            const cached = localStorage.getItem('cached_app_user_' + firebaseUser.uid);
+            if (cached) {
+              setAppUser(JSON.parse(cached));
+            } else {
+              setAppUser(null);
+            }
           }
         } catch (err: any) {
           console.error('Error fetching user data:', err);
-          if (err.code === 'unavailable' || err.message.includes('offline')) {
+          if (err.code === 'unavailable' || err.message?.includes('offline')) {
             setError("Koneksi ke database terganggu. Silakan periksa koneksi internet Anda.");
           } else {
             setError("Gagal memuat data pengguna. Silakan coba masuk kembali.");

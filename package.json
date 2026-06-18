@@ -22,6 +22,7 @@
     "@capacitor/local-notifications": "^8.0.2",
     "@capacitor/push-notifications": "^8.0.3",
     "@capacitor/share": "^8.0.1",
+    "@google-cloud/firestore": "^8.6.0",
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/qrcode": "^1.5.6",

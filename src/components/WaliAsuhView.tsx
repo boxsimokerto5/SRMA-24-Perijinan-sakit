@@ -11,10 +11,10 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, Image as LucideImage } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate } from '../types';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate, JadwalTausiyah } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -27,12 +27,11 @@ import ProgressRecordsView from './ProgressRecordsView';
 import MonthlyReportView from './MonthlyReportView';
 import AgendaView from './AgendaView';
 import WallView from './WallView';
-import DormitoryIncidentsView from './DormitoryIncidentsView';
 import EvaluationNotesView from './EvaluationNotesView';
-import JurnalKeperawatanView from './JurnalKeperawatanView';
-import StudentCounselingView from './StudentCounselingView';
 import DormitoryLossesView from './DormitoryLossesView';
 import SerahTerimaView from './SerahTerimaView';
+import TausiyahSpinner from './TausiyahSpinner';
+import JadwalAbsenPiketView from './JadwalAbsenPiketView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -54,7 +53,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_kejadian' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'konseling_siswa' | 'kehilangan_di_asrama' | 'serah_terima'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah' | 'jadwal_absen'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
@@ -73,12 +72,133 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportRange, setReportRange] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini'>('hari_ini');
   const [reportLoading, setReportLoading] = useState(false);
+  const [rekapHarianTanggal, setRekapHarianTanggal] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   // Banner & Time states
   const [showBanner, setShowBanner] = useState(true);
   const [bannerIndex, setBannerIndex] = useState(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Banner Image states
+  const [imageBanner, setImageBanner] = useState<{ imageUrl: string; title?: string; linkUrl?: string; isActive: boolean; updatedAt?: any } | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerTitleInput, setBannerTitleInput] = useState('');
+  const [bannerLinkInput, setBannerLinkInput] = useState('');
+  const [showBannerControls, setShowBannerControls] = useState(false);
+
+  const handleBannerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingBanner(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Max dimensions
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+        if (height > MAX_HEIGHT) {
+          width = Math.round((width * MAX_HEIGHT) / height);
+          height = MAX_HEIGHT;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Compress to modern JPEG quality 0.82
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+
+        // Save to firestore
+        setDoc(doc(db, 'image_banners', 'active'), {
+          imageUrl: compressedBase64,
+          isActive: true,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email || 'proseshidup1101@gmail.com'
+        }, { merge: true })
+        .then(() => {
+          setIsUploadingBanner(false);
+        })
+        .catch((err) => {
+          console.error("Error saving banner image:", err);
+          setIsUploadingBanner(false);
+          alert("Gagal mengunggah banner gambar.");
+        });
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpdateBannerSettings = async (isActive: boolean) => {
+    try {
+      await setDoc(doc(db, 'image_banners', 'active'), {
+        title: bannerTitleInput,
+        linkUrl: bannerLinkInput,
+        isActive: isActive,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.email || 'proseshidup1101@gmail.com'
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error updating banner settings:", err);
+      alert("Gagal menyimpan pengaturan banner.");
+    }
+  };
+
+  const handleDeleteBanner = async () => {
+    try {
+      if (confirm("Apakah Anda yakin ingin menghapus banner gambar ini?")) {
+        await setDoc(doc(db, 'image_banners', 'active'), {
+          imageUrl: '',
+          title: '',
+          linkUrl: '',
+          isActive: false,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email || 'proseshidup1101@gmail.com'
+        }, { merge: true });
+        setBannerTitleInput('');
+        setBannerLinkInput('');
+      }
+    } catch (err) {
+      console.error("Error deleting banner:", err);
+      alert("Gagal menghapus banner.");
+    }
+  };
+
+  useEffect(() => {
+    const bannerDoc = doc(db, 'image_banners', 'active');
+    const unsubscribe = onSnapshot(bannerDoc, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setImageBanner({
+          imageUrl: data.imageUrl || '',
+          title: data.title || '',
+          linkUrl: data.linkUrl || '',
+          isActive: data.isActive !== false,
+          updatedAt: data.updatedAt
+        });
+        setBannerTitleInput(data.title || '');
+        setBannerLinkInput(data.linkUrl || '');
+      } else {
+        setImageBanner(null);
+      }
+    }, (err) => {
+      console.warn("Non-blocking image banner listener offline cache read:", err);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -156,6 +276,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [pinjamHPList, setPinjamHPList] = useState<PinjamHP[]>([]);
   const [students, setStudents] = useState<Siswa[]>([]);
+  const [tausiyahHistory, setTausiyahHistory] = useState<JadwalTausiyah[]>([]);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('Semua');
   const [showPinjamForm, setShowPinjamForm] = useState(false);
@@ -614,6 +735,20 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
       setStudents(data);
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, 'siswa');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'jadwal_tausiyah'),
+      orderBy('tanggal', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as JadwalTausiyah));
+      setTausiyahHistory(data);
+    }, (err) => {
+      console.error("Failed to fetch Jadwal Tausiyah history", err);
     });
     return () => unsubscribe();
   }, []);
@@ -1186,6 +1321,38 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     }
   };
 
+  const handlePrintDailyReport = async (selectedDateStr: string) => {
+    if (!selectedDateStr) {
+      alert('Silakan pilih tanggal terlebih dahulu.');
+      return;
+    }
+    setReportLoading(true);
+    try {
+      const targetDate = new Date(selectedDateStr);
+      const filteredForReport = permits.filter(p => {
+        const date = p.tgl_surat?.toDate();
+        if (!date) return false;
+        
+        return (
+          date.getDate() === targetDate.getDate() &&
+          date.getMonth() === targetDate.getMonth() &&
+          date.getFullYear() === targetDate.getFullYear()
+        );
+      });
+
+      const formattedLabel = format(targetDate, 'dd MMMM yyyy', { locale: id });
+      const rangeLabel = `Harian ${formattedLabel}`;
+
+      const { generateSummaryReportPDF } = await import('../pdfUtils');
+      await generateSummaryReportPDF(filteredForReport, rangeLabel, user.name, 'Wali Asuh');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat laporan: ' + (err instanceof Error ? err.message : 'Error unknown'));
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const stats = {
     total: permits.length,
     pending: permits.filter(p => p.status === 'pending_asuh').length,
@@ -1306,17 +1473,15 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     cek_ketidakhadiran: 'Cek Ketidakhadiran',
     siswa: 'Daftar Siswa',
     catatan_perkembangan: 'Catatan Perkembangan',
-    catatan_kejadian: 'Catatan Kejadian di Asrama',
     catatan_evaluasi: 'Catatan Evaluasi',
     dinding: 'Dinding Wali Asuh',
     settings: 'Pengaturan',
     mading: 'Mading Sekolah',
     sarpras_asrama: 'Sarpras Asrama',
     laporan_bulanan: 'Laporan Bulanan',
-    jurnal_keperawatan: 'Jurnal Keperawatan',
-    konseling_siswa: 'Konseling Siswa',
     kehilangan_di_asrama: 'Kehilangan di Asrama',
-    serah_terima: 'Serah Terima Wali Asuh ke Wali Asrama'
+    serah_terima: 'Serah Terima Wali Asuh ke Wali Asrama',
+    jadwal_absen: 'Jadwal Absen Piket'
   };
 
   const getRoleLabel = (role: string) => {
@@ -1379,14 +1544,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-                          { id: 'serah_terima', label: 'Serah Terima', icon: ClipboardCheck },
+                          { id: 'jadwal_absen', label: 'Jadwal & Absen Piket', icon: Clock },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Wali Asuh', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
-                          { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: ClipboardList },
-                           { id: 'konseling_siswa', label: 'Konseling Siswa', icon: Contact },
-                           { id: 'kehilangan_di_asrama', label: 'Kehilangan di Asrama', icon: Package },
-                          { id: 'catatan_kejadian', label: 'Kejadian Asrama', icon: AlertTriangle },
+                          { id: 'kehilangan_di_asrama', label: 'Kehilangan di Asrama', icon: Package },
                           { id: 'catatan_evaluasi', label: 'Evaluasi Asrama', icon: FileText },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
@@ -1395,11 +1557,12 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'kartu_siswa', label: 'Kartu Siswa', icon: IdCard },
                           { id: 'memos', label: 'Memorandum', icon: Mail },
                           { id: 'sarpras_asrama', label: 'Sarpras Asrama', icon: Wrench },
-                          { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
+                          { id: 'serah_terima', label: 'Serah Terima', icon: ClipboardCheck },
                           { id: 'cek_ketidakhadiran', label: 'Cek Ketidakhadiran', icon: ClipboardCheck },
                           { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone },
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
-                          { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop }
+                          { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
+                          { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse }
                         ].map((item: any) => (
                           <button
                             key={item.id}
@@ -1440,59 +1603,59 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
       {/* Top Header Navigation */}
       <header className={`sticky top-0 z-50 transition-all ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl border-b shadow-sm`}>
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between relative">
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between relative">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setShowSidebar(true)}
-              className={`p-3 rounded-xl transition-all duration-300 ${
+              className={`p-2 rounded-lg transition-all duration-300 ${
                 isDarkMode 
                   ? 'bg-slate-900 text-emerald-400 shadow-lg shadow-black/20' 
                   : 'bg-slate-100 text-slate-600 shadow-sm'
               } active:scale-95 border border-slate-200/50`}
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
-            <div className="flex flex-col">
-              <h1 className={`text-sm font-black uppercase tracking-widest font-display italic ${isDarkMode ? 'text-emerald-400' : 'text-slate-900'}`}>
+            <div className="flex flex-col text-left">
+              <h1 className={`text-[11px] font-black uppercase tracking-widest font-display italic ${isDarkMode ? 'text-emerald-400' : 'text-slate-900'}`}>
                 {viewTitles[viewMode] || 'Dashboard'}
               </h1>
-              <p className={`text-[9px] font-bold uppercase tracking-widest opacity-50 italic ${isDarkMode ? 'text-emerald-200' : 'text-slate-500'}`}>
+              <p className={`text-[8px] font-bold uppercase tracking-widest opacity-50 italic ${isDarkMode ? 'text-emerald-200' : 'text-slate-500'}`}>
                 Pusat Informasi Pengasuhan
               </p>
             </div>
           </div>
 
           <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
-             <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-full border border-slate-200/50 dark:border-slate-700/50">
-               <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Live Status</span>
+             <div className="flex items-center gap-2 px-3 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-full border border-slate-200/50 dark:border-slate-700/50">
+                <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Live Status</span>
              </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-3 rounded-2xl transition-all duration-300 ${
+              className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${
                 isDarkMode 
                   ? 'bg-slate-800 text-amber-400 hover:bg-slate-700 shadow-lg shadow-black/20' 
                   : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
               } active:scale-95`}
             >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-400" />}
             </button>
             
             <div className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-3 rounded-2xl transition-all duration-300 ${
+                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${
                   isDarkMode 
                     ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 shadow-lg shadow-black/20' 
                     : 'bg-slate-50 text-slate-400 hover:bg-slate-100 shadow-sm'
                 } active:scale-95 group`}
               >
-                <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                <Bell className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                 {notifications.filter(n => !n.readBy.includes(user.uid)).length > 0 && (
-                  <span className="absolute top-2.5 right-2.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800 ring-2 ring-rose-500/20 animate-bounce">
+                  <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border border-white dark:border-slate-800 ring-2 ring-rose-500/10 animate-bounce">
                     {notifications.filter(n => !n.readBy.includes(user.uid)).length}
                   </span>
                 )}
@@ -1630,6 +1793,221 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         )}
       </AnimatePresence>
 
+      {/* Image Banner Section */}
+      <div className="max-w-7xl mx-auto w-full px-4 pt-3">
+        {/* Render Active Banner Image */}
+        {imageBanner && imageBanner.isActive && imageBanner.imageUrl && (
+          <div className="relative group/banner overflow-hidden rounded-[2rem] shadow-lg border border-slate-200/10 mb-4 bg-slate-100/5 dark:bg-slate-800/10 transition-all duration-300 hover:shadow-indigo-500/10">
+            {/* Click to open Lightbox directly */}
+            <div 
+              onClick={() => setIsLightboxOpen(true)}
+              className="cursor-zoom-in relative block w-full overflow-hidden"
+            >
+              <img 
+                src={imageBanner.imageUrl} 
+                alt={imageBanner.title || "Banner Gambar"} 
+                className="w-full max-h-[360px] object-cover hover:scale-[1.015] transition-transform duration-700 rounded-[2rem]"
+              />
+              <div className="absolute inset-0 bg-black/[0.04] hover:bg-black/[0.08] transition duration-300" />
+              
+              {/* Tap to Zoom Indicator Overlay */}
+              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-[8px] font-black uppercase tracking-wider text-slate-100 px-2.5 py-1.5 rounded-lg border border-white/5 opacity-0 group-hover/banner:opacity-100 transition duration-300 flex items-center gap-1.5 shadow-lg">
+                <Search className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
+                Klik untuk Memperbesar
+              </div>
+            </div>
+            
+            {/* Title & Metadata overlay at the bottom with dark secure contrast gradient */}
+            {(imageBanner.title || imageBanner.linkUrl) && (
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent p-4 md:p-5 pt-16 text-white rounded-b-[2rem] flex flex-col sm:flex-row sm:items-end justify-between gap-3 pointer-events-none">
+                {imageBanner.title && (
+                  <div className="max-w-full sm:max-w-[70%]">
+                    <span className="text-[8px] font-mono tracking-widest text-amber-300 font-bold uppercase italic block mb-0.5">PENGUMUMAN PENTING</span>
+                    <h3 className="text-xs sm:text-sm font-black tracking-wide uppercase italic line-clamp-2 leading-tight drop-shadow-md text-slate-100">{imageBanner.title}</h3>
+                  </div>
+                )}
+                {imageBanner.linkUrl && (
+                  <a 
+                    href={imageBanner.linkUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-black text-[9px] uppercase tracking-widest px-3.5 py-2 rounded-xl shadow-lg border border-indigo-500/20 transition flex items-center gap-1.5 ml-auto sm:ml-0 shrink-0"
+                  >
+                    Buka Tautan
+                    <ChevronRight className="w-3" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lightbox Modal Overlay */}
+        <AnimatePresence>
+          {isLightboxOpen && imageBanner && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLightboxOpen(false)}
+              className="fixed inset-0 z-[999] flex flex-col items-center justify-center p-4 bg-black/95 backdrop-blur-xl cursor-zoom-out"
+            >
+              <motion.div
+                initial={{ scale: 0.92, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.92, y: 15 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 210 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative max-w-4xl w-full max-h-[85vh] flex flex-col items-center justify-center bg-slate-900/40 rounded-3xl overflow-hidden p-2 border border-white/5 shadow-2xl"
+              >
+                <img 
+                  src={imageBanner.imageUrl} 
+                  alt={imageBanner.title || "Full Banner Gambar"} 
+                  className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl select-none"
+                  referrerPolicy="no-referrer"
+                />
+                
+                {/* Info Overlay at the bottom */}
+                {(imageBanner.title || imageBanner.linkUrl) && (
+                  <div className="absolute bottom-4 inset-x-4 bg-black/75 backdrop-blur-md px-5 py-4 text-white text-center rounded-2xl border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-2">
+                    {imageBanner.title && (
+                      <h3 className="text-xs sm:text-sm font-black tracking-wide uppercase italic text-slate-100">{imageBanner.title}</h3>
+                    )}
+                    {imageBanner.linkUrl && (
+                      <a 
+                        href={imageBanner.linkUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase tracking-wider px-3.5 py-1.5 rounded-xl shadow-lg border border-indigo-500/30 transition-all duration-350"
+                      >
+                        <LucideImage className="w-3.5 h-3.5" />
+                        Kunjungi Tautan Referensi
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Close Button at top-right */}
+                <button 
+                  onClick={() => setIsLightboxOpen(false)}
+                  className="absolute top-4 right-4 bg-black/60 text-white hover:bg-black/95 p-2.5 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg active:scale-95"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Admin controls for processeshidup1101@gmail.com and developers */}
+        {(user?.email === 'proseshidup1101@gmail.com' || user?.email === 'boxsimokerto5@gmail.com') && (
+          <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900/60 border-white/5 shadow-2xl' : 'bg-slate-50 border-slate-200'} mb-4 transition-all duration-300`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">
+                  Panel Admin Banner Gambar (Hanya Terbuka untuk Anda)
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowBannerControls(!showBannerControls)}
+                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg border transition-all duration-300 ${
+                  isDarkMode 
+                    ? 'border-white/10 hover:bg-white/5 text-slate-300' 
+                    : 'border-slate-300 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                {showBannerControls ? 'Tutup Pengontrol' : 'Buka Pengaturan'}
+              </button>
+            </div>
+
+            {showBannerControls && (
+              <div className="mt-3 space-y-3 pt-3 border-t border-slate-200/50 dark:border-white/5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-[#8b5e3c] mb-1">
+                      Judul Banner (Opsional)
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Masukkan judul banner..."
+                      value={bannerTitleInput}
+                      onChange={(e) => setBannerTitleInput(e.target.value)}
+                      className={`w-full px-3 py-1.5 text-xs rounded-xl outline-none border focus:ring-1 focus:ring-[#3e2723] ${
+                        isDarkMode 
+                          ? 'bg-slate-950/45 border-white/5 text-slate-300' 
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-[#8b5e3c] mb-1">
+                      Link / Tautan Redirect (Opsional)
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="https://contoh.com..."
+                      value={bannerLinkInput}
+                      onChange={(e) => setBannerLinkInput(e.target.value)}
+                      className={`w-full px-3 py-1.5 text-xs rounded-xl outline-none border focus:ring-1 focus:ring-[#3e2723] ${
+                        isDarkMode 
+                          ? 'bg-slate-950/45 border-white/5 text-slate-300' 
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <label 
+                      className={`flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border cursor-pointer transition ${
+                        isUploadingBanner 
+                          ? 'opacity-50 pointer-events-none bg-slate-500' 
+                          : 'bg-indigo-650 hover:bg-indigo-600 text-white border-indigo-600/30'
+                      }`}
+                    >
+                      <LucideImage className="w-3.5 h-3.5" />
+                      {isUploadingBanner ? 'Mengompres & Mengunggah...' : 'Pilih & Unggah Gambar'}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleBannerImageUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+
+                    {imageBanner?.imageUrl && (
+                      <button 
+                        onClick={handleDeleteBanner}
+                        className="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-rose-50/10 hover:bg-rose-50/20 text-rose-500 border border-rose-500/20 transition"
+                      >
+                        Hapus Gambar
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button 
+                      onClick={() => handleUpdateBannerSettings(true)}
+                      className="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition"
+                    >
+                      Simpan Teks & Tampilkan
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateBannerSettings(false)}
+                      className="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 transition"
+                    >
+                      Sembunyikan Banner
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Shrunken Real-time Clock Bar */}
       <div className="max-w-7xl mx-auto w-full px-4 mt-3">
         <div className="p-[1px] rounded-xl bg-gradient-to-r from-[#d7ccc8]/40 via-[#8b5e3c]/40 to-[#d7ccc8]/40">
@@ -1643,18 +2021,17 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         </div>
       </div>
 
-      <div className={`p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-8`}>
+      <div className={`p-4 sm:p-6 ${viewMode === 'mading' || viewMode === 'dinding' ? 'max-w-none' : 'max-w-7xl'} mx-auto pb-24 space-y-6 sm:space-y-8`}>
         {viewMode === 'mading' && <MadingSekolahView user={user} />}
         {viewMode === 'agenda' && <AgendaView user={user} />}
         {viewMode === 'dinding' && <WallView user={user} wallType="asuh" title="Dinding Wali Asuh" />}
-        {viewMode === 'catatan_kejadian' && <DormitoryIncidentsView user={user} />}
         {viewMode === 'catatan_evaluasi' && <EvaluationNotesView user={user} />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
-        {viewMode === 'konseling_siswa' && <StudentCounselingView user={user} students={students} />}
         {viewMode === 'kehilangan_di_asrama' && <DormitoryLossesView user={user} students={students} />}
         {viewMode === 'laporan_bulanan' && <MonthlyReportView user={user} />}
-        {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
         {viewMode === 'serah_terima' && <SerahTerimaView user={user} />}
+        {viewMode === 'jadwal_absen' && <JadwalAbsenPiketView user={user} />}
+        {viewMode === 'undi_tausiyah' && <TausiyahSpinner user={user} students={students} history={tausiyahHistory} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -2452,17 +2829,17 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         )}
 
         {viewMode === 'home' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-xl mb-8 relative overflow-hidden group border-b-4 border-slate-950">
+          <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+            <div className="bg-slate-900 p-5 sm:p-8 rounded-3xl sm:rounded-[3rem] text-white shadow-xl mb-6 sm:mb-8 relative overflow-hidden group border-b-4 border-slate-950">
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110" />
               <div className="relative z-10 text-white/90">
-                <h1 className="text-3xl font-black font-display tracking-tight mb-2 italic">Hallo, {user.name || user.email}</h1>
-                <p className="text-sm font-bold text-emerald-200 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                <h1 className="text-2xl sm:text-3xl font-black font-display tracking-tight mb-2 italic">Hallo, {user.name || user.email}</h1>
+                <p className="text-xs sm:text-sm font-bold text-emerald-200 uppercase tracking-[0.2em] flex items-center gap-2 mb-4 sm:mb-6">
+                  <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                   {getRoleLabel(user.role || 'wali_asuh')}
                 </p>
                 
-                <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-white/10">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-200/60 mb-4 flex items-center gap-2">
                     <LayoutDashboard className="w-4 h-4" />
                     Daftar Fitur Akun:
@@ -2486,97 +2863,97 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 font-display italic">Akses Menu Cepat:</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <h2 className="text-lg font-black text-slate-900 font-display italic">Akses Menu Cepat:</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="py-5 px-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-xl hover:bg-slate-950 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-slate-950"
+                  className="py-3.5 px-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-slate-950 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-slate-950"
                 >
-                  <Activity size={24} className="text-emerald-400" />
+                  <Activity size={20} className="text-emerald-400" />
                   Verifikasi Izin
                 </button>
                 <button
                   onClick={() => setViewMode('kartu_siswa')}
-                  className="py-5 px-6 bg-emerald-600 text-white font-black rounded-[2rem] shadow-xl hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-emerald-800"
+                  className="py-3.5 px-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-emerald-800"
                 >
-                   <User size={24} className="text-white" />
+                   <User size={20} className="text-white" />
                   Database Siswa
                 </button>
                 <button
-                  onClick={() => setViewMode('jurnal_keperawatan')}
-                  className="py-5 px-6 bg-[#3e2723] text-white font-black rounded-[2rem] shadow-xl hover:bg-[#5d4037] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-black"
+                  onClick={() => setViewMode('serah_terima')}
+                  className="py-3.5 px-4 bg-[#4a148c] text-white font-black rounded-2xl shadow-xl hover:bg-[#6a1b9a] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-[#311b92]"
                 >
-                  <Activity size={24} className="text-rose-400 animate-pulse" />
-                  Jurnal Perawatan
+                  <ClipboardCheck size={20} className="text-pink-300" />
+                  Serah Terima
                 </button>
                 <button
                   onClick={() => setViewMode('laporan_bulanan')}
-                  className="py-5 px-6 bg-slate-800 text-white font-black rounded-[2rem] shadow-xl hover:bg-slate-900 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center gap-3 border-b-4 border-slate-950"
+                  className="py-3.5 px-4 bg-slate-800 text-white font-black rounded-2xl shadow-xl hover:bg-slate-900 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-slate-950"
                 >
-                  <FileText size={24} className="text-indigo-400" />
+                  <FileText size={20} className="text-indigo-400" />
                   Monthly Report
                 </button>
               </div>
             </div>
 
             {/* Information Card */}
-            <div className="bg-white rounded-[2.5rem] border border-[#d7ccc8]/40 shadow-sm overflow-hidden">
-              <div className="p-6 flex items-center justify-between border-b border-[#f8f3ed]">
-                <h3 className="font-black text-lg text-[#3e2723] font-display italic tracking-tight">Informasi Wali Asuh</h3>
-                <button className="px-6 py-2 bg-white border border-[#d7ccc8]/40 rounded-xl text-[10px] font-black text-[#8b5e3c] shadow-sm hover:bg-[#f8f3ed] transition-all uppercase tracking-widest">
+            <div className="bg-white rounded-3xl border border-[#d7ccc8]/40 shadow-sm overflow-hidden text-left">
+              <div className="p-4 sm:p-6 flex items-center justify-between border-b border-[#f8f3ed]">
+                <h3 className="font-black text-base text-[#3e2723] font-display italic tracking-tight">Informasi Wali Asuh</h3>
+                <button className="px-4 py-1.5 bg-white border border-[#d7ccc8]/40 rounded-xl text-[9px] font-black text-[#8b5e3c] shadow-sm hover:bg-[#f8f3ed] transition-all uppercase tracking-widest">
                   Detail Profil
                 </button>
               </div>
               
-              <div className="p-8 space-y-6">
+              <div className="p-5 sm:p-8 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
                   <div className="flex justify-between items-center group">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Nama Jabatan</span>
-                    <span className="text-sm font-black text-[#3e2723] italic">Wali Asuh SRMA 24</span>
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Nama Jabatan</span>
+                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">Wali Asuh SRMA 24</span>
                   </div>
-                  <div className="flex flex-col space-y-2">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Link Dashboard</span>
-                    <div className="flex items-center gap-2 p-3 bg-[#fdfcf0] rounded-2xl border border-[#d7ccc8]/30 group">
-                      <p className="text-[10px] font-black text-[#5d4037] truncate flex-1 leading-none italic">
+                  <div className="flex flex-col space-y-1.5">
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest text-left">Link Dashboard</span>
+                    <div className="flex items-center gap-2 p-2.5 bg-[#fdfcf0] rounded-xl border border-[#d7ccc8]/30 group w-full">
+                      <p className="text-[9px] font-black text-[#5d4037] truncate flex-1 leading-none italic text-left">
                         https://srma24kediri.app/dashboard/{user.uid}
                       </p>
-                      <button className="p-1.5 bg-white rounded-lg shadow-sm text-[#8b5e3c] border border-[#d7ccc8]/20">
-                        <ClipboardList className="w-4 h-4" />
+                      <button className="p-1 bg-white rounded-lg shadow-sm text-[#8b5e3c] border border-[#d7ccc8]/20 shrink-0">
+                        <ClipboardList className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Status Akun</span>
-                    <span className="px-4 py-1.5 bg-[#3e2723] text-white text-[9px] font-black rounded-full uppercase tracking-widest">AKTIF</span>
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Status Akun</span>
+                    <span className="px-3 py-1 bg-[#3e2723] text-white text-[8px] font-black rounded-full uppercase tracking-widest">AKTIF</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Kategori Peran</span>
-                    <span className="text-sm font-black text-[#3e2723] italic">Verifikator</span>
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Kategori Peran</span>
+                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">Verifikator</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Tipe Akses</span>
-                    <span className="text-sm font-black text-[#3e2723] italic">Full Access</span>
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Tipe Akses</span>
+                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">Full Access</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Verifikasi Email</span>
-                    <span className="text-sm font-black text-[#3e2723] italic">{auth.currentUser?.emailVerified ? 'Sudah' : 'Belum'}</span>
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Verifikasi Email</span>
+                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">{auth.currentUser?.emailVerified ? 'Sudah' : 'Belum'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Ulasan Sistem</span>
-                    <div className="flex gap-1">
+                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Ulasan Sistem</span>
+                    <div className="flex gap-1 items-center">
                       {[1, 2, 3, 4, 5].map((s) => (
-                        <Star key={s} className="w-4 h-4 fill-amber-500 text-amber-500" />
+                        <Star key={s} className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                       ))}
-                      <span className="ml-2 text-sm font-black text-[#3e2723] italic">5.0</span>
+                      <span className="ml-1 text-xs font-black text-[#3e2723] italic">5.0</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 bg-[#fdfcf0]/50 border-t border-[#f8f3ed]">
+              <div className="p-4 sm:p-5 bg-[#fdfcf0]/50 border-t border-[#f8f3ed]">
                 <button
                   onClick={() => setViewMode('perizinan')}
-                  className="px-6 py-3 bg-[#f8f3ed] text-[#5d4037] font-black rounded-xl shadow-sm hover:bg-[#d7ccc8]/20 transition-all text-[10px] uppercase tracking-widest"
+                  className="px-4 py-2 bg-[#f8f3ed] text-[#5d4037] font-black rounded-xl shadow-sm hover:bg-[#d7ccc8]/20 transition-all text-[9px] uppercase tracking-widest"
                 >
                   Lihat Data Dasbor
                 </button>
@@ -2827,6 +3204,22 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
 
                 {/* Print Buttons inside header */}
                 <div className="shrink-0 flex items-center flex-wrap gap-2.5">
+                  <div className="flex items-center gap-2 bg-amber-950/45 p-1 rounded-2xl border border-amber-500/20">
+                    <input
+                      type="date"
+                      value={rekapHarianTanggal}
+                      onChange={(e) => setRekapHarianTanggal(e.target.value)}
+                      className="px-2.5 py-1.5 text-[10px] sm:text-xs font-bold text-amber-100 bg-transparent rounded-xl border border-amber-500/20 focus:outline-none focus:border-amber-500 [color-scheme:dark]"
+                    />
+                    <button
+                      onClick={() => handlePrintDailyReport(rekapHarianTanggal)}
+                      disabled={reportLoading}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-[#3e2723] font-black rounded-xl shadow-md transition-all active:scale-95 uppercase tracking-wider text-[9px] border border-amber-400 shrink-0"
+                    >
+                      {reportLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
+                      <span>Rekap Harian</span>
+                    </button>
+                  </div>
                   <button
                     onClick={() => handlePrintPeriodicReport('minggu_ini')}
                     disabled={reportLoading}

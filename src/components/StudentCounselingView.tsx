@@ -51,7 +51,7 @@ export default function StudentCounselingView({ user, students }: StudentCounsel
   // Load and subscribe to counseling records
   useEffect(() => {
     let q;
-    if (user.email === 'proseshidup1101@gmail.com') {
+    if (user.email === 'proseshidup1101@gmail.com' || user.email === 'boxsimokerto5@gmail.com') {
       q = query(collection(db, 'student_counselings'));
     } else {
       q = query(
@@ -323,7 +323,7 @@ export default function StudentCounselingView({ user, students }: StudentCounsel
             Konseling Siswa
           </h2>
           <p className="text-stone-300 text-[11px] font-medium tracking-wide mt-1 uppercase opacity-90">
-            {user.email === 'proseshidup1101@gmail.com' 
+            {(user.email === 'proseshidup1101@gmail.com' || user.email === 'boxsimokerto5@gmail.com') 
               ? 'Mode Super-Admin: Menampilkan seluruh instrumen bimbingan asrama' 
               : 'Pusat Manajemen Konseling dan Evaluasi Sosial Bimbingan Siswa Mandiri'}
           </p>
@@ -611,7 +611,7 @@ export default function StudentCounselingView({ user, students }: StudentCounsel
                   </div>
 
                   {/* Creator permissions controls */}
-                  {(selectedRecord.author_uid === user.uid || user.email === 'proseshidup1101@gmail.com') && (
+                  {(selectedRecord.author_uid === user.uid || user.email === 'proseshidup1101@gmail.com' || user.email === 'boxsimokerto5@gmail.com') && (
                     <div className="flex items-center gap-1.5 self-end sm:self-auto text-[9.5px]">
                       <button
                         onClick={() => {

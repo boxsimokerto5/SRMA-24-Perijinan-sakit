@@ -39,11 +39,16 @@ import {
   X,
   ClipboardCheck,
   Package,
-  Contact
+  Contact,
+  Scissors,
+  HeartPulse,
+  FileText,
+  Shield,
+  Image as LucideImage
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport, Announcement, PinjamHP, Ketidakhadiran, parseFirestoreDate } from '../types';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, SarprasReport, Announcement, PinjamHP, Ketidakhadiran, parseFirestoreDate, JadwalTausiyah } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -58,6 +63,7 @@ import DormitoryIncidentsView from './DormitoryIncidentsView';
 import JurnalKeperawatanView from './JurnalKeperawatanView';
 import DormitoryLossesView from './DormitoryLossesView';
 import SerahTerimaView from './SerahTerimaView';
+import TausiyahSpinner from './TausiyahSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -136,6 +142,29 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const [imageBanner, setImageBanner] = useState<{ imageUrl: string; title?: string; linkUrl?: string; isActive: boolean; updatedAt?: any } | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubBanner = onSnapshot(doc(db, 'image_banners', 'active'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setImageBanner({
+          imageUrl: data.imageUrl || '',
+          title: data.title || '',
+          linkUrl: data.linkUrl || '',
+          isActive: data.isActive !== false,
+          updatedAt: data.updatedAt
+        });
+      } else {
+        setImageBanner(null);
+      }
+    }, (err) => {
+      console.warn("Non-blocking image banner read:", err);
+    });
+    return () => unsubBanner();
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -210,7 +239,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'kehilangan_di_asrama' | 'serah_terima'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
   // Pinjam HP States
@@ -243,6 +272,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [students, setStudents] = useState<Siswa[]>([]);
+  const [tausiyahHistory, setTausiyahHistory] = useState<JadwalTausiyah[]>([]);
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('Semua');
   
@@ -311,6 +341,20 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
       }))
       .sort((a, b) => (a.nama_lengkap || '').localeCompare(b.nama_lengkap || ''));
       setStudents(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'jadwal_tausiyah'),
+      orderBy('tanggal', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as JadwalTausiyah));
+      setTausiyahHistory(data);
+    }, (err) => {
+      console.error("Failed to fetch Tausiyah history for Wali Asrama", err);
     });
     return () => unsubscribe();
   }, []);
@@ -679,7 +723,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     cek_ketidakhadiran: 'Cek Ketidakhadiran',
     jurnal_keperawatan: 'Jurnal Keperawatan',
     kehilangan_di_asrama: 'Kehilangan di Asrama',
-    serah_terima: 'Serah Terima Wali Asuh ke Wali Asrama'
+    serah_terima: 'Serah Terima Wali Asuh ke Wali Asrama',
+    undi_tausiyah: 'Undi Tausiyah Santri'
   };
 
   const navItems = [
@@ -764,7 +809,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                             { id: 'sarpras', label: 'Sarpras Asrama', icon: Wrench },
                             { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
                             { id: 'memorandum', label: 'Memorandum', icon: Mail },
-                            { id: 'profil', label: 'Profil Saya', icon: User }
+                            { id: 'profil', label: 'Profil Saya', icon: User },
+                            { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse }
                           ].map((item: any) => (
                             <button
                               key={item.id}
@@ -868,6 +914,112 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         )}
       </AnimatePresence>
 
+      {/* Image Banner Section */}
+      <div className="max-w-7xl mx-auto w-full px-4 pt-3">
+        {imageBanner && imageBanner.isActive && imageBanner.imageUrl && (
+          <div className="relative group/banner overflow-hidden rounded-[2rem] shadow-lg border border-slate-200/10 mb-4 bg-slate-100/5 dark:bg-slate-800/10 transition-all duration-300 hover:shadow-indigo-500/10">
+            {/* Click to open Lightbox directly */}
+            <div 
+              onClick={() => setIsLightboxOpen(true)}
+              className="cursor-zoom-in relative block w-full overflow-hidden"
+            >
+              <img 
+                src={imageBanner.imageUrl} 
+                alt={imageBanner.title || "Banner Gambar"} 
+                className="w-full max-h-[360px] object-cover hover:scale-[1.015] transition-transform duration-700 rounded-[2rem]"
+              />
+              <div className="absolute inset-0 bg-black/[0.04] hover:bg-black/[0.08] transition duration-300" />
+              
+              {/* Tap to Zoom Indicator Overlay */}
+              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-[8px] font-black uppercase tracking-wider text-slate-100 px-2.5 py-1.5 rounded-lg border border-white/5 opacity-0 group-hover/banner:opacity-100 transition duration-300 flex items-center gap-1.5 shadow-lg">
+                <Search className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
+                Klik untuk Memperbesar
+              </div>
+            </div>
+            
+            {/* Title & Metadata overlay at the bottom with dark secure contrast gradient */}
+            {(imageBanner.title || imageBanner.linkUrl) && (
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent p-4 md:p-5 pt-16 text-white rounded-b-[2rem] flex flex-col sm:flex-row sm:items-end justify-between gap-3 pointer-events-none">
+                {imageBanner.title && (
+                  <div className="max-w-full sm:max-w-[70%]">
+                    <span className="text-[8px] font-mono tracking-widest text-amber-300 font-bold uppercase italic block mb-0.5">PENGUMUMAN PENTING</span>
+                    <h3 className="text-xs sm:text-sm font-black tracking-wide uppercase italic line-clamp-2 leading-tight drop-shadow-md text-slate-100">{imageBanner.title}</h3>
+                  </div>
+                )}
+                {imageBanner.linkUrl && (
+                  <a 
+                    href={imageBanner.linkUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-black text-[9px] uppercase tracking-widest px-3.5 py-2 rounded-xl shadow-lg border border-indigo-500/20 transition flex items-center gap-1.5 ml-auto sm:ml-0 shrink-0"
+                  >
+                    Buka Tautan
+                    <ChevronRight className="w-3" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lightbox Modal Overlay */}
+        <AnimatePresence>
+          {isLightboxOpen && imageBanner && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLightboxOpen(false)}
+              className="fixed inset-0 z-[999] flex flex-col items-center justify-center p-4 bg-black/95 backdrop-blur-xl cursor-zoom-out"
+            >
+              <motion.div
+                initial={{ scale: 0.92, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.92, y: 15 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 210 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative max-w-4xl w-full max-h-[85vh] flex flex-col items-center justify-center bg-slate-900/40 rounded-3xl overflow-hidden p-2 border border-white/5 shadow-2xl"
+              >
+                <img 
+                  src={imageBanner.imageUrl} 
+                  alt={imageBanner.title || "Full Banner Gambar"} 
+                  className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl select-none"
+                  referrerPolicy="no-referrer"
+                />
+                
+                {/* Info Overlay at the bottom */}
+                {(imageBanner.title || imageBanner.linkUrl) && (
+                  <div className="absolute bottom-4 inset-x-4 bg-black/75 backdrop-blur-md px-5 py-4 text-white text-center rounded-2xl border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-2">
+                    {imageBanner.title && (
+                      <h3 className="text-xs sm:text-sm font-black tracking-wide uppercase italic text-slate-100">{imageBanner.title}</h3>
+                    )}
+                    {imageBanner.linkUrl && (
+                      <a 
+                        href={imageBanner.linkUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase tracking-wider px-3.5 py-1.5 rounded-xl shadow-lg border border-indigo-500/30 transition-all duration-350"
+                      >
+                        <LucideImage className="w-3.5 h-3.5" />
+                        Kunjungi Tautan Referensi
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Close Button at top-right */}
+                <button 
+                  onClick={() => setIsLightboxOpen(false)}
+                  className="absolute top-4 right-4 bg-black/60 text-white hover:bg-black/95 p-2.5 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg active:scale-95"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Shrunken Real-time Clock Bar */}
       <div className="max-w-7xl mx-auto w-full px-4 mt-2">
         <div className="p-[1px] rounded-lg bg-gradient-to-r from-[#d7ccc8]/30 via-[#8b5e3c]/30 to-[#d7ccc8]/30">
@@ -891,6 +1043,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
         {viewMode === 'kehilangan_di_asrama' && <DormitoryLossesView user={user} students={students} />}
         {viewMode === 'serah_terima' && <SerahTerimaView user={user} />}
+        {viewMode === 'undi_tausiyah' && <TausiyahSpinner user={user} students={students} history={tausiyahHistory} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

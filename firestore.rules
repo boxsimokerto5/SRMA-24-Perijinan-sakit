@@ -204,7 +204,7 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
-    function isValidStudentCounseling(data) {
+    function isValidStudentCounselingOnCreate(data) {
       return data.keys().hasAll(['siswa_name', 'kelas', 'tgl_konseling', 'kategori', 'permasalahan', 'solusi', 'perkembangan', 'author_name', 'author_uid', 'author_email']) &&
              data.siswa_name is string && data.siswa_name.size() <= 128 &&
              data.kelas is string && data.kelas.size() <= 32 &&
@@ -215,6 +215,20 @@ service cloud.firestore {
              data.perkembangan is string && data.perkembangan.size() <= 5000 &&
              data.author_name is string && data.author_name.size() <= 128 &&
              data.author_uid == request.auth.uid &&
+             data.author_email is string && data.author_email.size() <= 128;
+    }
+
+    function isValidStudentCounselingOnUpdate(data, existingData) {
+      return data.keys().hasAll(['siswa_name', 'kelas', 'tgl_konseling', 'kategori', 'permasalahan', 'solusi', 'perkembangan', 'author_name', 'author_uid', 'author_email']) &&
+             data.siswa_name is string && data.siswa_name.size() <= 128 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.tgl_konseling is timestamp &&
+             data.kategori is string && data.kategori.size() <= 64 &&
+             data.permasalahan is string && data.permasalahan.size() <= 5000 &&
+             data.solusi is string && data.solusi.size() <= 5000 &&
+             data.perkembangan is string && data.perkembangan.size() <= 5000 &&
+             data.author_name is string && data.author_name.size() <= 128 &&
+             data.author_uid == existingData.author_uid &&
              data.author_email is string && data.author_email.size() <= 128;
     }
 
@@ -477,11 +491,14 @@ service cloud.firestore {
     }
 
     match /student_counselings/{counselingId} {
-      allow list: if isSignedIn() && (request.auth.token.email == 'proseshidup1101@gmail.com' || resource.data.author_uid == request.auth.uid);
-      allow get: if isSignedIn() && isValidId(counselingId) && (request.auth.token.email == 'proseshidup1101@gmail.com' || existing().author_uid == request.auth.uid);
-      allow create: if isSignedIn() && isValidId(counselingId) && isValidStudentCounseling(incoming());
-      allow update: if isSignedIn() && isValidId(counselingId) && existing().author_uid == request.auth.uid && isValidStudentCounseling(incoming());
-      allow delete: if isSignedIn() && isValidId(counselingId) && existing().author_uid == request.auth.uid;
+      allow list: if isSignedIn() && (request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com' || resource.data.author_uid == request.auth.uid);
+      allow get: if isSignedIn() && isValidId(counselingId) && (request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com' || existing().author_uid == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(counselingId) && isValidStudentCounselingOnCreate(incoming());
+      allow update: if isSignedIn() && isValidId(counselingId) && 
+                    (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com') && 
+                    isValidStudentCounselingOnUpdate(incoming(), existing());
+      allow delete: if isSignedIn() && isValidId(counselingId) && 
+                    (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com');
     }
 
     match /dormitory_losses/{lossId} {
@@ -498,6 +515,26 @@ service cloud.firestore {
       allow create: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(handoverId) && isValidSerahTerima(incoming());
       allow update: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(handoverId) && isValidSerahTerima(incoming());
       allow delete: if isAdmin() || isMasterAdmin() || (existing().author_uid == request.auth.uid);
+    }
+
+    match /e_absensi/{id} {
+      allow read: if isSignedIn();
+      allow write: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(id);
+    }
+
+    match /jadwal_piket/{id} {
+      allow read: if isSignedIn();
+      allow write: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(id);
+    }
+
+    match /jadwal_tausiyah/{id} {
+      allow read: if isSignedIn();
+      allow write: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(id);
+    }
+
+    match /absen_piket_harian/{id} {
+      allow read: if isSignedIn();
+      allow write: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(id);
     }
   }
 }

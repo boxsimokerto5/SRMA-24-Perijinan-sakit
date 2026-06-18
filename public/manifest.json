@@ -1,0 +1,31 @@
+{
+  "short_name": "SRMA 24",
+  "name": "SRMA 24 KEDIRI",
+  "description": "Sistem Informasi & Manajemen Asrama Terpadu SRMA 24 Kediri",
+  "id": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3e2723",
+  "theme_color": "#3e2723",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

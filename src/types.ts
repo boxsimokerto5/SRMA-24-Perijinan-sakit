@@ -430,4 +430,79 @@ export interface SerahTerima {
   createdAt: Timestamp;
 }
 
+export interface LaporanPerkembanganSiswa {
+  id?: string;
+  siswa_id: string;
+  nama_siswa: string;
+  kelas: string;
+  kamar: string;
+  wali_asuh_name: string;
+  wali_asuh_uid: string;
+  periode_bulan: string;
+  tgl_laporan: Timestamp;
+  aspek_a_score: 'SB' | 'B' | 'C' | 'PB';
+  aspek_a_catatan: string;
+  aspek_b_score: 'SB' | 'B' | 'C' | 'PB';
+  aspek_b_catatan: string;
+  aspek_c_score: 'SB' | 'B' | 'C' | 'PB';
+  aspek_c_catatan: string;
+  aspek_d_kondisi: string;
+  aspek_d_catatan: string;
+  apresiasi_wali_asuh: string;
+  rekomendasi_sinergi: string;
+  createdAt: Timestamp;
+}
+
+export interface KunjunganOrangTua {
+  id?: string;
+  siswa_name: string;
+  kelas: string;
+  nama_ortu: string;
+  tgl_kunjungan: Timestamp;
+  author_name: string;
+  author_uid: string;
+  createdAt: any;
+  signature_url?: string;
+}
+
+export interface SKPReport {
+  id?: string;
+  tanggal_kegiatan: Timestamp;
+  kegiatan_dilaksanakan: string;
+  hasil_dicapai: string;
+  kesimpulan_saran: string;
+  foto_1: string;
+  foto_2: string;
+  foto_3: string;
+  foto_4: string;
+  author_name: string;
+  author_uid: string;
+  author_email: string;
+  createdAt: Timestamp;
+}
+
+export interface SOP {
+  id?: string;
+  judul: string;
+  nomor: string;
+  kategori: string;
+  tanggal_tetap: Timestamp;
+  deskripsi: string;
+  prosedur: string;
+  author_name: string;
+  author_uid: string;
+  createdAt?: any;
+}
+
+export interface JadwalTausiyah {
+  id?: string;
+  tanggal: any; // Timestamp or Date
+  nama_siswa: string;
+  kelas: string;
+  gender: string;
+  author_name?: string;
+  author_uid?: string;
+}
+
+
 

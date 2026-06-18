@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal, StudentCounseling, DormitoryLoss } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal, StudentCounseling, DormitoryLoss, LaporanPerkembanganSiswa, KunjunganOrangTua, SKPReport, SOP, JadwalTausiyah } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -324,12 +324,13 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
     p.kelas || '',
     (p.tipe || '').toUpperCase(),
     (p.diagnosa || p.alasan || p.isi_catatan || '-'),
+    p.nama_dokter || '-',
     p.tgl_surat && typeof p.tgl_surat.toDate === 'function' ? format(p.tgl_surat.toDate(), 'dd/MM/yy') : '-'
   ]);
 
   autoTable(doc, {
     startY: 75,
-    head: [['NO', 'NAMA SISWA', 'KELAS', 'TIPE', 'DIAGNOSA / KETERANGAN', 'TANGGAL']],
+    head: [['NO', 'NAMA SISWA', 'KELAS', 'TIPE', 'DIAGNOSA / KETERANGAN', 'DOKTER PEMERIKSA', 'TANGGAL']],
     body: tableData,
     theme: 'grid',
     styles: {
@@ -342,12 +343,13 @@ export const generateSummaryReportPDF = async (permits: IzinSakit[], rangeLabel:
     headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontSize: 8, fontStyle: 'bold' },
     bodyStyles: { textColor: [40, 40, 40] },
     columnStyles: {
-      0: { cellWidth: 10 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 15 },
-      3: { cellWidth: 20 },
+      0: { cellWidth: 8 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 12 },
+      3: { cellWidth: 15 },
       4: { cellWidth: 'auto', halign: 'left' },
-      5: { cellWidth: 25 }
+      5: { cellWidth: 28 },
+      6: { cellWidth: 22 }
     },
     margin: { left: 20, right: 20 }
   });
@@ -3189,6 +3191,267 @@ export const generateLossesReportPDF = async (data: DormitoryLoss[], periodLabel
     doc.save(fileName);
   }
 };
+
+interface CatatanBerobat {
+  id?: string;
+  siswa_id: string;
+  siswa_name: string;
+  kelas: string;
+  keluhan: string;
+  tindakan: string;
+  tgl_kunjungan: any;
+  author_name: string;
+  author_uid: string;
+  createdAt?: any;
+}
+
+export const generateUksReportPDF = async (records: CatatanBerobat[], periodLabel: string, userName: string) => {
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('REKAPITULASI CATATAN BEROBAT JUMPA DI UKS', 105, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Periode: ${periodLabel}`, 105, 26, { align: 'center' });
+
+  const tableData = records.map((record, index) => {
+    let tglStr = '-';
+    if (record.tgl_kunjungan) {
+      const dt = record.tgl_kunjungan.toDate ? record.tgl_kunjungan.toDate() : new Date(record.tgl_kunjungan);
+      tglStr = dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return [
+      index + 1,
+      tglStr,
+      record.siswa_name,
+      record.kelas,
+      record.keluhan,
+      record.tindakan,
+      record.author_name
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['No', 'Tanggal', 'Nama Siswa', 'Kelas', 'Keluhan / Penyakit', 'Tindakan / Obat', 'Petugas/Wali']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 8 }
+  });
+
+  doc.save(`Rekap_Berobat_UKS_${Date.now()}.pdf`);
+};
+
+export const generateLaporanPerkembanganPDF = async (report: LaporanPerkembanganSiswa) => {
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('LAPORAN PERKEMBANGAN ANANDA BERKALA', 105, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Periode Bulan: ${report.periode_bulan}`, 105, 26, { align: 'center' });
+
+  const data = [
+    ['Nama Siswa', report.nama_siswa],
+    ['Kelas / Kamar', `${report.kelas} / ${report.kamar}`],
+    ['Wali Asuh', report.wali_asuh_name],
+    ['Aspek Karakter (A)', `[Score: ${report.aspek_a_score}] ${report.aspek_a_catatan}`],
+    ['Aspek Ibadah (B)', `[Score: ${report.aspek_b_score}] ${report.aspek_b_catatan}`],
+    ['Aspek Kemandirian (C)', `[Score: ${report.aspek_c_score}] ${report.aspek_c_catatan}`],
+    ['Aspek Fisik & Kesehatan (D)', `[Kondisi: ${report.aspek_d_kondisi}] ${report.aspek_d_catatan}`],
+    ['Apresiasi Wali Asuh', report.apresiasi_wali_asuh],
+    ['Rekomendasi Sinergi', report.rekomendasi_sinergi]
+  ];
+
+  autoTable(doc, {
+    startY: 34,
+    body: data,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 4 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 } }
+  });
+
+  doc.save(`Laporan_Perkembangan_${report.nama_siswa.replace(/\s+/g, '_')}.pdf`);
+};
+
+export const generateKunjunganOrangTuaPDF = async (visits: KunjunganOrangTua[], periodLabel: string, userName: string, customVisitTitle: string) => {
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(customVisitTitle || 'REKAPITULASI KUNJUNGAN ORANG TUA SISWA', 105, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Periode: ${periodLabel}`, 105, 26, { align: 'center' });
+
+  const tableData = visits.map((v, index) => {
+    let tglStr = '-';
+    if (v.tgl_kunjungan) {
+      const dt = v.tgl_kunjungan.toDate ? v.tgl_kunjungan.toDate() : new Date(v.tgl_kunjungan as any);
+      tglStr = dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return [
+      index + 1,
+      tglStr,
+      v.siswa_name,
+      v.kelas,
+      v.nama_ortu,
+      v.author_name
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['No', 'Tanggal Kunjungan', 'Nama Siswa', 'Kelas', 'Nama Orang Tua / Pengunjung', 'Pencatat']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9 }
+  });
+
+  doc.save(`Rekap_Kunjungan_OT_${Date.now()}.pdf`);
+};
+
+export const generateSKPPDF = async (report: SKPReport) => {
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('LAPORAN BIMBINGAN DAN PENGASUHAN (SKP)', 105, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  
+  let tglStr = '-';
+  if (report.tanggal_kegiatan) {
+    const dt = report.tanggal_kegiatan.toDate ? report.tanggal_kegiatan.toDate() : new Date(report.tanggal_kegiatan as any);
+    tglStr = dt.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  doc.text(`Hari, Tanggal: ${tglStr}`, 105, 26, { align: 'center' });
+
+  const bodyData = [
+    ['Kegiatan Yang Dilaksanakan', report.kegiatan_dilaksanakan],
+    ['Hasil Yang Dicapai', report.hasil_dicapai],
+    ['Kesimpulan & Saran', report.kesimpulan_saran],
+    ['Wali Asuh / Penguji', report.author_name],
+    ['Email', report.author_email]
+  ];
+
+  autoTable(doc, {
+    startY: 34,
+    body: bodyData,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 5 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
+  });
+
+  let currentY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('DOKUMENTASI FOTO KEGIATAN:', 15, currentY);
+  currentY += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+
+  const photos = [report.foto_1, report.foto_2, report.foto_3, report.foto_4].filter(Boolean);
+  if (photos.length > 0) {
+    let photoIndex = 1;
+    for (const imgUrl of photos) {
+      if (imgUrl.startsWith('data:image/') || imgUrl.startsWith('blob:')) {
+        try {
+          doc.addImage(imgUrl, 'JPEG', 15 + ((photoIndex - 1) % 2) * 90, currentY + Math.floor((photoIndex - 1) / 2) * 55, 80, 50);
+          photoIndex++;
+        } catch (err) {
+          doc.text(`- [Lampiran Foto ${photoIndex} attached in memory / local device only]`, 15, currentY);
+          currentY += 4;
+          photoIndex++;
+        }
+      }
+    }
+  } else {
+    doc.text('- Tidak ada foto terlampir -', 15, currentY);
+  }
+
+  doc.save(`SKP_Laporan_${Date.now()}.pdf`);
+};
+
+export const generateSopRecapPDF = async (sops: SOP[], userName: string) => {
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('ARSIP STANDAR OPERASIONAL PROSEDUR (SOP) ASRAMA', 105, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Penerbit / Auditor: ${userName}`, 105, 26, { align: 'center' });
+
+  const tableData = sops.map((sop, index) => {
+    let tglStr = '-';
+    if (sop.tanggal_tetap) {
+      const dt = sop.tanggal_tetap.toDate ? sop.tanggal_tetap.toDate() : new Date(sop.tanggal_tetap as any);
+      tglStr = dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return [
+      index + 1,
+      sop.nomor,
+      sop.judul,
+      sop.kategori,
+      tglStr,
+      sop.deskripsi
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['No', 'Nomor SOP', 'Judul SOP', 'Kategori', 'Tanggal Ditetapkan', 'Deskripsi Ringkas']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 8 }
+  });
+
+  doc.save(`Rekap_SOP_Asrama_${Date.now()}.pdf`);
+};
+
+interface HairRecord {
+  siswa_id: string;
+  siswa_name: string;
+  kelas: string;
+  tgl_potong: any;
+  author_name: string;
+  author_uid: string;
+  createdAt: any;
+}
+
+export const generateHaircutsReportPDF = async (records: HairRecord[], periodLabel: string, userName: string) => {
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('REKAPITULASI PEMOTONGAN RAMBUT SISWA', 105, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Periode Rekap: ${periodLabel}`, 105, 26, { align: 'center' });
+
+  const tableData = records.map((record, index) => {
+    let tglStr = '-';
+    if (record.tgl_potong) {
+      const dt = record.tgl_potong.toDate ? record.tgl_potong.toDate() : new Date(record.tgl_potong);
+      tglStr = dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return [
+      index + 1,
+      tglStr,
+      record.siswa_name,
+      record.kelas,
+      record.author_name
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['No', 'Tanggal Potong', 'Nama Lengkap Siswa', 'Kelas', 'Petugas Pencatat']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9 }
+  });
+
+  doc.save(`Rekap_Potong_Rambut_${Date.now()}.pdf`);
+};
+
 
 
 
