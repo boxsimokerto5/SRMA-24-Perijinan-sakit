@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc, Timestamp, orderBy, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, Timestamp, orderBy, deleteDoc, doc, serverTimestamp, updateDoc, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { MonthlyReport, Siswa, AppUser } from '../types';
@@ -88,6 +88,7 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
   const [docPhotoFiles, setDocPhotoFiles] = useState<(File | null)[]>([null, null, null]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
 
   // Auto-cleanup functionality - Run only once on mount
   useEffect(() => {
@@ -286,6 +287,150 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
     setSelectedStudent(null);
     setStudentPhotoFile(null);
     setDocPhotoFiles([null, null, null]);
+  };
+
+  const getRecordDate = (fieldVal: any): Date | null => {
+    if (!fieldVal) return null;
+    if (typeof fieldVal.toDate === 'function') return fieldVal.toDate();
+    if (fieldVal instanceof Date) return fieldVal;
+    if (typeof fieldVal === 'string') return new Date(fieldVal);
+    if (fieldVal.seconds) return new Date(fieldVal.seconds * 1000);
+    return null;
+  };
+
+  const handleAutoFill = async () => {
+    if (!selectedStudent) {
+      alert('Silakan pilih siswa terlebih dahulu.');
+      return;
+    }
+
+    setIsAutoFilling(true);
+    try {
+      const studentName = selectedStudent.nama_lengkap;
+      const periodStr = formData.periode_bulan || `${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()}`;
+      const [monthName, yearStr] = periodStr.split(' ');
+      const year = parseInt(yearStr) || new Date().getFullYear();
+      const monthIndex = MONTHS.indexOf(monthName) !== -1 ? MONTHS.indexOf(monthName) : new Date().getMonth();
+      const startRange = new Date(year, monthIndex, 1);
+      const endRange = new Date(year, monthIndex + 1, 0, 23, 59, 59);
+
+      const checkInPeriod = (dateObj: Date | null) => {
+        if (!dateObj) return false;
+        return dateObj >= startRange && dateObj <= endRange;
+      };
+
+      // 1. Fetch izin_sakit
+      const izinSakitQuery = query(
+        collection(db, 'izin_sakit'),
+        where('nama_siswa', '==', studentName)
+      );
+      const izinSakitSnap = await getDocs(izinSakitQuery);
+      const inPeriodIzin = izinSakitSnap.docs
+        .map(doc => doc.data())
+        .filter(data => {
+          const d = getRecordDate(data.tgl_surat || data.tgl_mulai);
+          return checkInPeriod(d);
+        });
+
+      // 2. Fetch jurnal_keperawatan
+      const jurnalQuery = query(
+        collection(db, 'jurnal_keperawatan'),
+        where('nama_siswa', '==', studentName)
+      );
+      const jurnalSnap = await getDocs(jurnalQuery);
+      const inPeriodJurnal = jurnalSnap.docs
+        .map(doc => doc.data())
+        .filter(data => {
+          const d = getRecordDate(data.tgl_mulai);
+          return checkInPeriod(d);
+        });
+
+      // 3. Fetch progress_records
+      const progressQuery = query(
+        collection(db, 'progress_records'),
+        where('nama_siswa', '==', studentName)
+      );
+      const progressSnap = await getDocs(progressQuery);
+      const inPeriodProgress = progressSnap.docs
+        .map(doc => doc.data())
+        .filter(data => {
+          const d = getRecordDate(data.tgl_catatan);
+          return checkInPeriod(d);
+        });
+
+      // 4. Fetch dormitory_incidents
+      const incidentsQuery = query(
+        collection(db, 'dormitory_incidents'),
+        where('subject', '==', studentName)
+      );
+      const incidentsSnap = await getDocs(incidentsQuery);
+      const inPeriodIncidents = incidentsSnap.docs
+        .map(doc => doc.data())
+        .filter(data => {
+          const d = getRecordDate(data.date);
+          return checkInPeriod(d);
+        });
+
+      // Process and Summarize Health
+      let hStatus = 'Sehat';
+      let hNotes = '';
+      const sickLeaves = inPeriodIzin.filter(i => i.tipe === 'sakit');
+      if (sickLeaves.length > 0 || inPeriodJurnal.length > 0) {
+        hStatus = 'Pemulihan';
+        const diagnoses = [
+          ...sickLeaves.map(i => `${i.diagnosa || 'Sakit'} (${i.jumlah_hari || 1} hari)`),
+          ...inPeriodJurnal.map(j => j.keterangan_sakit)
+        ];
+        hNotes = `Sempat menderita: ${Array.from(new Set(diagnoses)).join(', ')}.`;
+      } else {
+        hNotes = 'Kondisi fisik sangat sehat walafiat, aktif mengikuti seluruh rangkaian kegiatan sekolah dan asrama tanpa ada kendala medis.';
+      }
+
+      // Process and Summarize Academics
+      let acadDesc = '';
+      if (inPeriodProgress.length > 0) {
+        const recordsText = inPeriodProgress.map(p => `"${p.isi_catatan}" (Oleh ${p.author_name})`).join('; ');
+        acadDesc = `Menunjukkan partisipasi aktif. Catatan perkembangan guru: ${recordsText}.`;
+      } else {
+        acadDesc = 'Proses pembelajaran berjalan dengan sangat baik dan tertib. Nilai tugas harian stabil dan menunjukkan pemahaman materi pelajaran yang memuaskan.';
+      }
+
+      // Process and Summarize Discipline/Incidents
+      let charDesc = '';
+      let autoAdabScore = 5;
+      let autoIbadahScore = 5;
+      if (inPeriodIncidents.length > 0) {
+        const incidentsText = inPeriodIncidents.map(i => `Kejadian ${i.incident_description} (Lokasi: ${i.asrama || 'Asrama'})`).join('. ');
+        charDesc = `Ananda secara umum baik, namun terdapat catatan pembinaan: ${incidentsText}. Telah dilakukan bimbingan intensif dan resolusi masalah.`;
+        autoAdabScore = Math.max(3, 5 - inPeriodIncidents.length);
+      } else {
+        charDesc = 'Menampilkan budi pekerti yang luhur, taat beribadah tepat waktu, serta menghormati ustadz/ustadzah dan sesama rekan santri dengan penuh kesantunan.';
+      }
+
+      // Build the automatic Message to Parents
+      const autoPesan = `Alhamdulillah, ananda ${studentName} telah melewati bulan ${monthName} dengan penuh perjuangan. ${
+        hStatus !== 'Sehat' ? 'Meskipun sempat memerlukan perawatan kesehatan singkat, ananda tetap menunjukkan semangat juang tinggi.' : 'Kondisi kesehatan ananda sangat prima bulan ini.'
+      } Kami senantiasa mendoakan dan membimbing agar kedisiplinan, akademik, dan ibadah ananda terus meningkat ke tingkat yang lebih mulia. Mohon doa restu dari Bapak/Ibu sekalian.`;
+
+      // Fill form data
+      setFormData(prev => ({
+        ...prev,
+        status_kesehatan: hStatus,
+        catatan_kesehatan: hNotes,
+        akademik_deskripsi: acadDesc,
+        karakter_deskripsi: charDesc,
+        adab_score: autoAdabScore,
+        ibadah_score: autoIbadahScore,
+        pesan_wali_asuh: autoPesan
+      }));
+
+      alert(`✨ Rangkuman Berhasil Dibuat!\nDitemukan:\n• ${inPeriodIzin.length + inPeriodJurnal.length} Catatan Kesehatan\n• ${inPeriodProgress.length} Catatan Akademik\n• ${inPeriodIncidents.length} Catatan Kedisiplinan\n\nFormulir perkembangan bulanan telah diisi otomatis.`);
+    } catch (err) {
+      console.error('Error during auto fill: ', err);
+      alert('Gagal melakukan rekapitulasi otomatis. Silakan isi form secara manual.');
+    } finally {
+      setIsAutoFilling(false);
+    }
   };
 
   const getWhatsAppShareLink = (report: MonthlyReport) => {
@@ -551,6 +696,28 @@ export default function MonthlyReportView({ user }: { user: AppUser }) {
                         </select>
                       </div>
                     </div>
+
+                    {selectedStudent && (
+                      <div className="md:col-span-3 flex justify-end pt-3">
+                        <button
+                          type="button"
+                          onClick={handleAutoFill}
+                          disabled={isAutoFilling}
+                          className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md active:scale-95 disabled:opacity-50"
+                        >
+                          {isAutoFilling ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Mengkonsolidasi & Merangkum Log Perkembangan...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✨ Rangkum Otomatis dari Log Bulan Ini</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -15,7 +15,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X, Image as LucideImage } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, ChevronDown, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X, Image as LucideImage } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -125,6 +125,7 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
 
   // View Mode
   const [viewMode, setViewMode] = useState<'perizinan' | 'kartu_siswa' | 'usulan_cek' | 'statistik' | 'profil' | 'memorandum' | 'buat_surat' | 'riwayat_skd' | 'mading' | 'agenda' | 'jurnal_keperawatan'>('statistik');
+  const [isAksesDropdownOpen, setIsAksesDropdownOpen] = useState(false);
 
   const viewTitles: Record<string, string> = {
     'perizinan': 'Riwayat Perizinan',
@@ -528,6 +529,51 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
       .map(([name, value]) => ({ name, value }))
       .slice(-6);
 
+    const dropdownFeatures = [
+      { 
+        title: 'Update Diagnosa & Keterangan Dokter Siswa', 
+        id: 'kartu_siswa', 
+        icon: User, 
+        desc: 'Kelola data riwayat penyakit, diagnose medis & obat siswa',
+        badge: 'Database'
+      },
+      { 
+        title: 'Verifikasi Akhir Perizinan Sakit', 
+        id: 'riwayat_skd', 
+        icon: ClipboardList, 
+        desc: 'Verifikasi dispensasi dan bukti istirahat dari dokter eksternal',
+        badge: 'Verifikasi'
+      },
+      { 
+        title: 'Review Usulan Kesehatan dari Wali Asrama', 
+        id: 'usulan_cek', 
+        icon: ShieldCheck, 
+        desc: 'Evaluasi pengajuan permohonan cek medis reguler dari pamong',
+        badge: 'Urgent'
+      },
+      { 
+        title: 'Statistik Kesehatan Siswa Terpadu', 
+        id: 'statistik', 
+        icon: LayoutDashboard, 
+        desc: 'Pantau grafik perkembangan insiden medis di asrama secara real-time',
+        badge: 'Dashboard'
+      },
+      { 
+        title: 'Review Riwayat Perizinan Siswa', 
+        id: 'perizinan', 
+        icon: ClipboardList, 
+        desc: 'Cari & filter arsip lengkap riwayat persetujuan istirahat sakit',
+        badge: 'Arsip'
+      },
+      { 
+        title: 'Berbagi Catatan di Mading Sekolah', 
+        id: 'mading', 
+        icon: BookOpen, 
+        desc: 'Tulis tips kesehatan bulanan atau himbauan kebersihan kamar',
+        badge: 'Informasi'
+      }
+    ];
+
     const COLORS = ['#8b5e3c', '#5d4037', '#c0b298', '#d7ccc8', '#a1887f'];
 
     return (
@@ -543,25 +589,90 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               </p>
             </div>
             
-            <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
-              <h3 className="text-[9px] font-black uppercase tracking-wider text-amber-200/60 mb-3 flex items-center gap-2 italic">
-                <LayoutDashboard className="w-4 h-4" />
-                Akses Perizinan Terpadu:
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-white">
-                {features.map((f, i) => (
-                  <motion.div 
-                    key={i} 
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider italic opacity-85"
+            <div className="bg-white/5 backdrop-blur-md rounded-xl p-1.5 border border-white/10 select-none">
+              <button
+                type="button"
+                onClick={() => setIsAksesDropdownOpen(!isAksesDropdownOpen)}
+                className="w-full text-left p-4 hover:bg-white/5 rounded-lg flex items-center justify-between transition-all duration-300 group/btn"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-400/10 text-amber-300 group-hover/btn:bg-amber-400/20 group-hover/btn:scale-105 transition-all duration-300">
+                    <LayoutDashboard className="w-4 h-4 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-amber-200 italic leading-none">
+                      Akses Perizinan Terpadu
+                    </h3>
+                    <p className="text-[7.5px] font-black uppercase text-amber-100/50 tracking-widest mt-1 italic">
+                      {isAksesDropdownOpen ? 'Klik untuk menutup menu' : 'Klik untuk mengeksplorasi layanan'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black bg-amber-400/20 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-300/20 hidden sm:inline-block">
+                    {dropdownFeatures.length} Menu
+                  </span>
+                  <motion.div
+                    animate={{ rotate: isAksesDropdownOpen ? 180 : 0, scale: isAksesDropdownOpen ? 1.1 : 1 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                   >
-                    <div className="w-2 h-2 bg-amber-400 rounded-full shadow-sm shrink-0" />
-                    {f}
+                    <ChevronDown className="w-4 h-4 text-amber-200" />
                   </motion.div>
-                ))}
-              </div>
+                </div>
+              </button>
+
+              <AnimatePresence>
+                {isAksesDropdownOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden px-4 pb-4 space-y-2 mt-2"
+                  >
+                    <div className="h-px bg-white/10 mb-4" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {dropdownFeatures.map((item, idx) => {
+                        const IconComponent = item.icon;
+                        return (
+                          <motion.button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setViewMode(item.id as any);
+                            }}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.04 }}
+                            className="w-full text-left bg-white/[0.03] hover:bg-white/[0.08] p-3.5 rounded-xl border border-white/5 hover:border-amber-400/20 flex items-start gap-3.5 transition-all duration-300 group/item active:scale-[0.99] cursor-pointer"
+                          >
+                            <div className="p-2.5 rounded-xl bg-[#3e2723]/60 text-amber-200 group-hover/item:bg-amber-400/20 group-hover/item:text-amber-300 transition-all duration-300 shrink-0 shadow-inner">
+                              <IconComponent className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-100 group-hover/item:text-amber-200 transition-colors truncate">
+                                  {item.title}
+                                </span>
+                                <span className="text-[7.5px] font-black uppercase bg-amber-400/10 text-amber-300 px-1.5 py-0.5 rounded tracking-wide shrink-0 border border-amber-400/25">
+                                  {item.badge}
+                                </span>
+                              </div>
+                              <p className="text-[8px] text-stone-300/70 group-hover/item:text-stone-200/90 transition-colors mt-1 leading-relaxed">
+                                {item.desc}
+                              </p>
+                              <div className="flex items-center gap-1 text-[8px] font-black uppercase text-amber-400 opacity-0 group-hover/item:opacity-100 transition-all duration-300 mt-2 transform translate-y-1 group-hover/item:translate-y-0">
+                                <span>Buka Menu</span>
+                                <ChevronRight className="w-2.5 h-2.5" />
+                              </div>
+                            </div>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>

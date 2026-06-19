@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar, 
   Clock, 
@@ -15,7 +16,8 @@ import {
   HelpCircle,
   FileSpreadsheet,
   TrendingUp,
-  Award
+  Award,
+  ChevronDown
 } from 'lucide-react';
 import { 
   STAFF_ROSTER_JUNE_2026, 
@@ -48,7 +50,25 @@ interface JadwalAbsenPiketViewProps {
 
 export default function JadwalAbsenPiketView({ user }: JadwalAbsenPiketViewProps) {
   const [activeTab, setActiveTab] = useState<'harian' | 'bulanan' | 'statistik'>('harian');
-  const [selectedDay, setSelectedDay] = useState<number>(17); // Default to today's date in local environment (17 June 2026)
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    const today = new Date();
+    // Default to the current day of the month if it's June 2026. Otherwise, use 18 (representing today's simulation date)
+    if (today.getFullYear() === 2026 && today.getMonth() === 5) {
+      return Math.min(30, Math.max(1, today.getDate()));
+    }
+    return 18;
+  });
+  
+  // State to control collapse/expand representing the shifts
+  const [openShifts, setOpenShifts] = useState<Record<string, boolean>>({
+    'P': true,
+    'P2': true,
+    'P3': true,
+    'S': true,
+    'M': true,
+    'LP': false, // Collapsed by default to keep layout tidy
+    'O': false   // Collapsed by default to keep layout tidy
+  });
   
   // Real-time Firestore state
   const [attendanceData, setAttendanceData] = useState<Record<string, string>>({});
@@ -188,16 +208,16 @@ export default function JadwalAbsenPiketView({ user }: JadwalAbsenPiketViewProps
         {/* Decorative Badge */}
         <div className="relative z-10 self-start bg-amber-500/20 text-amber-300 border border-amber-500/30 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 animate-pulse" />
-          Sistem Piket Wali Asuh
+          E-Absensi Wali Asuh
         </div>
 
         {/* Hero Title & Description */}
         <div className="relative z-10 max-w-2xl">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight italic" id="jadwal-piket-heading">
-            MONITORING PIKET <span className="text-amber-400">WALI ASUH</span>
+            E-ABSENSI <span className="text-amber-400">WALI ASUH</span>
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-stone-300/90 leading-relaxed font-normal">
-            Kelola dan pantau pembagian shift harian, daftar kehadiran, serta statistik jadwal piket Wali Asuh SA 24 Kediri periode Juni 2026 secara akurat.
+            Kelola absensi kehadiran dinas serta pantau pembagian shift harian, matriks bulanan, dan statistik jadwal piket Wali Asuh secara real-time dan akurat.
           </p>
         </div>
 
@@ -212,7 +232,7 @@ export default function JadwalAbsenPiketView({ user }: JadwalAbsenPiketViewProps
             }`}
           >
             <Clock className="w-4 h-4" />
-            Piket Harian
+            Kehadiran Hari Ini
           </button>
           <button
             onClick={() => setActiveTab('bulanan')}
@@ -223,7 +243,7 @@ export default function JadwalAbsenPiketView({ user }: JadwalAbsenPiketViewProps
             }`}
           >
             <Calendar className="w-4 h-4" />
-            Jadwal Bulanan (Grid)
+            Matriks Shift Bulanan
           </button>
           <button
             onClick={() => setActiveTab('statistik')}
@@ -250,7 +270,7 @@ export default function JadwalAbsenPiketView({ user }: JadwalAbsenPiketViewProps
               <div>
                 <h2 className="text-xl font-black text-stone-800 dark:text-stone-100 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-amber-600" />
-                  Pilih Tanggal Piket (Juni 2026)
+                  Pilih Tanggal Absensi (Juni 2026)
                 </h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400">
                   Geser atau ketuk nomor hari untuk memantau detail dinas Wali Asuh
@@ -335,90 +355,118 @@ export default function JadwalAbsenPiketView({ user }: JadwalAbsenPiketViewProps
 
                 if (members.length === 0) return null;
 
+                const isOpen = !!openShifts[code];
+
                 return (
-                  <div key={code} className="bg-white dark:bg-stone-900 rounded-[1.8rem] border border-stone-100 dark:border-stone-800/80 shadow-md p-5 space-y-4">
-                    {/* Shift Header Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`px-2.5 py-1 rounded-xl text-xs font-black select-none border ${legend.color}`}>
+                  <div key={code} className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200/60 dark:border-stone-800/80 shadow-sm overflow-hidden transition-all duration-300">
+                    {/* Shift Clickable Header */}
+                    <button
+                      onClick={() => setOpenShifts(prev => ({ ...prev, [code]: !prev[code] }))}
+                      className="w-full flex items-center justify-between p-4 sm:p-5 text-left focus:outline-none hover:bg-stone-50/60 dark:hover:bg-stone-800/30 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2.5 py-1 rounded-xl text-xs font-black select-none border shrink-0 ${legend.color}`}>
                           {code}
                         </span>
                         <div>
-                          <h4 className="text-sm font-black text-stone-800 dark:text-stone-100">{header}</h4>
+                          <h4 className="text-sm font-black text-stone-800 dark:text-stone-100 leading-tight">{header}</h4>
                           <span className="text-[11px] text-stone-400 font-medium tracking-wide">
                             {legend.time}
                           </span>
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-stone-500 bg-stone-50 dark:bg-stone-800 px-2.5 py-1 rounded-lg">
-                        {members.length} Orang
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-stone-500 bg-stone-100 dark:bg-stone-800 px-2.5 py-1 rounded-lg">
+                          {members.length} Orang
+                        </span>
+                        <motion.div
+                          animate={{ rotate: isOpen ? 180 : 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          className="text-stone-400"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </motion.div>
+                      </div>
+                    </button>
 
-                    {/* Members on Duty Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {members.map(({ staff }) => {
-                        const isNonDuty = code === 'O' || code === 'LP';
-                        const currentStatus = attendanceData[staff.nama] || '';
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          className="border-t border-stone-100 dark:border-stone-800 bg-stone-50/20"
+                        >
+                          <div className="p-4 sm:p-5">
+                            {/* Members on Duty Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                              {members.map(({ staff }) => {
+                                const isNonDuty = code === 'O' || code === 'LP';
+                                const currentStatus = attendanceData[staff.nama] || '';
 
-                        return (
-                          <div 
-                            key={staff.nama} 
-                            className={`flex flex-col justify-between p-3.5 rounded-2xl border transition-all duration-300 ${
-                              isNonDuty 
-                                ? 'bg-stone-50 dark:bg-stone-800/30 border-stone-150 dark:border-stone-800'
-                                : currentStatus === 'Hadir'
-                                ? 'bg-emerald-50/40 border-emerald-100 dark:bg-emerald-950/5 dark:border-emerald-900/30'
-                                : currentStatus === 'Sakit' || currentStatus === 'Izin'
-                                ? 'bg-amber-50/40 border-amber-100 dark:bg-amber-950/5 dark:border-amber-900/30'
-                                : currentStatus === 'Alfa'
-                                ? 'bg-rose-50/40 border-rose-100 dark:bg-rose-950/5 dark:border-rose-900/30'
-                                : 'bg-stone-50/50 dark:bg-stone-850 border-stone-150 dark:border-stone-800/60'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 flex items-center justify-center bg-stone-200 dark:bg-stone-700/60 rounded-full text-[10px] font-black text-stone-600 dark:text-stone-400 shadow-sm">
-                                  {staff.no}
-                                </span>
-                                <span className="text-xs font-black text-stone-700 dark:text-stone-200">
-                                  {staff.nama}
-                                </span>
-                              </div>
-                              {isNonDuty && (
-                                <span className="text-[10px] bg-stone-150 dark:bg-stone-850 text-stone-500 py-0.5 px-2 rounded-md font-bold uppercase tracking-tight">
-                                  Libur / Lepas
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Attendance Selector Buttons (Only if on Active Shift duty) */}
-                            {!isNonDuty && (
-                              <div className="mt-2.5 flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
-                                {[
-                                  { label: 'Hadir', value: 'Hadir', activeClass: 'bg-emerald-600 text-white shadow-sm' },
-                                  { label: 'Izin', value: 'Izin', activeClass: 'bg-amber-600 text-white shadow-sm' },
-                                  { label: 'Sakit', value: 'Sakit', activeClass: 'bg-amber-600 text-white shadow-sm' },
-                                  { label: 'Alfa', value: 'Alfa', activeClass: 'bg-rose-600 text-white shadow-sm' }
-                                ].map((opt) => (
-                                  <button
-                                    key={opt.value}
-                                    onClick={() => handleStatusChange(staff.nama, opt.value)}
-                                    className={`flex-1 py-1 px-1 rounded-lg text-[10px] font-bold text-center transition-all ${
-                                      currentStatus === opt.value
-                                        ? opt.activeClass
-                                        : 'text-stone-500 hover:bg-stone-200/50 dark:hover:bg-stone-700/40 hover:text-stone-700'
+                                return (
+                                  <div 
+                                    key={staff.nama} 
+                                    className={`flex flex-col justify-between p-3.5 rounded-2xl border transition-all duration-300 ${
+                                      isNonDuty 
+                                        ? 'bg-stone-50 dark:bg-stone-800/30 border-stone-150 dark:border-stone-850'
+                                        : currentStatus === 'Hadir'
+                                        ? 'bg-emerald-50/30 border-emerald-100 dark:bg-emerald-950/5 dark:border-emerald-900/30'
+                                        : currentStatus === 'Sakit' || currentStatus === 'Izin'
+                                        ? 'bg-amber-50/30 border-amber-100 dark:bg-amber-950/5 dark:border-amber-900/30'
+                                        : currentStatus === 'Alfa'
+                                        ? 'bg-rose-50/30 border-rose-100 dark:bg-rose-950/5 dark:border-rose-900/30'
+                                        : 'bg-stone-50/50 dark:bg-stone-850 border-stone-150 dark:border-stone-800/65'
                                     }`}
                                   >
-                                    {opt.label}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-5 h-5 flex items-center justify-center bg-stone-200 dark:bg-stone-700/60 rounded-full text-[10px] font-black text-stone-600 dark:text-stone-400 shadow-sm">
+                                          {staff.no}
+                                        </span>
+                                        <span className="text-xs font-black text-stone-700 dark:text-stone-200">
+                                          {staff.nama}
+                                        </span>
+                                      </div>
+                                      {isNonDuty && (
+                                        <span className="text-[10px] bg-stone-150 dark:bg-stone-850 text-stone-500 py-0.5 px-2 rounded-md font-bold uppercase tracking-tight">
+                                          Libur / Off
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Attendance Selector Buttons (Only if on Active Shift duty) */}
+                                    {!isNonDuty && (
+                                      <div className="mt-2.5 flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
+                                        {[
+                                          { label: 'Hadir', value: 'Hadir', activeClass: 'bg-emerald-600 text-white shadow-sm' },
+                                          { label: 'Izin', value: 'Izin', activeClass: 'bg-amber-600 text-white shadow-sm' },
+                                          { label: 'Sakit', value: 'Sakit', activeClass: 'bg-amber-600 text-white shadow-sm' },
+                                          { label: 'Alfa', value: 'Alfa', activeClass: 'bg-rose-600 text-white shadow-sm' }
+                                        ].map((opt) => (
+                                          <button
+                                            key={opt.value}
+                                            onClick={() => handleStatusChange(staff.nama, opt.value)}
+                                            className={`flex-1 py-1 px-1 rounded-lg text-[10px] font-bold text-center transition-all cursor-pointer ${
+                                              currentStatus === opt.value
+                                                ? opt.activeClass
+                                                : 'text-stone-500 hover:bg-stone-200/50 dark:hover:bg-stone-700/40 hover:text-stone-700'
+                                            }`}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 );
               })}

@@ -425,6 +425,8 @@ export interface SerahTerima {
   siswa_sakit: StudentSakit[];
   kondisi_umum: string;
   kegiatan_dilaksanakan: string[];
+  kategori?: 'wali_asrama' | 'wali_asuh';
+  catatan_tindak_lanjut?: string[];
   author_name: string;
   author_uid: string;
   createdAt: Timestamp;

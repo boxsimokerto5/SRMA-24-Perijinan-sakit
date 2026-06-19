@@ -192,59 +192,51 @@ export default function AgendaView({ user }: AgendaViewProps) {
       {/* Weekly and Monthly Agenda summaries */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Weekly card */}
-        <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left flex flex-col justify-between hover:border-stone-200 transition-all duration-300 relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-[#8d6e63] opacity-70" />
-          <div>
-            <div className="flex items-center justify-between mb-2 pl-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#8d6e63] animate-pulse" />
-                <span className="text-[8px] font-black text-[#5d4037] tracking-wider uppercase italic">MUTASI AGENDA MINGGUAN</span>
-              </div>
-              <span className="text-[9px] font-mono text-stone-400 font-bold bg-stone-50 px-2 py-0.5 rounded-md">Minggu Ini</span>
+        <div className="bg-white p-3.5 rounded-xl border border-stone-100 shadow-sm text-left flex items-center justify-between hover:border-stone-200 transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-[#8d6e63] opacity-70" />
+          <div className="flex items-center gap-3 pl-1.5">
+            <div className="p-2.5 bg-[#fcfaf6] rounded-lg border border-stone-100 shrink-0">
+              <CalendarIcon className="w-5 h-5 text-[#8d6e63]" />
             </div>
-
-            <h4 className="text-sm font-black text-[#3e2723] tracking-tight uppercase italic mb-3 pl-2">Kegiatan Terjadwal</h4>
-            <div className="bg-[#fcfaf6] p-4 rounded-xl border border-stone-100/60 flex items-center justify-between pl-2 mb-2">
-              <div>
-                <span className="text-[7px] text-stone-400 font-black uppercase tracking-wider block">TOTAL KEGIATAN</span>
-                <span className="text-2xl font-black text-[#5d4037] leading-tight mt-1">{weeklyAgendas.length} Agenda</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[7.5px] font-black text-[#5d4037]/80 tracking-widest uppercase italic">Mutasi Mingguan</span>
+                <span className="text-[7.5px] font-bold text-stone-400 bg-stone-50 px-1.5 py-0.2 rounded">Minggu Ini</span>
               </div>
-              <button 
-                onClick={() => setTimeFilter('minggu_ini')}
-                className={`px-3 py-1 bg-[#3e2723] hover:bg-[#5d4037] text-white text-[8px] font-extrabold rounded-lg uppercase tracking-wide transition-all ${timeFilter === 'minggu_ini' ? 'ring-2 ring-amber-300' : ''}`}
-              >
-                Lihat Detail
-              </button>
+              <h4 className="text-xs font-black text-[#3e2723] uppercase italic">Kegiatan Terjadwal</h4>
+              <p className="text-sm font-black text-[#5d4037] mt-0.5 leading-none">{weeklyAgendas.length} Agenda</p>
             </div>
           </div>
+          <button 
+            onClick={() => setTimeFilter('minggu_ini')}
+            className={`px-3 py-1.5 bg-[#3e2723] hover:bg-[#5d4037] text-white text-[8.5px] font-extrabold rounded-lg uppercase tracking-wider transition-all select-none shrink-0 cursor-pointer ${timeFilter === 'minggu_ini' ? 'ring-2 ring-amber-300' : ''}`}
+          >
+            Lihat Detail
+          </button>
         </div>
 
         {/* Monthly card */}
-        <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left flex flex-col justify-between hover:border-stone-200 transition-all duration-300 relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5d4037] opacity-70" />
-          <div>
-            <div className="flex items-center justify-between mb-2 pl-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#5d4037] animate-pulse" />
-                <span className="text-[8px] font-black text-[#5d4037] tracking-wider uppercase italic">MUTASI AGENDA BULANAN</span>
-              </div>
-              <span className="text-[9px] font-mono text-stone-400 font-bold bg-stone-50 px-2 py-0.5 rounded-md">Bulan Ini</span>
+        <div className="bg-white p-3.5 rounded-xl border border-stone-100 shadow-sm text-left flex items-center justify-between hover:border-stone-200 transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-[#5d4037] opacity-70" />
+          <div className="flex items-center gap-3 pl-1.5">
+            <div className="p-2.5 bg-[#fcfaf6] rounded-lg border border-stone-100 shrink-0">
+              <CalendarIcon className="w-5 h-5 text-[#5d4037]" />
             </div>
-
-            <h4 className="text-sm font-black text-[#3e2723] tracking-tight uppercase italic mb-3 pl-2">Rekapitulasi Bulanan</h4>
-            <div className="bg-[#fcfaf6] p-4 rounded-xl border border-stone-100/60 flex items-center justify-between pl-2 mb-2">
-              <div>
-                <span className="text-[7px] text-stone-400 font-black uppercase tracking-wider block">TOTAL KEGIATAN</span>
-                <span className="text-2xl font-black text-[#3e2723] leading-tight mt-1">{monthlyAgendas.length} Agenda</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[7.5px] font-black text-[#5d4037]/80 tracking-widest uppercase italic">Mutasi Bulanan</span>
+                <span className="text-[7.5px] font-bold text-stone-400 bg-stone-50 px-1.5 py-0.2 rounded">Bulan Ini</span>
               </div>
-              <button 
-                onClick={() => setTimeFilter('bulan_ini')}
-                className={`px-3 py-1 bg-[#3e2723] hover:bg-[#5d4037] text-white text-[8px] font-extrabold rounded-lg uppercase tracking-wide transition-all ${timeFilter === 'bulan_ini' ? 'ring-2 ring-amber-300' : ''}`}
-              >
-                Lihat Detail
-              </button>
+              <h4 className="text-xs font-black text-[#3e2723] uppercase italic">Rekapitulasi Bulanan</h4>
+              <p className="text-sm font-black text-[#3e2723] mt-0.5 leading-none">{monthlyAgendas.length} Agenda</p>
             </div>
           </div>
+          <button 
+            onClick={() => setTimeFilter('bulan_ini')}
+            className={`px-3 py-1.5 bg-[#3e2723] hover:bg-[#5d4037] text-white text-[8.5px] font-extrabold rounded-lg uppercase tracking-wider transition-all select-none shrink-0 cursor-pointer ${timeFilter === 'bulan_ini' ? 'ring-2 ring-amber-300' : ''}`}
+          >
+            Lihat Detail
+          </button>
         </div>
       </div>
 

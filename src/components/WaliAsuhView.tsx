@@ -11,10 +11,10 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, Image as LucideImage } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, ChevronDown, Image as LucideImage } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore';
-import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate, JadwalTausiyah } from '../types';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch, setDoc, or } from 'firebase/firestore';
+import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate, JadwalTausiyah, Agenda } from '../types';
 import { notifyAllRoles, notifyUserByRole } from '../services/fcmService';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -32,6 +32,7 @@ import DormitoryLossesView from './DormitoryLossesView';
 import SerahTerimaView from './SerahTerimaView';
 import TausiyahSpinner from './TausiyahSpinner';
 import JadwalAbsenPiketView from './JadwalAbsenPiketView';
+import JurnalKeperawatanView from './JurnalKeperawatanView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -53,8 +54,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah' | 'jadwal_absen'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah' | 'jadwal_absen' | 'jurnal_keperawatan'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
 
   const [sarprasReports, setSarprasReports] = useState<SarprasReport[]>([]);
   const [sarprasFilter, setSarprasFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
@@ -79,6 +83,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [bannerIndex, setBannerIndex] = useState(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [agendas, setAgendas] = useState<Agenda[]>([]);
 
   // Banner Image states
   const [imageBanner, setImageBanner] = useState<{ imageUrl: string; title?: string; linkUrl?: string; isActive: boolean; updatedAt?: any } | null>(null);
@@ -87,6 +92,11 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [bannerTitleInput, setBannerTitleInput] = useState('');
   const [bannerLinkInput, setBannerLinkInput] = useState('');
   const [showBannerControls, setShowBannerControls] = useState(false);
+
+  // Quick Menu scroll states
+  const quickMenuRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeftMenu, setCanScrollLeftMenu] = useState(false);
+  const [canScrollRightMenu, setCanScrollRightMenu] = useState(true);
 
   const handleBannerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -823,6 +833,60 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    if (!user || !user.role || !user.uid) return;
+
+    let q;
+    if (user.role === 'kepala_sekolah') {
+      q = query(collection(db, 'agendas'), orderBy('date', 'asc'));
+    } else {
+      q = query(
+        collection(db, 'agendas'),
+        or(
+          where('author_uid', '==', user.uid),
+          where('sharedWith', 'array-contains', user.role)
+        ),
+        orderBy('date', 'asc')
+      );
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAgendas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Agenda)));
+    }, (err) => {
+      console.error("Error loading agendas for calendar:", err);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  React.useEffect(() => {
+    const el = quickMenuRef.current;
+    const handleScrollCheck = () => {
+      if (el) {
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        setCanScrollLeftMenu(scrollLeft > 5);
+        setCanScrollRightMenu(scrollLeft < scrollWidth - clientWidth - 5);
+      }
+    };
+    if (el) {
+      el.addEventListener('scroll', handleScrollCheck);
+      handleScrollCheck();
+      window.addEventListener('resize', handleScrollCheck);
+    }
+    return () => {
+      if (el) {
+        el.removeEventListener('scroll', handleScrollCheck);
+      }
+      window.removeEventListener('resize', handleScrollCheck);
+    };
+  }, []);
+
+  const scrollQuickMenu = (direction: 'left' | 'right') => {
+    if (quickMenuRef.current) {
+      const scrollAmount = direction === 'left' ? -280 : 280;
+      quickMenuRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
 
   const handleGeneratePDF = async (permit: IzinSakit) => {
     setPdfLoading(permit.id!);
@@ -1479,9 +1543,10 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
     mading: 'Mading Sekolah',
     sarpras_asrama: 'Sarpras Asrama',
     laporan_bulanan: 'Laporan Bulanan',
+    jurnal_keperawatan: 'Jurnal Keperawatan',
     kehilangan_di_asrama: 'Kehilangan di Asrama',
     serah_terima: 'Serah Terima Wali Asuh ke Wali Asrama',
-    jadwal_absen: 'Jadwal Absen Piket'
+    jadwal_absen: 'E-Absensi'
   };
 
   const getRoleLabel = (role: string) => {
@@ -1544,13 +1609,14 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-                          { id: 'jadwal_absen', label: 'Jadwal & Absen Piket', icon: Clock },
+                          { id: 'jadwal_absen', label: 'E-Absensi', icon: CheckCircle2 },
                           { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Wali Asuh', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'kehilangan_di_asrama', label: 'Kehilangan di Asrama', icon: Package },
                           { id: 'catatan_evaluasi', label: 'Evaluasi Asrama', icon: FileText },
                           { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText },
+                          { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity },
                           { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database },
                           { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck },
                           { id: 'perizinan', label: 'Perizinan', icon: ClipboardList },
@@ -2032,6 +2098,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'serah_terima' && <SerahTerimaView user={user} />}
         {viewMode === 'jadwal_absen' && <JadwalAbsenPiketView user={user} />}
         {viewMode === 'undi_tausiyah' && <TausiyahSpinner user={user} students={students} history={tausiyahHistory} />}
+        {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -2839,126 +2906,393 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   {getRoleLabel(user.role || 'wali_asuh')}
                 </p>
                 
-                <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-white/10">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-200/60 mb-4 flex items-center gap-2">
-                    <LayoutDashboard className="w-4 h-4" />
-                    Daftar Fitur Akun:
-                  </h3>
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-emerald-50/70">
-                    {features.map((f, i) => (
-                      <motion.li 
-                        key={i} 
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="flex items-center gap-3 text-xs font-black italic"
+                <div className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden transition-all duration-300">
+                  <button 
+                    onClick={() => setIsFeaturesOpen(!isFeaturesOpen)}
+                    className="w-full flex items-center justify-between p-4 sm:p-5 text-left focus:outline-none hover:bg-white/10 active:bg-white/15 transition-all duration-350 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <LayoutDashboard className="w-4 h-4 text-emerald-400 group-hover:rotate-6 transition-transform" />
+                      <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-emerald-200">
+                        Daftar Fitur Akun
+                      </span>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: isFeaturesOpen ? 180 : 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="flex items-center"
+                    >
+                      <ChevronDown className="w-4 h-4 text-emerald-400" />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isFeaturesOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.35, ease: "easeInOut" }}
                       >
-                        <div className="w-2 h-2 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
-                        {f}
-                      </motion.li>
-                    ))}
-                  </ul>
+                        <div className="px-4 pb-4 sm:px-6 sm:pb-6 pt-1 border-t border-white/5 bg-slate-950/20">
+                          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-emerald-50/70 pt-2">
+                            {features.map((f, i) => (
+                              <motion.li 
+                                key={i} 
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className="flex items-center gap-3 text-xs font-semibold italic hover:text-emerald-300 transition-colors"
+                              >
+                                <div className="w-2 h-2 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)] flex-shrink-0" />
+                                <span>{f}</span>
+                              </motion.li>
+                            ))}
+                          </ul>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h2 className="text-lg font-black text-slate-900 font-display italic">Akses Menu Cepat:</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <button
-                  onClick={() => setViewMode('perizinan')}
-                  className="py-3.5 px-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-slate-950 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-slate-950"
-                >
-                  <Activity size={20} className="text-emerald-400" />
-                  Verifikasi Izin
-                </button>
-                <button
-                  onClick={() => setViewMode('kartu_siswa')}
-                  className="py-3.5 px-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-emerald-800"
-                >
-                   <User size={20} className="text-white" />
-                  Database Siswa
-                </button>
-                <button
-                  onClick={() => setViewMode('serah_terima')}
-                  className="py-3.5 px-4 bg-[#4a148c] text-white font-black rounded-2xl shadow-xl hover:bg-[#6a1b9a] transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-[#311b92]"
-                >
-                  <ClipboardCheck size={20} className="text-pink-300" />
-                  Serah Terima
-                </button>
-                <button
-                  onClick={() => setViewMode('laporan_bulanan')}
-                  className="py-3.5 px-4 bg-slate-800 text-white font-black rounded-2xl shadow-xl hover:bg-slate-900 transition-all active:scale-95 uppercase tracking-widest text-[9px] flex flex-col items-center justify-center text-center gap-2 border-b-4 border-slate-950"
-                >
-                  <FileText size={20} className="text-indigo-400" />
-                  Monthly Report
-                </button>
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm text-left relative group overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-3.5 bg-gradient-to-b from-teal-400 to-emerald-500 rounded-full" />
+                  <h2 className="text-xs font-black text-slate-800 dark:text-slate-200 font-display uppercase tracking-wider">
+                    Akses Menu Cepat
+                  </h2>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => scrollQuickMenu('left')}
+                    disabled={!canScrollLeftMenu}
+                    aria-label="Scroll Left"
+                    className={`p-1 rounded-lg border border-slate-200/50 dark:border-white/10 shadow-sm transition-all duration-300 ${
+                      canScrollLeftMenu 
+                        ? 'bg-white dark:bg-slate-800 hover:bg-[#f8f3ed] dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer active:scale-95' 
+                        : 'bg-slate-50 dark:bg-slate-850 text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                    }`}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+                  </button>
+                  <button
+                    onClick={() => scrollQuickMenu('right')}
+                    disabled={!canScrollRightMenu}
+                    aria-label="Scroll Right"
+                    className={`p-1 rounded-lg border border-slate-200/50 dark:border-white/10 shadow-sm transition-all duration-300 ${
+                      canScrollRightMenu 
+                        ? 'bg-white dark:bg-slate-800 hover:bg-[#f8f3ed] dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer active:scale-95' 
+                        : 'bg-slate-50 dark:bg-slate-850 text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                    }`}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Horizontal Scroll Track */}
+              <div 
+                ref={quickMenuRef}
+                className="flex gap-4 overflow-x-auto py-2 px-1 scroll-smooth select-none snap-x snap-mandatory cursor-grab active:cursor-grabbing no-scrollbar"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {[
+                  { id: 'jadwal_absen', label: 'E-Absensi', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' },
+                  { id: 'agenda', label: 'Agenda Acara', icon: Calendar, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' },
+                  { id: 'dinding', label: 'Dinding Asuh', icon: MessageSquare, color: 'bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400' },
+                  { id: 'mading', label: 'Mading Sekolah', icon: BookOpen, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' },
+                  { id: 'kehilangan_di_asrama', label: 'Kehilangan Asrama', icon: Package, color: 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400' },
+                  { id: 'catatan_evaluasi', label: 'Evaluasi Asrama', icon: FileText, color: 'bg-stone-50 text-stone-600 dark:bg-stone-950/40 dark:text-stone-400' },
+                  { id: 'laporan_bulanan', label: 'Laporan Bulanan', icon: FileText, color: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' },
+                  { id: 'jurnal_keperawatan', label: 'Jurnal Keperawatan', icon: Activity, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' },
+                  { id: 'pangkalan_data_wali_asuh', label: 'Pangkalan Data', icon: Database, color: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400' },
+                  { id: 'izin_umum', label: 'Izin Umum', icon: ShieldCheck, color: 'bg-lime-50 text-lime-600 dark:bg-lime-950/40 dark:text-lime-400' },
+                  { id: 'perizinan', label: 'Verifikasi Izin', icon: ClipboardList, color: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400' },
+                  { id: 'kartu_siswa', label: 'Database Siswa', icon: IdCard, color: 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-950/40 dark:text-fuchsia-400' },
+                  { id: 'memos', label: 'Memorandum', icon: Mail, color: 'bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-400' },
+                  { id: 'sarpras_asrama', label: 'Sarpras Asrama', icon: Wrench, color: 'bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400' },
+                  { id: 'serah_terima', label: 'Serah Terima', icon: ClipboardCheck, color: 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' },
+                  { id: 'cek_ketidakhadiran', label: 'Cek Absen', icon: ClipboardCheck, color: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
+                  { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone, color: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400' },
+                  { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' },
+                  { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop, color: 'bg-slate-50 text-slate-600 dark:bg-slate-950/40 dark:text-slate-400' },
+                  { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' }
+                ].map((item, index) => {
+                  const Icon = item.icon;
+                  return (
+                    <motion.div
+                      key={item.id}
+                      className="snap-start shrink-0 min-w-[72px] flex flex-col items-center"
+                      whileHover={{ scale: 1.08, y: -2 }}
+                      whileTap={{ scale: 0.93 }}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.02 }}
+                    >
+                      <button
+                        onClick={() => setViewMode(item.id as any)}
+                        className="flex flex-col items-center group cursor-pointer focus:outline-none"
+                      >
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm ${item.color} mb-1.5 relative`}>
+                          <Icon className="w-4.5 h-4.5 group-hover:rotate-6 transition-transform" />
+                          <div className="absolute inset-0 bg-white/15 dark:bg-black/15 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <span className="text-[9px] font-black tracking-tight text-slate-700 dark:text-slate-300 text-center uppercase max-w-[72px] leading-tight break-words font-sans">
+                          {item.label}
+                        </span>
+                      </button>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Information Card */}
-            <div className="bg-white rounded-3xl border border-[#d7ccc8]/40 shadow-sm overflow-hidden text-left">
-              <div className="p-4 sm:p-6 flex items-center justify-between border-b border-[#f8f3ed]">
-                <h3 className="font-black text-base text-[#3e2723] font-display italic tracking-tight">Informasi Wali Asuh</h3>
-                <button className="px-4 py-1.5 bg-white border border-[#d7ccc8]/40 rounded-xl text-[9px] font-black text-[#8b5e3c] shadow-sm hover:bg-[#f8f3ed] transition-all uppercase tracking-widest">
-                  Detail Profil
-                </button>
-              </div>
+            {/* Real-time Interactive Calendar */}
+            {(() => {
+              const year = calendarDate.getFullYear();
+              const month = calendarDate.getMonth();
+
+              // Sunday = 0, Monday = 1, etc.
+              const firstDayOfMonth = new Date(year, month, 1);
+              const startDayIndex = firstDayOfMonth.getDay();
+              const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+              const prevMonthDays = new Date(year, month, 0).getDate();
+
+              const daysGrid: { day: number; isCurrentMonth: boolean; date: Date }[] = [];
               
-              <div className="p-5 sm:p-8 space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-                  <div className="flex justify-between items-center group">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Nama Jabatan</span>
-                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">Wali Asuh SRMA 24</span>
-                  </div>
-                  <div className="flex flex-col space-y-1.5">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest text-left">Link Dashboard</span>
-                    <div className="flex items-center gap-2 p-2.5 bg-[#fdfcf0] rounded-xl border border-[#d7ccc8]/30 group w-full">
-                      <p className="text-[9px] font-black text-[#5d4037] truncate flex-1 leading-none italic text-left">
-                        https://srma24kediri.app/dashboard/{user.uid}
+              // Fill previous month overlapping days
+              for (let i = startDayIndex - 1; i >= 0; i--) {
+                const d = prevMonthDays - i;
+                const prevMonthDate = new Date(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1, d);
+                daysGrid.push({ day: d, isCurrentMonth: false, date: prevMonthDate });
+              }
+
+              // Fill current month days
+              for (let d = 1; d <= totalDaysInMonth; d++) {
+                const currDate = new Date(year, month, d);
+                daysGrid.push({ day: d, isCurrentMonth: true, date: currDate });
+              }
+
+              // Fill next month overlapping days to make perfect multiples of 7
+              const remainingCells = 42 - daysGrid.length;
+              for (let d = 1; d <= remainingCells; d++) {
+                const nextMonthDate = new Date(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1, d);
+                daysGrid.push({ day: d, isCurrentMonth: false, date: nextMonthDate });
+              }
+
+              const getAgendasForDate = (checkDate: Date) => {
+                return agendas.filter(agenda => {
+                  const agendaDate = agenda.date?.toDate ? agenda.date.toDate() : (agenda.date instanceof Date ? agenda.date : null);
+                  if (!agendaDate) return false;
+                  return (
+                    agendaDate.getDate() === checkDate.getDate() &&
+                    agendaDate.getMonth() === checkDate.getMonth() &&
+                    agendaDate.getFullYear() === checkDate.getFullYear()
+                  );
+                });
+              };
+
+              const namaBulanIndo = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+              ];
+
+              const selectedDateAgendas = getAgendasForDate(selectedCalendarDate);
+
+              return (
+                <div className="bg-white rounded-3xl border border-[#d7ccc8]/40 shadow-sm overflow-hidden text-left">
+                  {/* Calendar Header with Ticking Clock */}
+                  <div className="bg-slate-900 text-white p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-teal-400" />
+                        <h3 className="font-black text-lg font-display italic tracking-tight text-white leading-none">
+                          Kalender Kegiatan
+                        </h3>
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                        SRMA 24 Kediri · Real-time Sync
                       </p>
-                      <button className="p-1 bg-white rounded-lg shadow-sm text-[#8b5e3c] border border-[#d7ccc8]/20 shrink-0">
-                        <ClipboardList className="w-3.5 h-3.5" />
+                    </div>
+
+                    {/* Clock display */}
+                    <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-2xl select-none min-w-[130px] justify-center">
+                      <Clock className="w-4 h-4 text-teal-400 animate-pulse shrink-0" />
+                      <div className="flex flex-col">
+                        <span className="font-mono text-xs font-black tracking-widest text-[#00E5FF] leading-none drop-shadow-[0_0_8px_rgba(0,229,255,0.4)]">
+                          {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                        <span className="text-[8px] font-bold text-slate-400 tracking-wider text-center mt-0.5 leading-none">
+                          {currentTime.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation and Month Header */}
+                  <div className="p-4 sm:p-5 flex items-center justify-between border-b border-[#f8f3ed]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-sm text-[#3e2723] uppercase tracking-wider">
+                        {namaBulanIndo[month]} {year}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+                        className="p-1.5 sm:p-2 hover:bg-[#f8f3ed] text-[#8b5e3c] rounded-xl border border-[#ebdccb]/30 transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4 rotate-180" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const today = new Date();
+                          setCalendarDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                          setSelectedCalendarDate(today);
+                        }}
+                        className="px-3 py-1.5 text-[9px] font-black text-teal-700 bg-teal-50 border border-teal-200/50 hover:bg-teal-100/50 transition-all rounded-lg uppercase tracking-wider cursor-pointer"
+                      >
+                        Hari Ini
+                      </button>
+                      <button
+                        onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+                        className="p-1.5 sm:p-2 hover:bg-[#f8f3ed] text-[#8b5e3c] rounded-xl border border-[#ebdccb]/30 transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Status Akun</span>
-                    <span className="px-3 py-1 bg-[#3e2723] text-white text-[8px] font-black rounded-full uppercase tracking-widest">AKTIF</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Kategori Peran</span>
-                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">Verifikator</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Tipe Akses</span>
-                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">Full Access</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Verifikasi Email</span>
-                    <span className="text-xs sm:text-sm font-black text-[#3e2723] italic">{auth.currentUser?.emailVerified ? 'Sudah' : 'Belum'}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-[#8b5e3c]/40 uppercase tracking-widest">Ulasan Sistem</span>
-                    <div className="flex gap-1 items-center">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star key={s} className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+
+                  {/* Calendar Grid Container */}
+                  <div className="p-4 sm:p-5 bg-gradient-to-b from-white to-[#fdfcfc]">
+                    {/* Weekday Titles */}
+                    <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                      {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((dayName, idx) => (
+                        <div
+                          key={idx}
+                          className={`text-[9px] font-black uppercase tracking-widest py-1 ${
+                            idx === 0 ? 'text-rose-500' : 'text-[#8b5e3c]/60'
+                          }`}
+                        >
+                          {dayName}
+                        </div>
                       ))}
-                      <span className="ml-1 text-xs font-black text-[#3e2723] italic">5.0</span>
+                    </div>
+
+                    {/* Day Cells Grid */}
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                      {daysGrid.map(({ day, isCurrentMonth, date: cellDate }, index) => {
+                        const isCellToday = isToday(cellDate);
+                        const isCellSelected =
+                          selectedCalendarDate.getDate() === cellDate.getDate() &&
+                          selectedCalendarDate.getMonth() === cellDate.getMonth() &&
+                          selectedCalendarDate.getFullYear() === cellDate.getFullYear();
+                        
+                        const cellAgendas = getAgendasForDate(cellDate);
+                        const hasAgendas = cellAgendas.length > 0;
+
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => setSelectedCalendarDate(cellDate)}
+                            className={`aspect-square sm:p-1 relative flex flex-col items-center justify-between rounded-xl transition-all border outline-none group cursor-pointer ${
+                              isCellSelected
+                                ? 'bg-gradient-to-tr from-slate-800 to-slate-900 border-slate-950 text-white shadow-md'
+                                : isCellToday
+                                ? 'bg-teal-50/70 border-teal-200/70 text-teal-800 hover:bg-teal-100/80 shadow-[0_0_8px_rgba(20,148,140,0.15)]'
+                                : isCurrentMonth
+                                ? 'bg-white border-stone-100 text-stone-800 hover:bg-[#f8f3ed]/60 hover:border-[#ebdccb]/40'
+                                : 'bg-[#faf9f6]/40 border-transparent text-stone-300'
+                            }`}
+                          >
+                            {/* Day Number */}
+                            <span className={`text-[10px] sm:text-xs font-black ${isCellSelected ? 'text-white' : ''}`}>
+                              {day}
+                            </span>
+
+                            {/* Small Indicators for Agendas */}
+                            <div className="flex gap-0.5 justify-center mt-1 h-1.5 w-full">
+                              {hasAgendas && (
+                                <span className={`w-1 h-1 rounded-full ${isCellSelected ? 'bg-[#00E5FF]' : 'bg-rose-500'} shadow-[0_0_5px_rgba(244,63,94,0.4)]`} />
+                              )}
+                              {isCellToday && !isCellSelected && (
+                                <span className="w-1 h-1 rounded-full bg-teal-500 shadow-[0_0_5px_rgba(20,148,140,0.4)]" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="p-4 sm:p-5 bg-[#fdfcf0]/50 border-t border-[#f8f3ed]">
-                <button
-                  onClick={() => setViewMode('perizinan')}
-                  className="px-4 py-2 bg-[#f8f3ed] text-[#5d4037] font-black rounded-xl shadow-sm hover:bg-[#d7ccc8]/20 transition-all text-[9px] uppercase tracking-widest"
-                >
-                  Lihat Data Dasbor
-                </button>
-              </div>
-            </div>
+                  {/* Selected Date Actions & Agendas */}
+                  <div className="p-4 sm:p-5 bg-[#fdfcf0]/30 border-t border-[#f8f3ed] flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 bg-[#8b5e3c] rounded-full" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#8b5e3c]/70">
+                          Agenda Santri
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-black text-[#3e2723] italic leading-tight">
+                        {selectedCalendarDate.toLocaleDateString('id-ID', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </h4>
+                    </div>
+
+                    <button
+                      onClick={() => setViewMode('agenda')}
+                      className="px-4 py-2 bg-[#f8f3ed] hover:bg-[#ebdccb]/40 border border-[#ebdccb]/30 text-[#8b5e3c] font-black rounded-xl shadow-sm transition-all text-[9.5px] uppercase tracking-widest flex items-center gap-1.5 active:scale-95 cursor-pointer ml-auto md:ml-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Kelola Agenda
+                    </button>
+                  </div>
+
+                  {/* Agendas List for Selected Date */}
+                  <div className="px-4 pb-5 sm:px-5 sm:pb-6 pt-1 max-h-[160px] overflow-y-auto bg-stone-50/50">
+                    {selectedDateAgendas.length === 0 ? (
+                      <div className="py-4 text-center text-stone-400 text-[10px] font-semibold italic flex items-center justify-center gap-1 rounded-2xl bg-white border border-stone-100">
+                        <Info className="w-3.5 h-3.5 text-stone-300" />
+                        Tidak ada agenda khusus terjadwal pada hari ini.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedDateAgendas.map((agenda, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm hover:border-[#ebdccb]/40 transition-all text-left flex gap-3 items-start"
+                          >
+                            <div className="w-1.5 h-full rounded-full bg-teal-500 self-stretch mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-xs font-black text-stone-800 tracking-tight block truncate uppercase">
+                                {agenda.title}
+                              </h5>
+                              <p className="text-[10px] font-medium text-stone-500 leading-normal mt-0.5 italic">
+                                {agenda.description || 'Tidak ada uraian.'}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] font-bold text-stone-400 capitalize">
+                                <span className="bg-stone-100 px-1.5 py-0.5 rounded text-stone-600 font-black">
+                                  {agenda.author_role.replace('_', ' ')}: {agenda.author_name}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

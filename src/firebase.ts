@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, collection, addDoc, serverTimestamp, doc, getDocFromServer, memoryLocalCache } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, collection, addDoc, serverTimestamp, doc, getDocFromServer } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -73,13 +73,33 @@ export const getFCM = async () => {
   return null;
 };
 
-// Use initializeFirestore with long-polling to be highly resilient in iframe/restricted environments
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: false,
-  useFetchStreams: false,
-  localCache: memoryLocalCache(),
-} as any, firebaseConfig.firestoreDatabaseId);
+// Safe Firestore initialization to prevent "already has been called with different options" during Vite HMR
+let dbInstance: any;
+try {
+  const globalRef = globalThis as any;
+  if (globalRef.__firestore_db__) {
+    dbInstance = globalRef.__firestore_db__;
+  } else {
+    dbInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+    } as any, firebaseConfig.firestoreDatabaseId);
+    globalRef.__firestore_db__ = dbInstance;
+  }
+} catch (e) {
+  try {
+    dbInstance = getFirestore(app);
+  } catch (err) {
+    dbInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+    } as any);
+  }
+}
+
+export const db = dbInstance;
 
 /**
  * Tests the Firestore connection

@@ -54,20 +54,28 @@ export default function SerahTerimaView({ user }: SerahTerimaViewProps) {
   const [lokasi, setLokasi] = useState('Asrama SRMA 24 KEDIRI');
   const [totalSiswaHadir, setTotalSiswaHadir] = useState<number>(98);
   const [siswaSakit, setSiswaSakit] = useState<StudentSakit[]>([]);
-  const [kondisiUmum, setKondisiUmum] = useState('✓ Sehat');
+  const [kondisiUmum, setKondisiUmum] = useState('✓ Baik');
   const [kegiatanDilaksanakan, setKegiatanDilaksanakan] = useState<string[]>([
     'Pembelajaran/pembinaan kemandirian siswa (laundry time, bersih diri)',
     'Sholat berjamaah',
-    'Yasin, Tahlil dan Mahalul Qiyam',
     'Makan bersama',
-    'Evaluasi',
-    'Belajar'
+    'Persiapan open house',
+    'Evaluasi'
+  ]);
+
+  // Category & Follow-up comments
+  const [kategori, setKategori] = useState<'wali_asrama' | 'wali_asuh'>('wali_asrama');
+  const [catatanTindakLanjut, setCatatanTindakLanjut] = useState<string[]>([
+    'Tolong Perhatikan pemberian makanan 2 anak diatas',
+    'Tolong dampingi anak ujian dilantai 2',
+    'Tolong antar andika ke puskesmas'
   ]);
 
   // Temporary item inputs
   const [newSakitNama, setNewSakitNama] = useState('');
   const [newSakitKeluhan, setNewSakitKeluhan] = useState('');
   const [newKegiatan, setNewKegiatan] = useState('');
+  const [newCatatan, setNewCatatan] = useState('');
 
   // Autocomplete support
   const [studentSearch, setStudentSearch] = useState('');
@@ -105,18 +113,24 @@ export default function SerahTerimaView({ user }: SerahTerimaViewProps) {
     setLokasi('Asrama SRMA 24 KEDIRI');
     setTotalSiswaHadir(98);
     setSiswaSakit([]);
-    setKondisiUmum('✓ Sehat');
+    setKondisiUmum('✓ Baik');
     setKegiatanDilaksanakan([
       'Pembelajaran/pembinaan kemandirian siswa (laundry time, bersih diri)',
       'Sholat berjamaah',
-      'Yasin, Tahlil dan Mahalul Qiyam',
       'Makan bersama',
-      'Evaluasi',
-      'Belajar'
+      'Persiapan open house',
+      'Evaluasi'
+    ]);
+    setKategori('wali_asrama');
+    setCatatanTindakLanjut([
+      'Tolong Perhatikan pemberian makanan 2 anak diatas',
+      'Tolong dampingi anak ujian dilantai 2',
+      'Tolong antar andika ke puskesmas'
     ]);
     setNewSakitNama('');
     setNewSakitKeluhan('');
     setNewKegiatan('');
+    setNewCatatan('');
     setStudentSearch('');
   };
 
@@ -232,7 +246,7 @@ export default function SerahTerimaView({ user }: SerahTerimaViewProps) {
     updated.splice(index, 1);
     setSiswaSakit(updated);
     if (updated.length === 0) {
-      setKondisiUmum('✓ Sehat');
+      setKondisiUmum('✓ Baik');
     }
   };
 
@@ -246,6 +260,18 @@ export default function SerahTerimaView({ user }: SerahTerimaViewProps) {
     const updated = [...kegiatanDilaksanakan];
     updated.splice(index, 1);
     setKegiatanDilaksanakan(updated);
+  };
+
+  const handleAddCatatan = () => {
+    if (!newCatatan.trim()) return;
+    setCatatanTindakLanjut([...catatanTindakLanjut, newCatatan.trim()]);
+    setNewCatatan('');
+  };
+
+  const handleRemoveCatatan = (index: number) => {
+    const updated = [...catatanTindakLanjut];
+    updated.splice(index, 1);
+    setCatatanTindakLanjut(updated);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -265,13 +291,23 @@ export default function SerahTerimaView({ user }: SerahTerimaViewProps) {
         siswa_sakit: siswaSakit,
         kondisi_umum: kondisiUmum,
         kegiatan_dilaksanakan: kegiatanDilaksanakan,
+        kategori,
+        catatan_tindak_lanjut: kategori === 'wali_asuh' ? catatanTindakLanjut : [],
         author_name: user.name || user.email,
         author_uid: user.uid,
         createdAt: Timestamp.now()
       };
 
-      await addDoc(collection(db, 'serah_terima'), data);
+      const docRef = await addDoc(collection(db, 'serah_terima'), data);
       setShowModal(false);
+
+      // Instantly offer to share to WhatsApp
+      const savedDoc: SerahTerima = { id: docRef.id, ...data };
+      setTimeout(() => {
+        if (window.confirm('Laporan serah terima berhasil disimpan! Apakah Anda ingin membagikannya langsung ke WhatsApp?')) {
+          handleShareWA(savedDoc);
+        }
+      }, 300);
     } catch (err) {
       console.error(err);
       alert('Gagal menyimpan laporan serah terima.');
@@ -291,17 +327,18 @@ export default function SerahTerimaView({ user }: SerahTerimaViewProps) {
   };
 
   const getWhatsAppShareText = (log: SerahTerima) => {
-    const listSakitString = log.siswa_sakit.length > 0 
-      ? log.siswa_sakit.map((s, idx) => `${idx + 1}. ${s.nama_siswa} (${s.keluhan})`).join('\n')
-      : '-';
+    if (log.kategori === 'wali_asuh') {
+      const listSakitString = log.siswa_sakit.length > 0 
+        ? log.siswa_sakit.map((s, idx) => `${idx + 1}. ${s.nama_siswa}${s.keluhan ? ` (${s.keluhan})` : ''}`).join('\n')
+        : '-';
 
-    const listKegiatanString = log.kegiatan_dilaksanakan.length > 0
-      ? log.kegiatan_dilaksanakan.map((k, idx) => `${idx + 1}. ${k}`).join('\n')
-      : '-';
+      const catatanString = log.catatan_tindak_lanjut && log.catatan_tindak_lanjut.length > 0
+        ? log.catatan_tindak_lanjut.map((c, idx) => `${idx + 1}. ${c}`).join('\n')
+        : '-';
 
-    return `Assalamualaikum wr wb.
-Bapak ibu Wali Asrama izin melaporkan
-Wali Asuh → Wali Asrama
+      return `Assalamualaikum wr wb.
+Bapak ibu Wali Asuh izin melaporkan.
+Wali Asuh → Wali Asuh
 
 Hari/Tanggal : ${log.hari_tanggal}
 Waktu Serah Terima : ${log.waktu_serah_terima} 
@@ -317,11 +354,51 @@ ${listSakitString}
 Kondisi umum siswa :
 ${log.kondisi_umum}
 
-Kegiatan yang Telah Dilaksanakan
+Catatan untuk ditindak lanjuti :
 
+${catatanString}
+
+Demikian Terimakasih 🙏
+
+Pesan ini dibuat oleh sistem SRMA 24 Kediri`;
+    } else {
+      const listSakitString = log.siswa_sakit.length > 0 
+        ? `Jumlah siswa izin/sakit : ${log.siswa_sakit.length} orang\nAtas nama\n` + 
+          log.siswa_sakit.map((s, idx) => `${idx + 1}. ${s.nama_siswa}${s.keluhan && s.keluhan !== 'kurang sehat' && s.keluhan !== '✓ Baik' && s.keluhan !== 'Baik' ? ` (${s.keluhan})` : ''}`).join('\n')
+        : 'Jumlah siswa izin/sakit : -';
+
+      const listKegiatanString = log.kegiatan_dilaksanakan.length > 0
+        ? log.kegiatan_dilaksanakan.map((k, idx) => `${idx + 1}. ${k}`).join('\n')
+        : '-';
+
+      let kondisiUmumFormatted = log.kondisi_umum;
+      if (!kondisiUmumFormatted.startsWith('✓')) {
+        kondisiUmumFormatted = `✓ ${kondisiUmumFormatted}`;
+      }
+
+      return `Assalamualaikum wr wb.
+Bapak ibu Wali Asrama izin melaporkan
+Wali Asuh → Wali Asrama
+
+Hari/Tanggal : ${log.hari_tanggal}
+Waktu Serah Terima : ${log.waktu_serah_terima} 
+Lokasi : ${log.lokasi}
+
+Kondisi Umum Siswa
+Jumlah siswa hadir : ${log.total_siswa_hadir} orang
+
+${listSakitString}
+
+Kondisi umum siswa :
+${kondisiUmumFormatted}
+
+Kegiatan yang Telah Dilaksanakan
 ${listKegiatanString}
 
-Demikian Terimakasih 🙏`;
+Demikian Terimakasih 🙏
+
+Pesan ini dibuat oleh sistem SRMA 24 Kediri`;
+    }
   };
 
   const handleShareWA = (log: SerahTerima) => {
@@ -352,10 +429,10 @@ Demikian Terimakasih 🙏`;
               Serah Terima Harian
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black italic tracking-tight uppercase leading-none font-display">
-              Wali Asuh <span className="text-amber-400">→</span> Wali Asrama
+              Serah Terima <span className="text-amber-400">Harian</span>
             </h1>
             <p className="text-sm font-medium text-amber-100/70 max-w-xl italic">
-              Kelola dokumen serah terima siswa harian antara Wali Asuh & Wali Asrama, serta kirim rangkuman laporan terintegrasi langsung ke WhatsApp grup.
+              Kelola dokumen serah terima siswa harian antar petugas asrama (Wali Asuh ke Wali Asrama, atau sesama Wali Asuh), serta kirim rangkuman laporan langsung ke WhatsApp grup.
             </p>
           </div>
 
@@ -422,9 +499,18 @@ Demikian Terimakasih 🙏`;
                 <div className="p-6 bg-[#fbf9f6] border-b border-dashed border-slate-100 space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 text-left">
-                      <span className="text-xs font-mono font-bold bg-[#3e2723]/5 text-[#3e2723] px-3 py-1 rounded-full uppercase">
-                        {log.waktu_serah_terima}
-                      </span>
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <span className="text-xs font-mono font-bold bg-[#3e2723]/5 text-[#3e2723] px-3 py-1 rounded-full uppercase">
+                          {log.waktu_serah_terima}
+                        </span>
+                        <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                          log.kategori === 'wali_asuh'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200/40'
+                            : 'bg-indigo-100 text-indigo-800 border border-indigo-200/40'
+                        }`}>
+                          {log.kategori === 'wali_asuh' ? 'Wali Asuh → Wali Asuh' : 'Wali Asuh → Wali Asrama'}
+                        </span>
+                      </div>
                       <h4 className="text-lg font-black text-[#3e2723] italic leading-tight uppercase mt-2">
                         {log.hari_tanggal}
                       </h4>
@@ -510,20 +596,40 @@ Demikian Terimakasih 🙏`;
                       </div>
                     )}
 
-                    {/* Kegiatan Dilaksanakan */}
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] text-slate-400 font-black tracking-wider uppercase block">Kegiatan yang Telah Dilaksanakan</span>
-                      <ul className="space-y-1 pl-1">
-                        {log.kegiatan_dilaksanakan.map((k, idx) => (
-                          <li key={idx} className="text-xs text-slate-700 flex items-start gap-1.5 font-medium leading-relaxed">
-                            <span className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
-                              {idx + 1}
-                            </span>
-                            <span>{k}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {/* Kegiatan / Catatan Tindak Lanjut conditionally displayed */}
+                    {log.kategori === 'wali_asuh' ? (
+                      log.catatan_tindak_lanjut && log.catatan_tindak_lanjut.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-400 font-black tracking-wider uppercase block">Catatan untuk Ditindaklanjuti</span>
+                          <ul className="space-y-1 pl-1">
+                            {log.catatan_tindak_lanjut.map((c, idx) => (
+                              <li key={idx} className="text-xs text-slate-700 flex items-start gap-1.5 font-medium leading-relaxed">
+                                <span className="w-4 h-4 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
+                                  {idx + 1}
+                                </span>
+                                <span>{c}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )
+                    ) : (
+                      log.kegiatan_dilaksanakan && log.kegiatan_dilaksanakan.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-400 font-black tracking-wider uppercase block">Kegiatan yang Telah Dilaksanakan</span>
+                          <ul className="space-y-1 pl-1">
+                            {log.kegiatan_dilaksanakan.map((k, idx) => (
+                              <li key={idx} className="text-xs text-slate-700 flex items-start gap-1.5 font-medium leading-relaxed">
+                                <span className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
+                                  {idx + 1}
+                                </span>
+                                <span>{k}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )
+                    )}
                   </div>
 
                   {/* Author Footer */}
@@ -575,6 +681,37 @@ Demikian Terimakasih 🙏`;
 
               {/* Modal Body */}
               <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 custom-scrollbar bg-[#fcfbfa]">
+                {/* Kategori Serah Terima */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black tracking-widest text-[#3e2723] uppercase block">
+                    Kategori Serah Terima
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setKategori('wali_asrama')}
+                      className={`py-3 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 ${
+                        kategori === 'wali_asrama'
+                          ? 'bg-[#3e2723] text-white border-[#3e2723] shadow-md shadow-[#3e2723]/10 scale-[1.01]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      Wali Asuh → Wali Asrama
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKategori('wali_asuh')}
+                      className={`py-3 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 ${
+                        kategori === 'wali_asuh'
+                          ? 'bg-[#3e2723] text-white border-[#3e2723] shadow-md shadow-[#3e2723]/10 scale-[1.01]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      Wali Asuh → Wali Asuh
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Hari & Tanggal */}
                   <div className="space-y-2">
@@ -825,50 +962,96 @@ Demikian Terimakasih 🙏`;
                   />
                 </div>
 
-                {/* Kegiatan Dilaksanakan Section */}
-                <div className="space-y-3 bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 italic">
-                      Kegiatan yang Telah Dilaksanakan
-                    </h4>
-                  </div>
+                {/* Kegiatan / Catatan Tindak Lanjut conditionally rendered */}
+                {kategori === 'wali_asrama' ? (
+                  <div className="space-y-3 bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 italic">
+                        Kegiatan yang Telah Dilaksanakan
+                      </h4>
+                    </div>
 
-                  <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
-                    {kegiatanDilaksanakan.map((k, idx) => (
-                      <div key={idx} className="flex items-start gap-2 justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                        <span className="font-medium text-slate-700 text-left">
-                          {idx + 1}. {k}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveKegiatan(idx)}
-                          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-all shrink-0"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                      {kegiatanDilaksanakan.map((k, idx) => (
+                        <div key={idx} className="flex items-start gap-2 justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="font-medium text-slate-700 text-left">
+                            {idx + 1}. {k}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKegiatan(idx)}
+                            className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-all shrink-0"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      ))}
+                    </div>
 
-                  <div className="border-t border-slate-100 pt-3 flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Masukkan aktivitas/kegiatan baru..."
-                      value={newKegiatan}
-                      onChange={(e) => setNewKegiatan(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKegiatan())}
-                      className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3e2723] focus:ring-1 focus:ring-[#3e2723]/10"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddKegiatan}
-                      className="p-2.5 bg-[#3e2723] text-white hover:bg-opacity-90 active:bg-opacity-100 rounded-xl transition-all"
-                    >
-                      <Plus size={16} />
-                    </button>
+                    <div className="border-t border-slate-100 pt-3 flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Masukkan aktivitas/kegiatan baru..."
+                        value={newKegiatan}
+                        onChange={(e) => setNewKegiatan(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKegiatan())}
+                        className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3e2723] focus:ring-1 focus:ring-[#3e2723]/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddKegiatan}
+                        className="p-2.5 bg-[#3e2723] text-white hover:bg-opacity-90 active:bg-opacity-100 rounded-xl transition-all"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-3 bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 italic">
+                        Catatan untuk Ditindaklanjuti
+                      </h4>
+                    </div>
+
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                      {catatanTindakLanjut.map((c, idx) => (
+                        <div key={idx} className="flex items-start gap-2 justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="font-medium text-slate-700 text-left">
+                            {idx + 1}. {c}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCatatan(idx)}
+                            className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-all shrink-0"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-3 flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Masukkan catatan tindak lanjut..."
+                        value={newCatatan}
+                        onChange={(e) => setNewCatatan(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCatatan())}
+                        className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3e2723] focus:ring-1 focus:ring-[#3e2723]/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCatatan}
+                        className="p-2.5 bg-[#3e2723] text-white hover:bg-opacity-90 active:bg-opacity-100 rounded-xl transition-all"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Submit button */}
                 <div className="p-6 bg-[#fbf9f6] border-t border-[#d7ccc8]/40 flex gap-3 shrink-0 rounded-b-3xl">
