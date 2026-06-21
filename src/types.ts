@@ -225,6 +225,18 @@ export interface MonthlyReport {
   createdAt: Timestamp;
 }
 
+export interface JadwalMengajar {
+  id?: string;
+  guru_uid: string;
+  guru_name: string;
+  mapel: string;
+  hari: string;
+  kelas: string;
+  jam_mulai: string;
+  jam_selesai: string;
+  createdAt: Timestamp;
+}
+
 export interface Agenda {
   id?: string;
   title: string;
@@ -504,6 +516,24 @@ export interface JadwalTausiyah {
   gender: string;
   author_name?: string;
   author_uid?: string;
+}
+
+export interface AbsenHarianRecord {
+  id?: string;
+  tanggal_str: string; // YYYY-MM-DD
+  kelas: string;
+  mapel: string;
+  guru_uid: string;
+  guru_name: string;
+  jumlah_hadir: number;
+  jumlah_absen: number;
+  keterangan: string;
+  students: {
+    siswa_id: string;
+    nama_siswa: string;
+    status: 'Hadir' | 'Tidak Hadir';
+  }[];
+  createdAt?: any;
 }
 
 

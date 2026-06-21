@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, Announcement } from '../types';
+import { collection, addDoc, Timestamp, query, where, orderBy, onSnapshot, updateDoc, doc, arrayUnion, getDocs, serverTimestamp, or } from 'firebase/firestore';
+import { AppUser, WALI_KELAS_LIST, IzinSakit, LogTindakan, Memorandum, Siswa, normalizeKelas, HealthCheckProposal, Announcement, Agenda } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { 
   BarChart, 
@@ -15,7 +15,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, ChevronDown, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X, Image as LucideImage } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, ChevronDown, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X, Quote, Sparkles, Sun, Moon, Image as LucideImage } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -140,6 +140,70 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
     'agenda': 'Agenda Dokter',
     'jurnal_keperawatan': 'Jurnal Keperawatan'
   };
+
+  // Quick Menu scroll states
+  const quickMenuRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeftMenu, setCanScrollLeftMenu] = useState(false);
+  const [canScrollRightMenu, setCanScrollRightMenu] = useState(false);
+
+  useEffect(() => {
+    const el = quickMenuRef.current;
+    const handleScrollCheck = () => {
+      if (el) {
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        setCanScrollLeftMenu(scrollLeft > 5);
+        setCanScrollRightMenu(scrollLeft < scrollWidth - clientWidth - 5);
+      }
+    };
+    if (el) {
+      el.addEventListener('scroll', handleScrollCheck);
+      handleScrollCheck();
+      window.addEventListener('resize', handleScrollCheck);
+    }
+    return () => {
+      if (el) {
+        el.removeEventListener('scroll', handleScrollCheck);
+      }
+      window.removeEventListener('resize', handleScrollCheck);
+    };
+  }, [viewMode]);
+
+  const scrollQuickMenu = (direction: 'left' | 'right') => {
+    if (quickMenuRef.current) {
+      const scrollAmount = direction === 'left' ? -280 : 280;
+      quickMenuRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // Calendar states
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
+  const [agendas, setAgendas] = useState<Agenda[]>([]);
+
+  useEffect(() => {
+    if (!user || !user.role || !user.uid) return;
+
+    let q;
+    if (user.role === 'kepala_sekolah') {
+      q = query(collection(db, 'agendas'), orderBy('date', 'asc'));
+    } else {
+      q = query(
+        collection(db, 'agendas'),
+        or(
+          where('author_uid', '==', user.uid),
+          where('sharedWith', 'array-contains', user.role)
+        ),
+        orderBy('date', 'asc')
+      );
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAgendas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Agenda)));
+    }, (err) => {
+      console.error("Error loading agendas for calendar in DokterView:", err);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   useEffect(() => {
     if (activeTab === 'profil') setViewMode('profil');
@@ -676,6 +740,441 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
             </div>
           </div>
         </div>
+
+        {/* Dynamic Health & Doctor Virtual Quote System */}
+        {(() => {
+          const quotesMorning = [
+            { text: "Obat terbaik bukanlah resep kimiawi, melainkan senyuman penuh harapan dan empati seorang dokter kepada pasiennya.", author: "Ibnu Sina" },
+            { text: "Menyembuhkan kadang-kadang, meringankan seringkali, menghibur selalu.", author: "Pepatah Medis Klasik" },
+            { text: "Tubuh manusia adalah karya arsitektur alam terbaik. Menjaganya adalah bentuk rasa syukur terindah kita kepada Sang Pencipta.", author: "Hippocrates" },
+            { text: "Kesehatan yang baik bukanlah sesuatu yang bisa kita beli. Namun, ia adalah tabungan berharga untuk masa depan generasi bangsa.", author: "Anne Wilson Schaef" },
+            { text: "Dokter yang hebat merawat penyakitnya; dokter yang istimewa merawat pasien yang mengidap penyakit tersebut.", author: "Sir William Osler" },
+            { text: "Jadilah dokter yang tidak hanya menyembuhkan goresan luka fisik, melainkan juga menenangkan kegelisahan batin santri.", author: "Dr. Cipto Mangunkusumo" },
+            { text: "Mendedikasikan pagi hari untuk memelihara kesehatan adalah langkah awal mengalirkan berkah dan ketenangan ke asrama.", author: "Dr. Sutomo" },
+            { text: "Seni pengobatan terletak pada tindakan menghibur pasien sementara alam melakukan penyembuhan secara alami.", author: "Voltaire" },
+            { text: "Setiap detak jantung adalah harmoni kehidupan. Mari kita jaga keselarasan fisik dan mental santri dengan keikhlasan pengabdian.", author: "Dr. Wahidin Sudirohusodo" },
+            { text: "Mencegah lebih mulia daripada mengobati. Kebersihan kamar dan kesehatan diri santri adalah fondasi utama kecerdasan intelektual mereka.", author: "Desiderius Erasmus" },
+            { text: "Layanan kesehatan terbaik dimulai dari ketulusan mendengar cerita keluh kesah pasien dengan mata yang peduli.", author: "Dr. Albert Schweitzer" },
+            { text: "Ketika Anda menjaga kesehatan seorang murid, Anda sedang menyelamatkan mimpi-mimpi besar masa depan sebuah bangsa.", author: "Dr. Raden Soeharto" },
+            { text: "Sentuhan pengobatan yang dipenuhi kelembutan nurani akan melipatgandakan khasiat dari setiap butir obat yang diberikan.", author: "Guru Medis" },
+            { text: "Tanggung jawab utama seorang dokter adalah mendidik masyarakat tentang cara merawat diri demi mencegah datangnya penyakit.", author: "Thomas Alva Edison" },
+            { text: "Awali pelayanan medis hari ini dengan doa ketulusan. Keahlian jemari Anda dipandu oleh berkah kesembuhan dari Sang Maha Penyembuh.", author: "Dr. Kariadi" }
+          ];
+
+          const quotesAfternoon = [
+            { text: "Ketika lelah mulai menerpa di penghujung hari, ketahuilah bahwa bimbingan dan penanganan hangat Anda adalah berkah bagi santri.", author: "Dr. Albert Schweitzer" },
+            { text: "Kekuatan terbesar dokter tidak terletak pada obat yang tepat, melainkan pada kemampuan menghadirkan ketenangan jiwa di kala malam sunyi.", author: "Ibnu Sina" },
+            { text: "Tidurlah dengan lapang dada setelah hari yang panjang merawat sesama. Pengorbanan tulus Anda dicatat indah oleh para malaikat.", author: "Dr. Tjipto Mangoenkoesoemo" },
+            { text: "Kebaikan yang diberikan seorang dokter di petang hari adalah lentera penyejuk bagi hati santri yang sedang berjuang melawan demam.", author: "Sir William Osler" },
+            { text: "Asrama yang sehat di malam hari adalah buah dari ketelitian inspeksi dan ketulusan penanganan medis kita sepanjang hari.", author: "Dr. Sutomo" },
+            { text: "Kesehatan anak-anak asuh adalah cerminan dari kesabaran tanpa batas kita menuntun pola hidup bersih dan istirahat teratur.", author: "Florence Nightingale" },
+            { text: "Dokter sejati tidak pernah menutup pintu kasihnya; bahkan di malam hari, kesegaran empati kita memagari kenyamanan tidur mereka.", author: "Dr. Kariadi" },
+            { text: "Obat biologis paling mujarab di sore hari adalah secangkir teh kehangatan dan perkataan jujur yang menenangkan pasien.", author: "Dr. Wahidin Sudirohusodo" },
+            { text: "Biarlah kelelahan hari ini bertransformasi menjadi energi berkah. Kesehatan para santri adalah kesuksesan terbesar pengabdian kita.", author: "Dr. Raden Soeharto" },
+            { text: "Menjaga kesehatan preventif di sore hari dengan memperhatikan hidrasi dan gizi santri menjamin fajar esok menyongsong dengan ceria.", author: "Maimonides" },
+            { text: "Semoga setiap rasa sakit yang berhasil diredakan malam ini menjadi penggugur dosa dan pembuka jalan kemudahan bagi hidup Anda.", author: "Doa Medis Indonesia" },
+            { text: "Perawatan medis terbaik di balik dinding asrama ditenun dari benang kesabaran dan dihiasi senyuman ramah yang tak kunjung padam.", author: "Pakar Kesehatan Anak" },
+            { text: "Rawatlah mereka selayaknya anak-anak kandung sendiri. Di saat mereka sakit jauh dari rumah, andalah pelindung dan penenang utama.", author: "Guru Medis Klasik" },
+            { text: "Malam yang tenang adalah dambaan semua jiwa yang lelah. Terima kasih atas ketulusan Anda bersiaga melindungi kesehatan asrama.", author: "Komunitas Peduli Asrama" },
+            { text: "Kesembuhan fisik sering kali diawali dengan kedamaian batin. Senja hari adalah saat terbaik memberikan pelukan moral bagi kesembuhan batin.", author: "Ibnu Rawandi" }
+          ];
+
+          const currentHour = currentTime.getHours();
+          const currentDay = currentTime.getDate();
+
+          // Morning: 06:00:00 to 14:59:59
+          // Afternoon/Night: 15:00:00 to 05:59:59
+          const isMorningRange = currentHour >= 6 && currentHour < 15;
+          const quotesList = isMorningRange ? quotesMorning : quotesAfternoon;
+          const quoteIndex = (currentDay - 1) % quotesList.length;
+          const selectedQuote = quotesList[quoteIndex];
+
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="bg-gradient-to-br from-teal-50/40 via-white to-sky-50/10 p-5 sm:p-6 rounded-3xl border border-teal-100 shadow-sm text-left relative overflow-hidden group select-none"
+            >
+              <div className="absolute -top-3 -right-3 text-teal-600/5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">
+                <Quote className="w-24 h-24 rotate-180" />
+              </div>
+              
+              <div className="relative z-10 flex flex-col justify-between h-full gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-xl bg-teal-100/50 text-teal-600">
+                      {isMorningRange ? (
+                        <Sun className="w-4 h-4 text-amber-500 animate-spin" style={{ animationDuration: '60s' }} />
+                      ) : (
+                        <Moon className="w-4 h-4 text-indigo-400 animate-pulse" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-teal-900">
+                        {isMorningRange ? 'Pesan Kesehatan Pagi' : 'Refleksi Pengabdian Medis Sore'}
+                      </span>
+                      <span className="text-[8px] block font-semibold text-stone-500 uppercase tracking-wider mt-0.5 leading-none">
+                        Diperbarui Otomatis Pukul 06.00 & 15.00 WIB
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-[8.5px] font-black uppercase bg-teal-100/60 text-teal-700 px-2.5 py-0.5 rounded-full tracking-wider border border-teal-500/10 shadow-sm shrink-0">
+                    <Sparkles className="w-2.5 h-2.5 text-amber-500 animate-pulse" />
+                    <span>Inspirasi Medis</span>
+                  </div>
+                </div>
+
+                <div className="pl-3 border-l-2 border-teal-400/50">
+                  <p className="text-xs sm:text-sm font-medium italic text-stone-700 leading-relaxed font-serif tracking-wide">
+                    "{selectedQuote.text}"
+                  </p>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#3e2723] block mt-2.5 font-mono">
+                    — {selectedQuote.author}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+
+        {/* Akses Menu Cepat */}
+        <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left relative group overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-3.5 bg-gradient-to-b from-[#8b5e3c] to-[#3e2723] rounded-full" />
+              <h2 className="text-xs font-black text-[#3e2723] font-display uppercase tracking-widest italic leading-none">
+                Akses Menu Cepat
+              </h2>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => scrollQuickMenu('left')}
+                disabled={!canScrollLeftMenu}
+                aria-label="Scroll Left"
+                className={`p-1 rounded-lg border border-stone-200/50 shadow-sm transition-all duration-300 ${
+                  canScrollLeftMenu 
+                    ? 'bg-white hover:bg-[#fcfaf6] text-[#3e2723] cursor-pointer active:scale-95' 
+                    : 'bg-stone-50 text-stone-300 cursor-not-allowed opacity-40'
+                }`}
+              >
+                <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollQuickMenu('right')}
+                disabled={!canScrollRightMenu}
+                aria-label="Scroll Right"
+                className={`p-1 rounded-lg border border-stone-200/50 shadow-sm transition-all duration-300 ${
+                  canScrollRightMenu 
+                    ? 'bg-white hover:bg-[#fcfaf6] text-[#3e2723] cursor-pointer active:scale-95' 
+                    : 'bg-stone-50 text-stone-300 cursor-not-allowed opacity-40'
+                }`}
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Horizontal Scroll Track */}
+          <div 
+            ref={quickMenuRef}
+            className="flex gap-4 overflow-x-auto py-2 px-1 scroll-smooth select-none snap-x snap-mandatory cursor-grab active:cursor-grabbing no-scrollbar"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {[
+              { id: 'statistik', label: 'E-Klinik', icon: LayoutDashboard, color: 'bg-amber-50 text-amber-700 hover:bg-amber-100/50 border border-amber-100' },
+              { id: 'jurnal_keperawatan', label: 'Jurnal', icon: Activity, color: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100/50 border border-indigo-100' },
+              { id: 'buat_surat', label: 'Buat SKD', icon: FileText, color: 'bg-rose-50 text-rose-700 hover:bg-rose-100/50 border border-rose-100' },
+              { id: 'riwayat_skd', label: 'Arsip SKD', icon: ClipboardList, color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100/50 border border-emerald-100' },
+              { id: 'kartu_siswa', label: 'Database', icon: User, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100/50 border border-blue-100' },
+              { id: 'usulan_cek', label: 'Usulan Cek', icon: ShieldCheck, color: 'bg-teal-50 text-teal-700 hover:bg-teal-100/50 border border-teal-100' },
+              { id: 'memorandum', label: 'Memo', icon: Mail, color: 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100/50 border border-fuchsia-100' },
+              { id: 'agenda', label: 'Agenda', icon: Calendar, color: 'bg-orange-50 text-orange-700 hover:bg-orange-100/50 border border-orange-100' },
+              { id: 'mading', label: 'Mading', icon: BookOpen, color: 'bg-sky-50 text-sky-700 hover:bg-sky-100/50 border border-sky-100' },
+              { id: 'profil', label: 'Identitas', icon: User, color: 'bg-stone-100 text-stone-700 hover:bg-stone-200/50 border border-stone-200' }
+            ].map((item, index) => {
+              const Icon = item.icon;
+              const isActive = viewMode === item.id;
+              return (
+                <motion.button
+                  key={item.id}
+                  type="button"
+                  className="snap-start shrink-0 min-w-[76px] flex flex-col items-center group/item cursor-pointer"
+                  whileHover={{ scale: 1.05, y: -1 }}
+                  whileTap={{ scale: 0.95 }}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.02 }}
+                  onClick={() => setViewMode(item.id as any)}
+                >
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm ${
+                    isActive 
+                      ? 'bg-gradient-to-br from-[#8b5e3c] to-[#3e2723] text-white ring-4 ring-amber-400/20 shadow-md' 
+                      : item.color
+                  }`}>
+                    <Icon className="w-5 h-5 transition-transform group-hover/item:scale-110" />
+                  </div>
+                  <span className={`text-[8.5px] font-black uppercase tracking-wider mt-2 transition-colors truncate max-w-full ${
+                    isActive ? 'text-[#3e2723]' : 'text-stone-500 group-hover/item:text-[#3e2723]'
+                  }`}>
+                    {item.label}
+                  </span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Real-time Interactive Pink Calendar */}
+        {(() => {
+          const year = calendarDate.getFullYear();
+          const month = calendarDate.getMonth();
+
+          // Sunday = 0, Monday = 1, etc.
+          const firstDayOfMonth = new Date(year, month, 1);
+          const startDayIndex = firstDayOfMonth.getDay();
+          const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+          const prevMonthDays = new Date(year, month, 0).getDate();
+
+          const daysGrid: { day: number; isCurrentMonth: boolean; date: Date }[] = [];
+          
+          // Fill previous month overlapping days
+          for (let i = startDayIndex - 1; i >= 0; i--) {
+            const d = prevMonthDays - i;
+            const prevMonthDate = new Date(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1, d);
+            daysGrid.push({ day: d, isCurrentMonth: false, date: prevMonthDate });
+          }
+
+          // Fill current month days
+          for (let d = 1; d <= totalDaysInMonth; d++) {
+            const currDate = new Date(year, month, d);
+            daysGrid.push({ day: d, isCurrentMonth: true, date: currDate });
+          }
+
+          // Fill next month overlapping days to make perfect multiples of 7
+          const remainingCells = 42 - daysGrid.length;
+          for (let d = 1; d <= remainingCells; d++) {
+            const nextMonthDate = new Date(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1, d);
+            daysGrid.push({ day: d, isCurrentMonth: false, date: nextMonthDate });
+          }
+
+          const getAgendasForDate = (checkDate: Date) => {
+            return agendas.filter(agenda => {
+              const agendaDate = agenda.date?.toDate ? agenda.date.toDate() : (agenda.date instanceof Date ? agenda.date : null);
+              if (!agendaDate) return false;
+              return (
+                agendaDate.getDate() === checkDate.getDate() &&
+                agendaDate.getMonth() === checkDate.getMonth() &&
+                agendaDate.getFullYear() === checkDate.getFullYear()
+              );
+            });
+          };
+
+          const namaBulanIndo = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+          ];
+
+          const selectedDateAgendas = getAgendasForDate(selectedCalendarDate);
+
+          return (
+            <div className="bg-white rounded-3xl border border-pink-100 shadow-sm overflow-hidden text-left">
+              {/* Calendar Header with Ticking Clock */}
+              <div className="bg-pink-900 text-white p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/15 rounded-full blur-2xl" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-pink-300" />
+                    <h3 className="font-black text-lg font-display italic tracking-tight text-white leading-none">
+                      Kalender Kegiatan
+                    </h3>
+                  </div>
+                  <p className="text-[10px] font-bold text-pink-200 mt-1 uppercase tracking-widest">
+                    SRMA 24 Kediri · Real-time Sync
+                  </p>
+                </div>
+
+                {/* Clock display */}
+                <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-2xl select-none min-w-[130px] justify-center">
+                  <Clock className="w-4 h-4 text-pink-300 animate-pulse shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="font-mono text-xs font-black tracking-widest text-[#FFF] leading-none">
+                      {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                    <span className="text-[8px] font-bold text-pink-200 tracking-wider text-center mt-0.5 leading-none">
+                      {currentTime.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation and Month Header */}
+              <div className="p-4 sm:p-5 flex items-center justify-between border-b border-pink-50">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-black text-sm text-pink-950 uppercase tracking-wider">
+                    {namaBulanIndo[month]} {year}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+                    className="p-1.5 sm:p-2 hover:bg-pink-50 text-pink-700 rounded-xl border border-pink-100 transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4 rotate-180" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      setCalendarDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                      setSelectedCalendarDate(today);
+                    }}
+                    className="px-3 py-1.5 text-[9px] font-black text-pink-700 bg-pink-50 border border-pink-100 hover:bg-pink-100/50 transition-all rounded-lg uppercase tracking-wider cursor-pointer"
+                  >
+                    Hari Ini
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+                    className="p-1.5 sm:p-2 hover:bg-pink-50 text-pink-700 rounded-xl border border-pink-100 transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Calendar Grid Container */}
+              <div className="p-4 sm:p-5 bg-gradient-to-b from-white to-pink-50/10">
+                {/* Weekday Titles */}
+                <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                  {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((dayName, idx) => (
+                    <div
+                      key={idx}
+                      className={`text-[9px] font-black uppercase tracking-widest py-1 ${
+                        idx === 0 ? 'text-rose-500' : 'text-pink-800/60'
+                      }`}
+                    >
+                      {dayName}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Day Cells Grid */}
+                <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                  {daysGrid.map(({ day, isCurrentMonth, date: cellDate }, index) => {
+                    const isCellToday = isToday(cellDate);
+                    const isCellSelected =
+                      selectedCalendarDate.getDate() === cellDate.getDate() &&
+                      selectedCalendarDate.getMonth() === cellDate.getMonth() &&
+                      selectedCalendarDate.getFullYear() === cellDate.getFullYear();
+                    
+                    const cellAgendas = getAgendasForDate(cellDate);
+                    const hasAgendas = cellAgendas.length > 0;
+
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setSelectedCalendarDate(cellDate)}
+                        className={`aspect-square sm:p-1 relative flex flex-col items-center justify-between rounded-xl transition-all border outline-none group cursor-pointer ${
+                          isCellSelected
+                            ? 'bg-gradient-to-tr from-pink-600 to-rose-500 border-pink-750 text-white shadow-md shadow-pink-200/50'
+                            : isCellToday
+                            ? 'bg-pink-50 border-pink-100 text-pink-800 hover:bg-pink-100 shadow-[0_0_8px_rgba(244,63,94,0.15)] ring-2 ring-pink-500/25'
+                            : isCurrentMonth
+                            ? 'bg-white border-pink-50/50 text-stone-800 hover:bg-pink-50/40 hover:border-pink-100'
+                            : 'bg-stone-50/20 border-transparent text-stone-300'
+                        }`}
+                      >
+                        {/* Day Number */}
+                        <span className={`text-[10px] sm:text-xs font-black ${isCellSelected ? 'text-white' : ''}`}>
+                          {day}
+                        </span>
+
+                        {/* Small Indicators for Agendas */}
+                        <div className="flex gap-0.5 justify-center mt-1 h-1.5 w-full">
+                          {hasAgendas && (
+                            <span className={`w-1 h-1 rounded-full ${isCellSelected ? 'bg-white' : 'bg-pink-500'} shadow-[0_0_5px_rgba(244,63,94,0.4)]`} />
+                          )}
+                          {isCellToday && !isCellSelected && (
+                            <span className="w-1 h-1 rounded-full bg-pink-400 shadow-[0_0_5px_rgba(244,63,94,0.4)]" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selected Date Actions & Agendas */}
+              <div className="p-4 sm:p-5 bg-[#fdfcf0]/10 border-t border-pink-50 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-pink-550 rounded-full bg-pink-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-pink-700">
+                      Agenda Acara
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-black text-pink-950 italic leading-tight">
+                    {selectedCalendarDate.toLocaleDateString('id-ID', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </h4>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode('agenda')}
+                  className="px-4 py-2 bg-pink-50 hover:bg-pink-100/60 border border-pink-200 text-pink-750 font-black rounded-xl shadow-sm transition-all text-[9.5px] uppercase tracking-widest flex items-center gap-1.5 active:scale-95 cursor-pointer ml-auto md:ml-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Kelola Agenda
+                </button>
+              </div>
+
+              {/* Agendas List for Selected Date */}
+              <div className="px-4 pb-5 sm:px-5 sm:pb-6 pt-1 max-h-[160px] overflow-y-auto bg-stone-50/30">
+                {selectedDateAgendas.length === 0 ? (
+                  <div className="py-4 text-center text-stone-400 text-[10px] font-semibold italic flex items-center justify-center gap-1 rounded-2xl bg-white border border-stone-100">
+                    <Info className="w-3.5 h-3.5 text-stone-300" />
+                    Tidak ada agenda khusus terjadwal pada hari ini.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedDateAgendas.map((agenda, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-white border border-pink-50 rounded-xl hover:shadow-sm hover:border-pink-100 transition-all text-left flex gap-3 items-start"
+                      >
+                        <div className="w-1.5 h-full rounded-full bg-pink-500 self-stretch mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <h5 className="text-xs font-black text-stone-800 tracking-tight block truncate uppercase">
+                            {agenda.title}
+                          </h5>
+                          <p className="text-[10px] font-medium text-stone-500 leading-normal mt-0.5 italic">
+                            {agenda.description || 'Tidak ada uraian.'}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1.5 text-[8.5px] font-bold text-stone-400 capitalize">
+                            <span className="bg-pink-50 px-1.5 py-0.5 rounded text-pink-700 font-black">
+                              {agenda.author_role.replace('_', ' ')}: {agenda.author_name}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex items-center justify-between font-display relative px-2">
           <div className="absolute -left-4 bottom-0 w-16 h-16 bg-[#3e2723]/5 rounded-full blur-2xl -z-10" />

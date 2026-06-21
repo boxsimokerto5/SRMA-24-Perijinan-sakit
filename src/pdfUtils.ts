@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal, StudentCounseling, DormitoryLoss, LaporanPerkembanganSiswa, KunjunganOrangTua, SKPReport, SOP, JadwalTausiyah } from './types';
+import { IzinSakit, Memorandum, LaptopRequest, HPRequest, HealthCheckProposal, SarprasReport, MonthlyReport, ProgressRecord, EvaluationNote, DormitoryIncident, PinjamHP, Ketidakhadiran, JurnalKeperawatan, PenangananJurnal, StudentCounseling, DormitoryLoss, LaporanPerkembanganSiswa, KunjunganOrangTua, SKPReport, SOP, JadwalTausiyah, Siswa, AbsenHarianRecord } from './types';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -3450,6 +3450,364 @@ export const generateHaircutsReportPDF = async (records: HairRecord[], periodLab
   });
 
   doc.save(`Rekap_Potong_Rambut_${Date.now()}.pdf`);
+};
+
+// --- PRIVATE INDONESIAN DATE TRANSLATION HELPERS ---
+const formatIndoMonthStr = (monthStr: string) => {
+  if (!monthStr) return '';
+  const [year, month] = monthStr.split('-');
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  const monthIdx = parseInt(month, 10) - 1;
+  return `${months[monthIdx] || ''} ${year}`;
+};
+
+const formatIndoDateStr = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  const monthIdx = parseInt(month, 10) - 1;
+  return `${day} ${months[monthIdx] || ''} ${year}`;
+};
+
+// --- ATTENDANCE SYSTEM PDF GENERATORS ---
+
+export const generateAbsenHarianPDF = async (record: AbsenHarianRecord) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Page Border
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 200, 287);
+
+  // Header
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PRESENCE RECORDING SYSTEM', 105, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SRMA 24 KEDIRI', 105, 25, { align: 'center' });
+  doc.setFontSize(11);
+  doc.setTextColor(115, 78, 54); // Theme brown color
+  doc.text('LAPORAN KEHADIRAN HARIAN SISWA', 105, 32, { align: 'center' });
+
+  // Double horizontal lines
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(15, 38, 195, 38);
+  doc.setLineWidth(0.2);
+  doc.line(15, 39.5, 195, 39.5);
+
+  // Metadata information
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+
+  doc.text('Tanggal Sesi', 15, 48);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${formatIndoDateStr(record.tanggal_str)}`, 45, 48);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Mata Pelajaran', 15, 54);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${record.mapel.toUpperCase()}`, 45, 54);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kelas', 115, 48);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: Kelas ${record.kelas}`, 145, 48);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Guru Pengampu', 115, 54);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${record.guru_name}`, 145, 54);
+
+  // Agenda/Keterangan
+  doc.setFont('helvetica', 'normal');
+  doc.text('KBM / Agenda', 15, 60);
+  doc.setFont('helvetica', 'italic');
+  doc.text(`: "${record.keterangan || 'KBM Harian Standard'}"`, 45, 60);
+
+  // Table Data
+  const tableData = record.students.map((sts, idx) => [
+    (idx + 1).toString(),
+    sts.nama_siswa.toUpperCase(),
+    sts.status === 'Hadir' ? 'HADIR' : 'ABSEN (TIDAK HADIR)'
+  ]);
+
+  autoTable(doc, {
+    startY: 68,
+    margin: { left: 15, right: 15 },
+    head: [['NO', 'NAMA LENGKAP SISWA', 'STATUS KEHADIRAN']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [62, 39, 35], // #3e2723
+      textColor: [253, 252, 240], // #fdfcf0
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'center'
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 2.5
+    },
+    columnStyles: {
+      0: { cellWidth: 15, halign: 'center' },
+      1: { fontStyle: 'bold' },
+      2: { halign: 'center' }
+    }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+  // Stats Summary Box
+  const summaryBoxY = finalY;
+  doc.setDrawColor(220, 220, 220);
+  doc.setFillColor(250, 250, 249);
+  doc.rect(15, summaryBoxY, 180, 10, 'F');
+  doc.setTextColor(60, 60, 60);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Jumlah Siswa Diabsen: ${record.students.length}`, 20, summaryBoxY + 6.5);
+  doc.setTextColor(16, 185, 129); // emerald-600
+  doc.text(`Hadir: ${record.jumlah_hadir}`, 105, summaryBoxY + 6.5);
+  doc.setTextColor(225, 29, 72); // rose-600
+  doc.text(`Tidak Hadir: ${record.jumlah_absen}`, 150, summaryBoxY + 6.5);
+
+  // Signature Block
+  const signY = summaryBoxY + 15;
+  if (signY + 40 < 280) { // Check that fits on current page
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Surabaya, ${formatIndoDateStr(record.tanggal_str)}`, 140, signY);
+    doc.text('Guru Mata Pelajaran,', 140, signY + 5);
+    
+    // Line for signature
+    doc.line(140, signY + 25, 190, signY + 25);
+    doc.setFont('helvetica', 'bold');
+    doc.text(record.guru_name, 140, signY + 29);
+  }
+
+  // Save / Share flow
+  const fileName = `Laporan_Absen_Harian_Kelas_${record.kelas}_${record.tanggal_str}.pdf`;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Laporan Absen Harian',
+        text: `Laporan Kehadiran Siswa Kelas ${record.kelas} - ${record.tanggal_str}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Laporan Absen'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
+};
+
+export const generateAbsenBulananPDF = async (
+  monthStr: string,
+  kelas: string,
+  records: AbsenHarianRecord[],
+  studentsPool: Siswa[],
+  currentUserName: string
+) => {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Page Border (landscape version)
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.rect(5, 5, 287, 200);
+
+  // Header
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SISTEM PRESENSI REAL-TIME', 148, 18, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text('SRMA 24 KEDIRI', 148, 25, { align: 'center' });
+  doc.setFontSize(11);
+  doc.setTextColor(115, 78, 54); // Theme brown color
+  doc.text('REKAPITULASI KEHADIRAN BULANAN SISWA', 148, 32, { align: 'center' });
+
+  // Double horizontal lines
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(15, 38, 282, 38);
+  doc.setLineWidth(0.2);
+  doc.line(15, 39.5, 282, 39.5);
+
+  // Metadata information
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+
+  doc.text('Bulan Rekap', 15, 48);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${formatIndoMonthStr(monthStr)}`, 45, 48);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kelas Pembelajaran', 15, 54);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: Kelas ${kelas}`, 45, 54);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Pendidik Pembuat', 180, 48);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${currentUserName}`, 210, 48);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Keadaan Kelas', 180, 54);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: Terdata ${studentsPool.length} Siswa`, 210, 54);
+
+  // Gather unique session dates sorted
+  const recordedDates = Array.from(new Set(records.map(r => r.tanggal_str))).sort();
+
+  // Columns & Headers
+  const columns = ['NO', 'NAMA LENGKAP SISWA'];
+  recordedDates.forEach(dateStr => {
+    const day = dateStr.slice(8, 10); // extract day e.g., "12"
+    columns.push(day);
+  });
+  columns.push('HADIR (H)', 'ABSEN (A)');
+
+  // Rows mapping
+  const tableRows = studentsPool.map((student, idx) => {
+    const row = [(idx + 1).toString(), student.nama_lengkap.toUpperCase()];
+    let totalHadir = 0;
+    let totalAbsen = 0;
+
+    recordedDates.forEach(dateStr => {
+      const rec = records.find(r => r.tanggal_str === dateStr);
+      if (!rec) {
+        row.push('-');
+        return;
+      }
+      const match = rec.students?.find(
+        s => s.siswa_id === student.id || s.nama_siswa.toLowerCase() === student.nama_lengkap.toLowerCase()
+      );
+      if (!match) {
+        row.push('-');
+      } else if (match.status === 'Hadir') {
+        totalHadir++;
+        row.push('O'); // Check symbol or O
+      } else {
+        totalAbsen++;
+        row.push('X'); // or X for absent
+      }
+    });
+
+    row.push(`${totalHadir} Sesi`, `${totalAbsen} Sesi`);
+    return row;
+  });
+
+  // Calculate dynamic typography/sizing to fit elegantly
+  const dateColsCount = recordedDates.length;
+  let dynamicFontSize = 8;
+  let dynamicPadding = 2.5;
+  if (dateColsCount > 20) {
+    dynamicFontSize = 6;
+    dynamicPadding = 1.2;
+  } else if (dateColsCount > 12) {
+    dynamicFontSize = 7;
+    dynamicPadding = 1.8;
+  }
+
+  // Handle empty state beautifully
+  let headRows = [columns];
+  let bodyRows = tableRows;
+  if (recordedDates.length === 0) {
+    headRows = [['NO', 'NAMA LENGKAP SISWA', 'KETERANGAN REKAP BULANAN']];
+    bodyRows = [['-', '-', 'TIDAK ADA DATA ABSENSI TEREKAM SEPANJANG BULAN INI']];
+  }
+
+  autoTable(doc, {
+    startY: 61,
+    margin: { left: 15, right: 15 },
+    head: headRows,
+    body: bodyRows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [62, 39, 35], // #3e2723
+      textColor: [253, 252, 240], // #fdfcf0
+      fontStyle: 'bold',
+      fontSize: dynamicFontSize,
+      halign: 'center',
+      valign: 'middle'
+    },
+    styles: {
+      fontSize: dynamicFontSize,
+      cellPadding: dynamicPadding
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { fontStyle: 'bold', minCellWidth: 40 }
+    }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+  // Signature Block (Landscape style, aligned to the bottom right)
+  const signY = finalY;
+  if (signY + 35 < 195) {
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Surabaya, Akhir ${formatIndoMonthStr(monthStr)}`, 220, signY);
+    doc.text('Guru Mata Pelajaran,', 220, signY + 5);
+
+    doc.line(220, signY + 23, 275, signY + 23);
+    doc.setFont('helvetica', 'bold');
+    doc.text(currentUserName, 220, signY + 27);
+  }
+
+  // Save / Share flow
+  const fileName = `Rekap_Absen_Bulanan_Kelas_${kelas}_${monthStr}.pdf`;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache
+      });
+      await Share.share({
+        title: 'Cetak Rekap Bulanan',
+        text: `Rekap Bulanan Kehadiran Siswa Kelas ${kelas} - ${monthStr}`,
+        url: savedFile.uri,
+        dialogTitle: 'Simpan atau Bagikan Rekap Absen'
+      });
+    } catch (error) {
+      console.error("Capacitor Share Error:", error);
+      doc.save(fileName);
+    }
+  } else {
+    doc.save(fileName);
+  }
 };
 
 

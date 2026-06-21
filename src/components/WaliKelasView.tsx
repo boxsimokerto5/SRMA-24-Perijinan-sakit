@@ -56,6 +56,7 @@ import AgendaView from './AgendaView';
 import WallView from './WallView';
 import ProgressRecordsView from './ProgressRecordsView';
 import SarprasAsramaView from './SarprasAsramaView';
+import StudentCounselingView from './StudentCounselingView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliKelasViewProps {
@@ -158,7 +159,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'catatan_perkembangan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'dinding' | 'siswa' | 'sarpras_asrama'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'catatan_perkembangan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'dinding' | 'siswa' | 'sarpras_asrama' | 'student_counseling'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [students, setStudents] = useState<Siswa[]>([]);
@@ -311,6 +312,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
                           { id: 'dinding', label: 'Dinding Kelas', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
+                          { id: 'student_counseling', label: 'Layanan Konseling', icon: BookOpen },
                           { id: 'profil', label: 'Profil Saya', icon: User }
                         ].map((item: any) => (
                           <button
@@ -548,6 +550,7 @@ export default function WaliKelasView({ user, activeTab }: WaliKelasViewProps) {
         {viewMode === 'dinding' && <WallView user={user} wallType="kelas" title="Dinding Kelas" />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'sarpras_asrama' && <SarprasAsramaView user={user} />}
+        {viewMode === 'student_counseling' && <StudentCounselingView user={user} students={students} />}
 
         {viewMode === 'siswa' && (
           <div className="space-y-6">

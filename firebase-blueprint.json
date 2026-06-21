@@ -315,6 +315,51 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["hari_tanggal", "waktu_serah_terima", "lokasi", "total_siswa_hadir", "siswa_sakit", "kondisi_umum", "kegiatan_dilaksanakan", "author_name", "author_uid", "createdAt"]
+    },
+    "JadwalMengajar": {
+      "title": "Jadwal Mengajar",
+      "description": "Teaching schedule for subject teachers",
+      "type": "object",
+      "properties": {
+        "guru_uid": { "type": "string" },
+        "guru_name": { "type": "string" },
+        "mapel": { "type": "string" },
+        "hari": { "type": "string" },
+        "kelas": { "type": "string" },
+        "jam_mulai": { "type": "string" },
+        "jam_selesai": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["guru_uid", "guru_name", "mapel", "hari", "kelas", "jam_mulai", "jam_selesai", "createdAt"]
+    },
+    "AbsenHarian": {
+      "title": "Absen Harian",
+      "description": "Daily school class/KBM lesson attendance entries",
+      "type": "object",
+      "properties": {
+        "tanggal_str": { "type": "string" },
+        "kelas": { "type": "string" },
+        "mapel": { "type": "string" },
+        "guru_uid": { "type": "string" },
+        "guru_name": { "type": "string" },
+        "jumlah_hadir": { "type": "number" },
+        "jumlah_absen": { "type": "number" },
+        "keterangan": { "type": "string" },
+        "students": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "siswa_id": { "type": "string" },
+              "nama_siswa": { "type": "string" },
+              "status": { "type": "string", "enum": ["Hadir", "Tidak Hadir"] }
+            },
+            "required": ["siswa_id", "nama_siswa", "status"]
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tanggal_str", "kelas", "mapel", "guru_uid", "guru_name", "jumlah_hadir", "jumlah_absen", "keterangan", "students", "createdAt"]
     }
   },
   "firestore": {
@@ -389,6 +434,14 @@
     "/serah_terima/{handoverId}": {
       "schema": "SerahTerima",
       "description": "Handover reports from Wali Asuh to Wali Asrama"
+    },
+    "/jadwal_mengajar/{jadwalId}": {
+      "schema": "JadwalMengajar",
+      "description": "Teaching schedules for subject teachers"
+    },
+    "/absen_harian/{absenId}": {
+      "schema": "AbsenHarian",
+      "description": "Daily school class lesson/KBM attendance recordings"
     }
   }
 }

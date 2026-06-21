@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, 
   Clock, 
@@ -14,7 +14,8 @@ import {
   Mail, 
   Search, 
   Menu, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronLeft, 
   Smartphone,
   History,
   Tablet,
@@ -38,11 +39,15 @@ import {
   BarChart3,
   X,
   FileText,
+  Quote,
+  Sparkles,
+  Sun,
+  Moon,
   Image as LucideImage
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
-import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, Announcement, ProgressRecord } from '../types';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, getDocs, serverTimestamp, or, deleteDoc } from 'firebase/firestore';
+import { AppUser, IzinSakit, Memorandum, Siswa, normalizeKelas, Announcement, ProgressRecord, Agenda, JadwalMengajar } from '../types';
 import { notifyAllRoles } from '../services/fcmService';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -54,6 +59,9 @@ import AgendaView from './AgendaView';
 import WallView from './WallView';
 import ProgressRecordsView from './ProgressRecordsView';
 import SarprasAsramaView from './SarprasAsramaView';
+import { JadwalMengajarView } from './JadwalMengajarView';
+import { AbsenHarianView } from './AbsenHarianView';
+import StudentCounselingView from './StudentCounselingView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface GuruMapelViewProps {
@@ -62,12 +70,19 @@ interface GuruMapelViewProps {
 }
 
 export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
-  const [viewMode, setViewMode] = useState<'beranda' | 'catatan_perkembangan' | 'request_fasilitas' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'dinding' | 'sarpras_asrama'>('beranda');
+  const [viewMode, setViewMode] = useState<'beranda' | 'catatan_perkembangan' | 'request_fasilitas' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'agenda' | 'dinding' | 'sarpras_asrama' | 'jadwal_mengajar' | 'absen_harian' | 'student_counseling'>('beranda');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Calendar & Agenda States
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
+  const [agendas, setAgendas] = useState<Agenda[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<Siswa[]>([]);
+  const [schedules, setSchedules] = useState<JadwalMengajar[]>([]);
   const [memos, setMemos] = useState<Memorandum[]>([]);
   const [selectedMemo, setSelectedMemo] = useState<Memorandum | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -141,6 +156,46 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user || !user.uid) return;
+    const q = query(
+      collection(db, 'jadwal_mengajar'),
+      where('guru_uid', '==', user.uid)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as JadwalMengajar));
+      setSchedules(data);
+    }, (error) => {
+      console.error("Error loading teaching schedules:", error);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !user.role || !user.uid) return;
+
+    let q;
+    if (user.role === 'kepala_sekolah') {
+      q = query(collection(db, 'agendas'), orderBy('date', 'asc'));
+    } else {
+      q = query(
+        collection(db, 'agendas'),
+        or(
+          where('author_uid', '==', user.uid),
+          where('sharedWith', 'array-contains', user.role)
+        ),
+        orderBy('date', 'asc')
+      );
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAgendas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Agenda)));
+    }, (err) => {
+      console.error("Error loading agendas for calendar in GuruMapelView:", err);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
   const formatRealTime = (date: Date) => {
     return new Intl.DateTimeFormat('id-ID', {
       weekday: 'long',
@@ -199,7 +254,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
     profil: 'Profil Guru',
     mading: 'Mading Sekolah',
     agenda: 'Agenda Akademik',
-    dinding: 'Dinding Kelas'
+    dinding: 'Dinding Kelas',
+    jadwal_mengajar: 'Jadwal Mengajar Guru',
+    absen_harian: 'Absensi Harian Siswa'
   };
 
   return (
@@ -240,12 +297,15 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                       <div className="space-y-1.5">
                         {[
                           { id: 'beranda', label: 'Dashboard', icon: LayoutDashboard },
+                          { id: 'absen_harian', label: 'Absen Harian', icon: ClipboardList },
                           { id: 'catatan_perkembangan', label: 'Catatan Siswa', icon: IdCard },
                           { id: 'sarpras_asrama', label: 'Sarpras Asrama', icon: Wrench },
+                          { id: 'jadwal_mengajar', label: 'Jadwal Mengajar', icon: Clock },
                           { id: 'agenda', label: 'Agenda Akademik', icon: Calendar },
                           { id: 'dinding', label: 'Dinding Kelas', icon: MessageSquare },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
+                          { id: 'student_counseling', label: 'Layanan Konseling', icon: BookOpen },
                           { id: 'profil', label: 'Profil Saya', icon: User }
                         ].map((item: any) => (
                           <button
@@ -486,6 +546,9 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
         {viewMode === 'dinding' && <WallView user={user} wallType="kelas" title="Dinding Kelas" />}
         {viewMode === 'catatan_perkembangan' && <ProgressRecordsView user={user} />}
         {viewMode === 'sarpras_asrama' && <SarprasAsramaView user={user} />}
+        {viewMode === 'jadwal_mengajar' && <JadwalMengajarView user={user} schedules={schedules} />}
+        {viewMode === 'absen_harian' && <AbsenHarianView user={user} students={students} />}
+        {viewMode === 'student_counseling' && <StudentCounselingView user={user} students={students} />}
 
         {viewMode === 'beranda' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 text-left">
@@ -512,198 +575,544 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
               </div>
             </div>
 
-            {/* Analytical cards grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Card 1: Total Peserta Didik */}
-              <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left flex flex-col justify-between hover:border-stone-200 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-650 opacity-70" />
-                <div>
-                  <div className="flex items-center justify-between mb-2 pl-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                      <span className="text-[8px] font-black text-amber-700 tracking-wider uppercase italic">DATABASE PESERTA DIDIK</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-stone-400 font-bold bg-stone-50 px-2 py-0.5 rounded-md">Aktif</span>
-                  </div>
-                  <h4 className="text-sm font-black text-[#3e2723] tracking-tight uppercase italic mb-3 pl-2">Siswa Terintegrasi</h4>
-                  <div className="pl-2 mb-4">
-                    <div className="bg-[#fcfaf6] p-3 rounded-xl border border-stone-100/60 flex flex-col">
-                      <span className="text-[7px] text-stone-400 font-black uppercase tracking-wider block">TOTAL SISWA</span>
-                      <span className="text-2xl font-black text-[#3e2723] leading-tight mt-1">{students.length} Peserta Didik</span>
-                      <span className="text-[8px] text-stone-400 mt-1 uppercase font-semibold">Database Pusat</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between pl-2">
-                  <span className="text-xs font-bold text-stone-500">Aman dan Sinkron</span>
-                  <button
-                    onClick={() => setViewMode('catatan_perkembangan')}
-                    className="px-3 py-1.5 bg-[#3e2723] hover:bg-black text-white text-[8px] font-black rounded-lg tracking-widest uppercase italic flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-                  >
-                    <IdCard className="w-3 h-3 text-amber-200" /> Kelola Catatan
-                  </button>
-                </div>
-              </div>
+            {/* Dynamic Educational wisdom quote system */}
+            {(() => {
+              const quotesMorning = [
+                { text: "Tugas pertama dan utama pendidik bukanlah mentransfer materi, melainkan menghidupkan rasa ingin tahu dan keteladanan karakter dalam jiwa setiap murid.", author: "Ki Hajar Dewantara" },
+                { text: "Setiap pagi membawa berkah pengajaran baru. Ikhlaskan niat mengajar demi membentuk peradaban generasi masa depan yang bertakwa.", author: "KH. Ahmad Dahlan" },
+                { text: "Mengajar adalah menanam benih kebaikan di hati anak-anak. Rawatlah dengan kelembutan senyum Anda sejak fajar menyapa.", author: "Buya Hamka" },
+                { text: "Murid tidak peduli seberapa banyak teori yang Anda ketahui, sampai mereka tahu seberapa besar Anda peduli pada pertumbuhan mereka.", author: "Sir William Osler" },
+                { text: "Guru yang biasa-biasa saja sekadar memberi tahu. Guru yang baik menjelaskan. Guru yang ulung mendemonstrasikan. Pendidik sejati menginspirasi.", author: "William Arthur Ward" },
+                { text: "Mulailah hari pengabdian ini dengan doa tulus. Di pundak Anda tersimpan amanah dari para orang tua murid untuk mengantar mereka ke gerbang kesalehan.", author: "KH. Hasyim Asy'ari" },
+                { text: "Cara terbaik meramalkan masa depan adalah dengan mendidiknya secara bijaksana di ruang-ruang kelas hari ini.", author: "Abraham Lincoln" },
+                { text: "Jangan pernah lelah mengajar. Ilmu yang Anda bagikan mengalir abadi sebagai rida surga yang tak bertepi.", author: "KH. Maimun Zubair" },
+                { text: "Pendidik yang agung mengajar dari hati, bukan sekadar dari tumpukan buku panduan kurikulum.", author: "Anonim" },
+                { text: "Mendidik pikiran tanpa mendidik hati adalah cara terbaik menghasilkan kepandaian yang hampa moral.", author: "Aristoteles" },
+                { text: "Seulas senyuman ramah guru di pagi hari mampu menepis mendung kecemasan di benak anak didik yang sedang rindu bimbingan.", author: "Ki Hadjar Dewantara" },
+                { text: "Pengetahuan adalah cahaya; jadilah penyulut api rasa ingin tahu yang abadi di setiap sanubari murid Anda.", author: "Al-Ghazali" },
+                { text: "Guru adalah arsitek jiwa manusia. Bangunlah fondasi karakter yang tegap, kokoh, dan berakhlakul karimah.", author: "Joseph Stalin" },
+                { text: "Setiap santri dan siswa adalah permata unik. Tugas kita sebagai pendidik adalah menggosoknya dengan penuh kesabaran agar bersinar terang.", author: "Gurusinga" },
+                { text: "Kebesaran seorang guru bukan pada apa yang dia capai sendiri, melainkan pada ribuan mimpi besar murid yang berhasil dia hidupkan.", author: "Tokoh Pendidikan Indonesia" }
+              ];
 
-              {/* Card 2: Memorandum Inbox */}
-              <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left flex flex-col justify-between hover:border-stone-200 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500 opacity-70" />
-                <div>
-                  <div className="flex items-center justify-between mb-2 pl-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                      <span className="text-[8px] font-black text-indigo-700 tracking-wider uppercase italic">KOTAK MASUK</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-stone-400 font-bold bg-stone-50 px-2 py-0.5 rounded-md">Intern</span>
-                  </div>
-                  <h4 className="text-sm font-black text-[#3e2723] tracking-tight uppercase italic mb-3 pl-2">Memorandum Instansi</h4>
-                  <div className="pl-2 mb-4">
-                    <div className="bg-[#fcfaf6] p-3 rounded-xl border border-stone-100/60 flex flex-col">
-                      <span className="text-[7px] text-stone-400 font-black uppercase tracking-wider block">MEMORANDUM BARU</span>
-                      <span className="text-2xl font-black text-indigo-600 leading-tight mt-1">{memos.length} Pesan</span>
-                      <span className="text-[8px] text-stone-400 mt-1 uppercase font-semibold">Resmi Kepala Sekolah</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between pl-2">
-                  <span className="text-xs font-bold text-stone-500">Baca memo penting</span>
-                  <button
-                    onClick={() => setViewMode('memorandum')}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[8px] font-black rounded-lg tracking-widest uppercase italic flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-                  >
-                    <Mail className="w-3 h-3 text-indigo-200" /> Buka Kotak
-                  </button>
-                </div>
-              </div>
+              const quotesAfternoon = [
+                { text: "Ketika lelah mengajar menghampiri di senja hari, ingatlah setiap keringat dedikasi akan menjadi saksi jariah pendidik di akhirat kelak.", author: "KH. Hasan Abdullah Sahal" },
+                { text: "Evaluasi terbaik petang ini bukanlah nilai ujian kelas, melainkan seberapa nyaman murid-murid belajar dengan rida dari kepiawaian asuhan Anda.", author: "Buya Hamka" },
+                { text: "Menjadi guru berarti rida membagi waktu dan energi demi kejayaan generasi. Istirahatkan raga malam ini dengan rasa syukur mendalam.", author: "KH. Ahmad Dahlan" },
+                { text: "Pendidik yang ikhlas selalu menyertakan nama murid-muridnya dalam bait doa tahajud di penghujung malam sunyi.", author: "KH. Maimun Zubair" },
+                { text: "Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan Anda dapat mengubah dunia.", author: "Nelson Mandela" },
+                { text: "Lelah fisik mengajar hari ini adalah tanda jaminan bahwa Anda telah mentransfer kebermanfaatan ilmu bagi tabungan abadi Anda.", author: "KH. Hasyim Asy'ari" },
+                { text: "Setiap teguran asih di sore hari yang disampaikan penuh kesabaran, akan membekas indah kebaikan sepanjang hayat siswa.", author: "Ki Hajar Dewantara" },
+                { text: "Mengajar bukan profesi pengisi waktu, melainkan jalan hidup penuh pengorbanan untuk mencerdaskan kehidupan rohani anak didik.", author: "Dr. Soetomo" },
+                { text: "Biarlah letih mengajar petang ini melebur dosa masa lalu dan mendatangkan limpahan rida rona kedamaian di rumah Anda.", author: "Buya Yahya" },
+                { text: "Ketika asrama sunyi beristirahat, ketahuilah bahwa kebaikan-kebaikan yang Anda ajarkan siang tadi sedang berakar kokoh menjadi kepribadian santri.", author: "K.H. Achmad Mustofa Bisri" },
+                { text: "Nilai utama guru sejati tercermin dari sabar yang tiada terbatas di kala mendidik karakter yang paling menantang sekalipun.", author: "KH. Anwar Zahid" },
+                { text: "Tidur malam yang tenang adalah upah dari pendidik yang seharian melunasi ikhtiar mendampingi anak-anak didik belajar penuh kasih.", author: "Ki Hadjar Dewantara" },
+                { text: "Satu teladan nyata dari perilaku guru di sore hari jauh lebih bermakna daripada seribu petuah lisan di siang hari.", author: "KH. Sahal Mahfudh" },
+                { text: "Mengajar santri di kala senja melatih kematangan jiwa pendidik untuk terus berkilau dalam keteduhan keikhlasan murni.", author: "Al-Ghazali" },
+                { text: "Pendidik sejati selalu menutup hari dengan syukur dan doa agar ilmu yang diberikan hari ini tidak menjadi beban melainkan berkah hidup bagi anak asuh.", author: "Prof. Dr. HM. Quraish Shihab" }
+              ];
 
-              {/* Card 3: Teaching Status */}
-              <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm text-left flex flex-col justify-between hover:border-stone-200 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500 opacity-70" />
-                <div>
-                  <div className="flex items-center justify-between mb-2 pl-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[8px] font-black text-emerald-700 tracking-wider uppercase italic">STATUS PENGAJAR</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-stone-400 font-bold bg-stone-50 px-2 py-0.5 rounded-md">Online</span>
-                  </div>
-                  <h4 className="text-sm font-black text-[#3e2723] tracking-tight uppercase italic mb-3 pl-2">Sinergi Asrama &amp; Kelas</h4>
-                  <div className="pl-2 mb-4">
-                    <div className="bg-[#fcfaf6] p-3 rounded-xl border border-stone-100/60 flex flex-col">
-                      <span className="text-[7px] text-stone-400 font-black uppercase tracking-wider block">MAPEL DIAJAR</span>
-                      <span className="text-2xl font-black text-emerald-600 leading-tight mt-1 truncate max-w-full block">{user.mapel || 'Guru Pengajar'}</span>
-                      <span className="text-[8px] text-stone-400 mt-1 uppercase font-semibold">Tahun Ajaran Aktif</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between pl-2">
-                  <span className="text-xs font-bold text-stone-500">Sesi terverifikasi</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-lg border border-emerald-150 uppercase tracking-wider">
-                    ● AKTIF
-                  </span>
-                </div>
-              </div>
-            </div>
+              const currentHour = currentTime.getHours();
+              const currentDay = currentTime.getDate();
 
-            {/* Quick Action Cards Grid Section */}
-            <div className="space-y-4 pt-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 italic text-left pl-2">Akses Cepat Modul Pembelajaran</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[
-                  {
-                    id: 'catatan_perkembangan',
-                    title: 'Laporan Catatan Siswa',
-                    desc: 'Input umpan balik, feedback akademik, serta evaluasi karakter dan prestasi peserta didik.',
-                    icon: IdCard,
-                    borderColor: 'group-hover:border-amber-600',
-                    dotColor: 'bg-amber-500',
-                    badge: 'ENTRY UPDATE'
-                  },
-                  {
-                    id: 'dinding',
-                    title: 'Dinding Akademik Kelas',
-                    desc: 'Forum interaksi, mading digital, pengumuman tugas, dan forum diskusi antar pengajar peserta didik.',
-                    icon: MessageSquare,
-                    borderColor: 'group-hover:border-indigo-600',
-                    dotColor: 'bg-indigo-500',
-                    badge: 'COMMUNITY WALL'
-                  },
-                  {
-                    id: 'agenda',
-                    title: 'Agenda & Kegiatan',
-                    desc: 'Jadwal pembelajaran harian, pekanan, ujian, rapat kurikulum, dan kalender kegiatan.',
-                    icon: Calendar,
-                    borderColor: 'group-hover:border-emerald-600',
-                    dotColor: 'bg-emerald-500',
-                    badge: 'CALENDAR'
-                  },
-                  {
-                    id: 'mading',
-                    title: 'Mading Sekolah',
-                    desc: 'Kumpulan artikel mading peserta didik, karya ilmiah remaja, cerpen peserta didik, dan berita harian sekolah.',
-                    icon: BookOpen,
-                    borderColor: 'group-hover:border-[#8b5e3c]',
-                    dotColor: 'bg-[#8b5e3c]',
-                    badge: 'CAMPUS CORNER'
-                  },
-                  {
-                    id: 'memorandum',
-                    title: 'Memorandum Penting',
-                    desc: 'Arsip memo intern dan surat instruksi penting dari Kepala Sekolah serta jajaran pengurus.',
-                    icon: Mail,
-                    borderColor: 'group-hover:border-rose-400',
-                    dotColor: 'bg-rose-500',
-                    badge: 'INTERNAL MEMO'
-                  },
-                  {
-                    id: 'profil',
-                    title: 'Profil & Identitas Pengajar',
-                    desc: 'Detail informasi kepegawaian, daftar mapel yang diampu, serta pengaturan keamanan akun.',
-                    icon: User,
-                    borderColor: 'group-hover:border-neutral-500',
-                    dotColor: 'bg-neutral-500',
-                    badge: 'MY IDENTITY'
-                  }
-                ].map((action) => (
-                  <motion.div
-                    key={action.id}
-                    layoutId={`action-card-${action.id}`}
-                    whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                    onClick={() => setViewMode(action.id as any)}
-                    className="bg-white rounded-2xl p-5 border border-[#ebdccb] hover:border-[#a1887f] shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4 text-left cursor-pointer group relative overflow-hidden"
-                  >
-                    {/* Decorative edge bar like WaliAsrama */}
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#ebdccb] group-hover:bg-[#3e2723] transition-colors" />
-                    
-                    <div className="space-y-3 pl-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${action.dotColor} animate-pulse`} />
-                          <span className="text-[7.5px] font-black text-stone-400 uppercase tracking-widest">{action.badge}</span>
+              // Morning: 06:00:00 to 14:59:59
+              // Afternoon/Night: 15:00:00 to 05:59:59
+              const isMorningRange = currentHour >= 6 && currentHour < 15;
+              const quotesList = isMorningRange ? quotesMorning : quotesAfternoon;
+              const quoteIndex = (currentDay - 1) % quotesList.length;
+              const selectedQuote = quotesList[quoteIndex];
+
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="bg-gradient-to-br from-amber-50/60 via-white to-amber-100/10 p-6 sm:p-8 rounded-3xl border border-amber-200/50 shadow-sm text-left relative overflow-hidden group select-none mt-6"
+                >
+                  <div className="absolute -top-3 -right-3 text-[#3e2723]/5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">
+                    <Quote className="w-28 h-28 rotate-180" />
+                  </div>
+                  
+                  <div className="relative z-10 flex flex-col justify-between h-full gap-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/30 text-amber-700">
+                          {isMorningRange ? (
+                            <Sun className="w-4 h-4 text-amber-600 animate-spin" style={{ animationDuration: '45s' }} />
+                          ) : (
+                            <Moon className="w-4 h-4 text-indigo-500 animate-pulse" />
+                          )}
                         </div>
-                        <action.icon className="w-5 h-5 text-stone-300 group-hover:text-[#3e2723] transition-colors" />
+                        <div>
+                          <span className="text-[10.5px] font-black uppercase tracking-widest text-[#3e2723]">
+                            {isMorningRange ? 'Kalam Hikmah Pendidik Pagi' : 'Renungan Pedagogi Sore Guru'}
+                          </span>
+                          <span className="text-[8px] block font-semibold text-stone-500 uppercase tracking-wider mt-0.5 leading-none">
+                            Update Otomatis • Pukul 06.00 & 15.00 WIB
+                          </span>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-1">
-                        <h4 className="text-xs sm:text-sm font-black text-[#3e2723] uppercase tracking-tight italic font-display group-hover:text-[#3e2723]/90">
-                          {action.title}
-                        </h4>
-                        <p className="text-[10px] text-stone-500 leading-relaxed font-semibold">
-                          {action.desc}
-                        </p>
+                      <div className="flex items-center gap-1 text-[8.5px] font-black uppercase bg-amber-500/10 text-amber-800 px-3 py-1 rounded-full tracking-wider border border-amber-500/15 shadow-sm shrink-0">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-600 animate-pulse" />
+                        <span>Inspirasi Mendidik</span>
                       </div>
                     </div>
-                    
-                    <div className="pt-3 border-t border-stone-100 flex items-center justify-end text-[8.5px] font-black text-[#8d6e63] uppercase tracking-widest pl-3">
-                      <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                        Buka Modul <ChevronRight className="w-3.5 h-3.5" />
+
+                    <div className="pl-4 border-l-2 border-[#5d4037]/40">
+                      <p className="text-sm sm:text-base font-medium italic text-stone-700 leading-relaxed font-serif tracking-wide">
+                        "{selectedQuote.text}"
+                      </p>
+                      <span className="text-xs font-black uppercase tracking-widest text-[#3e2723] block mt-3 font-mono">
+                        — {selectedQuote.author}
                       </span>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+
+            {/* Slideable Premium Quick Access Menu */}
+            {(() => {
+              const quickMenus = [
+                {
+                  id: 'absen_harian',
+                  title: 'Absen Harian Kelas',
+                  desc: 'Catat absensi, buat rekap pelajaran santri, dan kelola histori ketidakhadiran harian kelas binaan.',
+                  icon: ClipboardList,
+                  dotColor: 'bg-rose-500',
+                  badge: 'CLASS ATTENDANCE',
+                  bgColor: 'from-rose-50 to-pink-50/40 dark:from-stone-900/60 dark:to-stone-900/40',
+                  borderColor: 'border-rose-200/50 dark:border-rose-500/10',
+                  textColor: 'text-rose-900 dark:text-rose-300'
+                },
+                {
+                  id: 'jadwal_mengajar',
+                  title: 'Jadwal Mengajar',
+                  desc: 'Atur jam, hari, dan kelas mengajar Anda, serta susun jadwal harian yang informatik dan menarik.',
+                  icon: Clock,
+                  dotColor: 'bg-amber-600',
+                  badge: 'TEACHING SCHEDULE',
+                  bgColor: 'from-amber-50 to-orange-50 dark:from-stone-900/60 dark:to-stone-900/40',
+                  borderColor: 'border-amber-200/50 dark:border-amber-500/10',
+                  textColor: 'text-[#3e2723] dark:text-amber-300'
+                },
+                {
+                  id: 'catatan_perkembangan',
+                  title: 'Laporan Catatan Siswa',
+                  desc: 'Input umpan balik, feedback akademik, serta evaluasi karakter dan prestasi peserta didik.',
+                  icon: IdCard,
+                  dotColor: 'bg-amber-500',
+                  badge: 'ENTRY UPDATE',
+                  bgColor: 'from-amber-50/50 to-amber-100/10 dark:from-amber-950/20 dark:to-stone-900/40',
+                  borderColor: 'border-amber-200/50 dark:border-amber-500/10',
+                  textColor: 'text-amber-800 dark:text-amber-300'
+                },
+                {
+                  id: 'sarpras_asrama',
+                  title: 'Sarpras Asrama',
+                  desc: 'Laporkan kerusakan sarana prasarana asrama santri untuk penanganan inventaris terpadu.',
+                  icon: Wrench,
+                  dotColor: 'bg-emerald-500',
+                  badge: 'SARPRAS REPORT',
+                  bgColor: 'from-emerald-50/50 to-emerald-100/10 dark:from-emerald-950/20 dark:to-stone-900/40',
+                  borderColor: 'border-emerald-200/50 dark:border-emerald-500/10',
+                  textColor: 'text-emerald-800 dark:text-emerald-300'
+                },
+                {
+                  id: 'agenda',
+                  title: 'Agenda Akademik',
+                  desc: 'Jadwal pembelajaran harian, pekanan, ujian, rapat kurikulum, dan kalender kegiatan.',
+                  icon: Calendar,
+                  dotColor: 'bg-sky-500',
+                  badge: 'ACADEMIC CALENDAR',
+                  bgColor: 'from-sky-50/50 to-sky-100/10 dark:from-sky-950/20 dark:to-stone-900/40',
+                  borderColor: 'border-sky-200/50 dark:border-sky-500/10',
+                  textColor: 'text-sky-800 dark:text-sky-300'
+                },
+                {
+                  id: 'dinding',
+                  title: 'Dinding Kelas',
+                  desc: 'Forum interaksi, mading digital, pengumuman tugas, dan forum diskusi antar pengajar.',
+                  icon: MessageSquare,
+                  dotColor: 'bg-indigo-500',
+                  badge: 'COMMUNITY DISCUSSION',
+                  bgColor: 'from-indigo-50/50 to-indigo-100/10 dark:from-indigo-950/20 dark:to-stone-900/40',
+                  borderColor: 'border-indigo-200/50 dark:border-indigo-500/10',
+                  textColor: 'text-indigo-800 dark:text-indigo-300'
+                },
+                {
+                  id: 'mading',
+                  title: 'Mading Sekolah',
+                  desc: 'Kumpulan artikel mading santri, karya ilmiah remaja, cerpen harian, dan berita sekolah.',
+                  icon: BookOpen,
+                  dotColor: 'bg-purple-500',
+                  badge: 'CAMPUS CORNER',
+                  bgColor: 'from-purple-50/50 to-purple-100/10 dark:from-purple-950/20 dark:to-stone-900/40',
+                  borderColor: 'border-purple-200/50 dark:border-purple-500/10',
+                  textColor: 'text-purple-800 dark:text-purple-300'
+                },
+                {
+                  id: 'memorandum',
+                  title: 'Memorandum',
+                  desc: 'Arsip surat instruksi resmi, memo intern penting dari Kepala Sekolah dan pengurus.',
+                  icon: Mail,
+                  dotColor: 'bg-[#8d6e63]',
+                  badge: 'OFFICIAL MEMO',
+                  bgColor: 'from-rose-50/50 to-rose-100/10 dark:from-rose-950/10 dark:to-stone-900/40',
+                  borderColor: 'border-rose-200/50 dark:border-rose-500/10',
+                  textColor: 'text-rose-800 dark:text-rose-300'
+                },
+                {
+                  id: 'profil',
+                  title: 'Profil Saya',
+                  desc: 'Detail data kepegawaian pribadi, mata pelajaran yang diampu, serta pengaturan keamanan.',
+                  icon: User,
+                  dotColor: 'bg-stone-500',
+                  badge: 'MY PROFILE',
+                  bgColor: 'from-stone-100/50 to-stone-200/10 dark:from-stone-800/40 dark:to-stone-900/40',
+                  borderColor: 'border-stone-300/40 dark:border-stone-700/40',
+                  textColor: 'text-stone-700 dark:text-stone-300'
+                }
+              ];
+
+              const handleScrollLeft = () => {
+                if (scrollContainerRef.current) {
+                  scrollContainerRef.current.scrollBy({ left: -340, behavior: 'smooth' });
+                }
+              };
+
+              const handleScrollRight = () => {
+                if (scrollContainerRef.current) {
+                  scrollContainerRef.current.scrollBy({ left: 340, behavior: 'smooth' });
+                }
+              };
+
+              return (
+                <div className="space-y-4 pt-4 text-left">
+                   <div className="flex items-center justify-between px-2">
+                     <div className="flex flex-col">
+                       <p className="text-[10px] font-black uppercase tracking-[0.2em] italic text-[#8d6e63] dark:text-amber-200/70">
+                         Akses Cepat Modul Pembelajaran
+                       </p>
+                       <span className="text-[8px] font-semibold text-stone-400 uppercase tracking-wider block mt-0.5 animate-pulse">
+                         Geser kartu atau gunakan tombol kontrol untuk navigasi
+                       </span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <button
+                         onClick={handleScrollLeft}
+                         className="w-8 h-8 rounded-full border border-[#ebdccb] bg-white hover:bg-[#ebdccb]/10 dark:bg-stone-900 dark:border-white/10 dark:hover:bg-stone-850 shadow-sm flex items-center justify-center text-[#3e2723] dark:text-white transition-all active:scale-95 duration-200"
+                         title="Geser Kiri"
+                       >
+                         <ChevronLeft className="w-4 h-4" />
+                       </button>
+                       <button
+                         onClick={handleScrollRight}
+                         className="w-8 h-8 rounded-full border border-[#ebdccb] bg-white hover:bg-[#ebdccb]/10 dark:bg-stone-900 dark:border-white/10 dark:hover:bg-stone-850 shadow-sm flex items-center justify-center text-[#3e2723] dark:text-white transition-all active:scale-95 duration-200"
+                         title="Geser Rujukan"
+                       >
+                         <ChevronRight className="w-4 h-4" />
+                       </button>
+                     </div>
+                   </div>
+
+                   <div 
+                     ref={scrollContainerRef}
+                     style={{ WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+                     className="flex gap-5 overflow-x-auto pb-4 pt-1 px-2 scroll-smooth snap-x snap-mandatory no-scrollbar"
+                   >
+                     <style dangerouslySetInnerHTML={{__html: `
+                       .no-scrollbar::-webkit-scrollbar {
+                         display: none;
+                       }
+                     `}} />
+
+                     {quickMenus.map((action) => (
+                       <motion.div
+                         key={action.id}
+                         whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                         onClick={() => setViewMode(action.id as any)}
+                         className={`min-w-[280px] sm:min-w-[320px] max-w-[320px] bg-gradient-to-br ${action.bgColor} rounded-3xl p-5 border ${action.borderColor} shadow-sm hover:shadow-md transition-all duration-350 flex flex-col justify-between space-y-4 cursor-pointer group relative overflow-hidden snap-start select-none`}
+                       >
+                         <div className="absolute top-0 left-0 w-1.5 h-full bg-[#ebdccb] group-hover:bg-[#3e2723] dark:group-hover:bg-amber-400 transition-colors" />
+
+                         <div className="space-y-3 pl-3">
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                               <span className={`w-2 h-2 rounded-full ${action.dotColor} animate-pulse`} />
+                               <span className="text-[7.5px] font-black text-stone-400 uppercase tracking-widest leading-none">{action.badge}</span>
+                             </div>
+                             <div className="p-1.5 rounded-xl bg-white/70 dark:bg-stone-950/60 shadow-sm text-stone-400 group-hover:text-[#3e2723] dark:group-hover:text-white transition-colors">
+                               <action.icon className="w-4 h-4 animate-pulse" />
+                             </div>
+                           </div>
+
+                           <div className="space-y-1">
+                             <h4 className={`text-xs sm:text-sm font-black uppercase tracking-tight italic font-display ${action.textColor}`}>
+                               {action.title}
+                             </h4>
+                             <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-relaxed font-semibold">
+                               {action.desc}
+                             </p>
+                           </div>
+                         </div>
+
+                         <div className="pt-3 border-t border-stone-200/50 dark:border-stone-800/50 flex items-center justify-end text-[8.5px] font-black text-[#8d6e63] dark:text-amber-400/95 uppercase tracking-widest pl-3">
+                           <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                             Buka Modul <ChevronRight className="w-3.5 h-3.5 animate-pulse" />
+                           </span>
+                         </div>
+                       </motion.div>
+                     ))}
+                   </div>
+                </div>
+              );
+            })()}
+
+            {/* Real-time Interactive Purple Calendar */}
+            {(() => {
+              const year = calendarDate.getFullYear();
+              const month = calendarDate.getMonth();
+
+              // Sunday = 0, Monday = 1, etc.
+              const firstDayOfMonth = new Date(year, month, 1);
+              const startDayIndex = firstDayOfMonth.getDay();
+              const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+              const prevMonthDays = new Date(year, month, 0).getDate();
+
+              const daysGrid: { day: number; isCurrentMonth: boolean; date: Date }[] = [];
+              
+              // Fill previous month overlapping days
+              for (let i = startDayIndex - 1; i >= 0; i--) {
+                const d = prevMonthDays - i;
+                const prevMonthDate = new Date(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1, d);
+                daysGrid.push({ day: d, isCurrentMonth: false, date: prevMonthDate });
+              }
+
+              // Fill current month days
+              for (let d = 1; d <= totalDaysInMonth; d++) {
+                const currDate = new Date(year, month, d);
+                daysGrid.push({ day: d, isCurrentMonth: true, date: currDate });
+              }
+
+              // Fill next month overlapping days to make perfect multiples of 7
+              const remainingCells = 42 - daysGrid.length;
+              for (let d = 1; d <= remainingCells; d++) {
+                const nextMonthDate = new Date(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1, d);
+                daysGrid.push({ day: d, isCurrentMonth: false, date: nextMonthDate });
+              }
+
+              const getAgendasForDate = (checkDate: Date) => {
+                return agendas.filter(agenda => {
+                  const agendaDate = agenda.date?.toDate ? agenda.date.toDate() : (agenda.date instanceof Date ? agenda.date : null);
+                  if (!agendaDate) return false;
+                  return (
+                    agendaDate.getDate() === checkDate.getDate() &&
+                    agendaDate.getMonth() === checkDate.getMonth() &&
+                    agendaDate.getFullYear() === checkDate.getFullYear()
+                  );
+                });
+              };
+
+              const namaBulanIndo = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+              ];
+
+              const selectedDateAgendas = getAgendasForDate(selectedCalendarDate);
+
+              return (
+                <div className="bg-white rounded-3xl border border-purple-100 dark:border-stone-850 shadow-sm overflow-hidden text-left mt-6 animate-in fade-in duration-500">
+                  {/* Calendar Header with Ticking Clock */}
+                  <div className="bg-gradient-to-r from-purple-900 via-indigo-950 to-purple-850 text-white p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/15 rounded-full blur-2xl pointer-events-none" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-purple-300" />
+                        <h3 className="font-black text-lg font-display italic tracking-tight text-white leading-none">
+                          Kalender Agenda & Kegiatan Asrama
+                        </h3>
+                      </div>
+                      <p className="text-[10px] font-bold text-purple-200 mt-1 uppercase tracking-widest">
+                        SRMA 24 Kediri · Real-time Sync
+                      </p>
+                    </div>
+
+                    {/* Clock display */}
+                    <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-2xl select-none min-w-[130px] justify-center text-white">
+                      <Clock className="w-4 h-4 text-purple-300 animate-pulse shrink-0" />
+                      <div className="flex flex-col text-center">
+                        <span className="font-mono text-xs font-black tracking-widest leading-none">
+                          {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                        <span className="text-[8px] font-bold text-purple-200 tracking-wider text-center mt-0.5 leading-none">
+                          {currentTime.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation and Month Header */}
+                  <div className="p-4 sm:p-5 flex items-center justify-between border-b border-purple-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-sm text-purple-950 uppercase tracking-wider">
+                        {namaBulanIndo[month]} {year}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+                        className="p-1.5 sm:p-2 hover:bg-purple-50 text-purple-700 rounded-xl border border-purple-100 transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4 rotate-180" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          setCalendarDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                          setSelectedCalendarDate(today);
+                        }}
+                        className="px-3 py-1.5 text-[9px] font-black text-purple-700 bg-purple-50 border border-purple-100 hover:bg-purple-100/50 transition-all rounded-lg uppercase tracking-wider cursor-pointer"
+                      >
+                        Hari Ini
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+                        className="p-1.5 sm:p-2 hover:bg-purple-50 text-purple-700 rounded-xl border border-purple-100 transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Calendar Grid Container */}
+                  <div className="p-4 sm:p-5 bg-gradient-to-b from-white to-purple-50/10">
+                    {/* Weekday Titles */}
+                    <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                      {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((dayName, idx) => (
+                        <div
+                          key={idx}
+                          className={`text-[9px] font-black uppercase tracking-widest py-1 ${
+                            idx === 0 ? 'text-rose-500' : 'text-purple-800/60'
+                          }`}
+                        >
+                          {dayName}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Day Cells Grid */}
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                      {daysGrid.map(({ day, isCurrentMonth, date: cellDate }, index) => {
+                        const isCellToday = isToday(cellDate);
+                        const isCellSelected =
+                          selectedCalendarDate.getDate() === cellDate.getDate() &&
+                          selectedCalendarDate.getMonth() === cellDate.getMonth() &&
+                          selectedCalendarDate.getFullYear() === cellDate.getFullYear();
+                        
+                        const cellAgendas = getAgendasForDate(cellDate);
+                        const hasAgendas = cellAgendas.length > 0;
+
+                        return (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => setSelectedCalendarDate(cellDate)}
+                            className={`aspect-square sm:p-1 relative flex flex-col items-center justify-between rounded-xl transition-all border outline-none group cursor-pointer ${
+                              isCellSelected
+                                ? 'bg-gradient-to-tr from-purple-600 to-indigo-500 border-purple-750 text-white shadow-md shadow-purple-200/50'
+                                : isCellToday
+                                ? 'bg-purple-50 border-purple-150 text-purple-800 hover:bg-purple-100 shadow-[0_0_8px_rgba(168,85,247,0.15)] ring-2 ring-purple-500/25'
+                                : isCurrentMonth
+                                ? 'bg-white border-purple-50/50 text-stone-800 hover:bg-purple-50/40 hover:border-purple-100'
+                                : 'bg-stone-50/20 border-transparent text-stone-300'
+                            }`}
+                          >
+                            {/* Day Number */}
+                            <span className={`text-[10px] sm:text-xs font-black ${isCellSelected ? 'text-white' : ''}`}>
+                              {day}
+                            </span>
+
+                            {/* Small Indicators for Agendas */}
+                            <div className="flex gap-0.5 justify-center mt-1 h-1.5 w-full">
+                              {hasAgendas && (
+                                <span className={`w-1 h-1 rounded-full ${isCellSelected ? 'bg-white' : 'bg-purple-500'} shadow-[0_0_5px_rgba(168,85,247,0.4)]`} />
+                              )}
+                              {isCellToday && !isCellSelected && (
+                                <span className="w-1 h-1 rounded-full bg-purple-400 shadow-[0_0_5px_rgba(168,85,247,0.4)]" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Selected Date Actions & Agendas */}
+                  <div className="p-4 sm:p-5 bg-purple-50/20 border-t border-purple-50 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-purple-700">
+                          Agenda Sekolah & Kelas
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-black text-purple-950 italic leading-tight">
+                        {selectedCalendarDate.toLocaleDateString('id-ID', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </h4>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('agenda')}
+                      className="px-4 py-2 bg-purple-50 hover:bg-purple-100/60 border border-purple-200 text-purple-700 font-black rounded-xl shadow-sm transition-all text-[9.5px] uppercase tracking-widest flex items-center gap-1.5 active:scale-95 cursor-pointer ml-auto md:ml-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Kelola Agenda
+                    </button>
+                  </div>
+
+                  {/* Agendas List for Selected Date */}
+                  <div className="px-4 pb-5 sm:px-5 sm:pb-6 pt-1 max-h-[160px] overflow-y-auto bg-stone-50/30 text-left">
+                    {selectedDateAgendas.length === 0 ? (
+                      <div className="py-4 text-center text-stone-400 text-[10px] font-semibold italic flex items-center justify-center gap-1 rounded-2xl bg-white border border-stone-100">
+                        <Info className="w-3.5 h-3.5 text-stone-300" />
+                        Tidak ada agenda khusus terjadwal pada hari ini.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedDateAgendas.map((agenda, index) => (
+                          <div 
+                            key={agenda.id || index} 
+                            className="bg-white p-3.5 rounded-2xl border border-purple-150 shadow-xs hover:border-purple-200 transition-all text-left relative overflow-hidden"
+                          >
+                            <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+                            <div className="pl-2">
+                              <h5 className="font-black text-purple-950 text-xs uppercase italic tracking-tight">{agenda.title}</h5>
+                              <p className="text-[10px] text-stone-600 mt-1 leading-relaxed">{agenda.description}</p>
+                              <div className="flex items-center gap-1.5 mt-2 flex-wrap text-[8px] font-bold text-stone-400 uppercase tracking-widest">
+                                <span>Oleh: {agenda.author_name}</span>
+                                <span>•</span>
+                                <span>Role: {agenda.author_role.replace('_', ' ')}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

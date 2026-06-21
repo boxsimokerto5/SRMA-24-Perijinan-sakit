@@ -262,6 +262,32 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidJadwalMengajar(data) {
+      return data.keys().hasAll(['guru_uid', 'guru_name', 'mapel', 'hari', 'kelas', 'jam_mulai', 'jam_selesai', 'createdAt']) &&
+             data.guru_uid == request.auth.uid &&
+             data.guru_name is string && data.guru_name.size() <= 128 &&
+             data.mapel is string && data.mapel.size() <= 64 &&
+             data.hari is string && data.hari.size() <= 20 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.jam_mulai is string && data.jam_mulai.size() <= 10 &&
+             data.jam_selesai is string && data.jam_selesai.size() <= 10 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidAbsenHarian(data) {
+      return data.keys().hasAll(['tanggal_str', 'kelas', 'mapel', 'guru_uid', 'guru_name', 'jumlah_hadir', 'jumlah_absen', 'keterangan', 'students', 'createdAt']) &&
+             data.tanggal_str is string && data.tanggal_str.size() <= 20 &&
+             data.kelas is string && data.kelas.size() <= 32 &&
+             data.mapel is string && data.mapel.size() <= 128 &&
+             data.guru_uid == request.auth.uid &&
+             data.guru_name is string && data.guru_name.size() <= 128 &&
+             data.jumlah_hadir is number &&
+             data.jumlah_absen is number &&
+             data.keterangan is string && data.keterangan.size() <= 2000 &&
+             data.students is list && data.students.size() >= 0 &&
+             data.createdAt is timestamp;
+    }
+
     function isMadingAuthor(authId) {
       return isSignedIn() && authId == request.auth.uid;
     }
@@ -535,6 +561,21 @@ service cloud.firestore {
     match /absen_piket_harian/{id} {
       allow read: if isSignedIn();
       allow write: if (hasRole('wali_asuh') || hasRole('wali_asrama') || isAdmin() || isMasterAdmin()) && isValidId(id);
+    }
+
+    match /jadwal_mengajar/{id} {
+      allow read: if isSignedIn();
+      allow create: if (hasRole('guru_mapel') || isAdmin() || isMasterAdmin()) && isValidId(id) && isValidJadwalMengajar(incoming());
+      allow update: if (hasRole('guru_mapel') || isAdmin() || isMasterAdmin()) && isValidId(id) && (existing().guru_uid == request.auth.uid) && isValidJadwalMengajar(incoming());
+      allow delete: if isSignedIn() && isValidId(id) && (existing().guru_uid == request.auth.uid || isAdmin() || isMasterAdmin());
+    }
+
+    match /absen_harian/{id} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(id);
+      allow create: if (hasRole('guru_mapel') || isAdmin() || isMasterAdmin()) && isValidId(id) && isValidAbsenHarian(incoming());
+      allow update: if (hasRole('guru_mapel') || isAdmin() || isMasterAdmin()) && isValidId(id) && (existing().guru_uid == request.auth.uid) && isValidAbsenHarian(incoming());
+      allow delete: if isSignedIn() && isValidId(id) && (existing().guru_uid == request.auth.uid || isAdmin() || isMasterAdmin());
     }
   }
 }

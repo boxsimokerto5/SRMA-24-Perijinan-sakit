@@ -43,6 +43,10 @@ export default function StudentCounselingView({ user, students }: StudentCounsel
   const [filterKategori, setFilterKategori] = useState('Semua');
   const [filterTime, setFilterTime] = useState<'hari_ini' | 'minggu_ini' | 'bulan_ini' | 'semua'>('semua');
 
+  // Custom print helper states
+  const [selectedDailyDate, setSelectedDailyDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedMonthlyMonth, setSelectedMonthlyMonth] = useState(new Date().toISOString().slice(0, 7));
+
   const categories = ["Akademik", "Kedisiplinan", "Sosial", "Emosional", "Karakter", "Lainnya"];
   
   // Dynamic list of unique classes for filter dropdown
@@ -299,6 +303,74 @@ export default function StudentCounselingView({ user, students }: StudentCounsel
     generateCounselingReportPDF(filtered, 'Rekap Bulanan (30 Hari Terakhir)', user.name);
   };
 
+  const formatDateShort = (d: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }).format(d);
+  };
+
+  // Export Selected Daily PDF
+  const handlePrintDaily = () => {
+    if (!selectedDailyDate) {
+      alert('Pilih tanggal terlebih dahulu!');
+      return;
+    }
+    
+    const targetDate = new Date(selectedDailyDate);
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+
+    const dailyFiltered = records.filter(rec => {
+      if (!rec.tgl_konseling) return false;
+      const recDate = rec.tgl_konseling.toDate();
+      return recDate >= startOfDay && recDate <= endOfDay;
+    });
+
+    if (dailyFiltered.length === 0) {
+      alert(`Tidak ada catatan konseling pada tanggal ${formatDateShort(targetDate)}`);
+      return;
+    }
+
+    const formattedDateLabel = new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }).format(targetDate);
+
+    generateCounselingReportPDF(dailyFiltered, `Harian (${formattedDateLabel})`, user.name);
+  };
+
+  // Export Selected Monthly PDF
+  const handlePrintSelectedMonth = () => {
+    if (!selectedMonthlyMonth) {
+      alert('Pilih bulan terlebih dahulu!');
+      return;
+    }
+
+    const [year, month] = selectedMonthlyMonth.split('-').map(Number);
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const monthlyFiltered = records.filter(rec => {
+      if (!rec.tgl_konseling) return false;
+      const recDate = rec.tgl_konseling.toDate();
+      return recDate >= startOfMonth && recDate <= endOfMonth;
+    });
+
+    if (monthlyFiltered.length === 0) {
+      const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      alert(`Tidak ada catatan konseling pada bulan ${monthNames[month - 1]} ${year}`);
+      return;
+    }
+
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const formattedMonthLabel = `${monthNames[month - 1]} ${year}`;
+
+    generateCounselingReportPDF(monthlyFiltered, `Bulanan (${formattedMonthLabel})`, user.name);
+  };
+
   const getCategoryColor = (cat: string) => {
     switch (cat) {
       case 'Akademik': return 'bg-amber-100/50 text-[#5d4037] border-[#ebdccb] dark:bg-[#5d4037]/20 dark:text-amber-200 dark:border-amber-900/30';
@@ -365,6 +437,55 @@ export default function StudentCounselingView({ user, students }: StudentCounsel
             <Plus className="w-3.5 h-3.5" />
             Tambah Kasus / Konseling
           </button>
+        </div>
+      </div>
+
+      {/* Panel Download Laporan Rekap PDF Kustom */}
+      <div className="bg-[#fcfaf6] dark:bg-stone-900 duration-300 p-5 rounded-lg border border-[#3e2723]/15 dark:border-white/5 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Rekap Harian */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-black uppercase tracking-wider text-[#3e2723] dark:text-amber-200 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-amber-600 animate-pulse" />
+            Cetak Rekap Harian (Pilihan Tanggal)
+          </h4>
+          <div className="flex flex-wrap gap-2.5 items-center">
+            <input 
+              type="date"
+              value={selectedDailyDate}
+              onChange={(e) => setSelectedDailyDate(e.target.value)}
+              className="px-3 py-2 text-[11px] rounded bg-white dark:bg-stone-950 text-stone-800 dark:text-white border border-stone-250 dark:border-stone-800 outline-none focus:border-[#3e2723] font-bold tracking-wider"
+            />
+            <button
+              onClick={handlePrintDaily}
+              className="px-4 py-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/40 dark:hover:bg-amber-950 text-[#3e2723] dark:text-amber-205 font-black text-[9.5px] uppercase tracking-widest rounded flex items-center gap-1.5 border border-amber-200/40 transition-all cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Cetak Rekap Harian
+            </button>
+          </div>
+        </div>
+
+        {/* Rekap Bulanan */}
+        <div className="space-y-3 border-t md:border-t-0 md:border-l border-stone-200 dark:border-stone-800 md:pl-6 pt-4 md:pt-0">
+          <h4 className="text-xs font-black uppercase tracking-wider text-[#3e2723] dark:text-amber-200 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-amber-600 animate-pulse" />
+            Cetak Rekap Bulanan (Pilihan Bulan)
+          </h4>
+          <div className="flex flex-wrap gap-2.5 items-center">
+            <input 
+              type="month"
+              value={selectedMonthlyMonth}
+              onChange={(e) => setSelectedMonthlyMonth(e.target.value)}
+              className="px-3 py-2 text-[11px] rounded bg-white dark:bg-stone-950 text-stone-800 dark:text-white border border-stone-250 dark:border-stone-800 outline-none focus:border-[#3e2723] font-bold tracking-wider"
+            />
+            <button
+              onClick={handlePrintSelectedMonth}
+              className="px-4 py-2 bg-[#3e2723] hover:bg-[#5d4037] text-amber-205 font-black text-[9.5px] uppercase tracking-widest rounded flex items-center gap-1.5 transition-all cursor-pointer shadow"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-300" />
+              Cetak Rekap Bulanan
+            </button>
+          </div>
         </div>
       </div>
 

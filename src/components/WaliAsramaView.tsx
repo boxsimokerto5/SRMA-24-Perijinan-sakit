@@ -64,6 +64,7 @@ import JurnalKeperawatanView from './JurnalKeperawatanView';
 import DormitoryLossesView from './DormitoryLossesView';
 import SerahTerimaView from './SerahTerimaView';
 import TausiyahSpinner from './TausiyahSpinner';
+import StudentCounselingView from './StudentCounselingView';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WaliAsramaViewProps {
@@ -239,7 +240,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah'>('perizinan');
+  const [viewMode, setViewMode] = useState<'perizinan' | 'cek_kesehatan' | 'memorandum' | 'pangkalan_data' | 'profil' | 'mading' | 'sarpras' | 'agenda' | 'dinding' | 'catatan_evaluasi' | 'catatan_kejadian' | 'pinjam_hp' | 'cek_ketidakhadiran' | 'jurnal_keperawatan' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah' | 'student_counseling'>('perizinan');
   const [showSidebar, setShowSidebar] = useState(false);
   
   // Pinjam HP States
@@ -810,7 +811,8 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
                             { id: 'pangkalan_data', label: 'Pangkalan Data', icon: Database },
                             { id: 'memorandum', label: 'Memorandum', icon: Mail },
                             { id: 'profil', label: 'Profil Saya', icon: User },
-                            { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse }
+                            { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse },
+                            { id: 'student_counseling', label: 'Bimbingan Konseling', icon: Contact }
                           ].map((item: any) => (
                             <button
                               key={item.id}
@@ -1044,6 +1046,7 @@ export default function WaliAsramaView({ user, activeTab }: WaliAsramaViewProps)
         {viewMode === 'kehilangan_di_asrama' && <DormitoryLossesView user={user} students={students} />}
         {viewMode === 'serah_terima' && <SerahTerimaView user={user} />}
         {viewMode === 'undi_tausiyah' && <TausiyahSpinner user={user} students={students} history={tausiyahHistory} />}
+        {viewMode === 'student_counseling' && <StudentCounselingView user={user} students={students} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

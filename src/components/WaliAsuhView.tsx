@@ -11,7 +11,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, ChevronDown, Image as LucideImage } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, ChevronDown, Quote, Sparkles, Image as LucideImage } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch, setDoc, or } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate, JadwalTausiyah, Agenda } from '../types';
@@ -33,6 +33,7 @@ import SerahTerimaView from './SerahTerimaView';
 import TausiyahSpinner from './TausiyahSpinner';
 import JadwalAbsenPiketView from './JadwalAbsenPiketView';
 import JurnalKeperawatanView from './JurnalKeperawatanView';
+import StudentCounselingView from './StudentCounselingView';
 
 interface WaliAsuhViewProps {
   user: AppUser;
@@ -54,7 +55,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
   const [endDate, setEndDate] = useState('');
   const [timeFilter, setTimeFilter] = useState<'hari_ini' | 'kemarin' | 'minggu_ini' | 'bulan_ini' | 'semua'>('hari_ini');
 
-    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah' | 'jadwal_absen' | 'jurnal_keperawatan'>('home');
+    const [viewMode, setViewMode] = useState<'home' | 'perizinan' | 'pinjam_hp' | 'kartu_siswa' | 'permohonan_hp' | 'pinjam_laptop' | 'catatan_perkembangan' | 'catatan_evaluasi' | 'izin_umum' | 'memos' | 'pangkalan_data_wali_asuh' | 'mading' | 'sarpras_asrama' | 'laporan_bulanan' | 'agenda' | 'dinding' | 'cek_ketidakhadiran' | 'kehilangan_di_asrama' | 'serah_terima' | 'undi_tausiyah' | 'jadwal_absen' | 'jurnal_keperawatan' | 'student_counseling'>('home');
   const [showSidebar, setShowSidebar] = useState(false);
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -1628,7 +1629,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone },
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
-                          { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse }
+                          { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse },
+                          { id: 'student_counseling', label: 'Bimbingan Konseling', icon: Contact }
                         ].map((item: any) => (
                           <button
                             key={item.id}
@@ -2099,6 +2101,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
         {viewMode === 'jadwal_absen' && <JadwalAbsenPiketView user={user} />}
         {viewMode === 'undi_tausiyah' && <TausiyahSpinner user={user} students={students} history={tausiyahHistory} />}
         {viewMode === 'jurnal_keperawatan' && <JurnalKeperawatanView user={user} />}
+        {viewMode === 'student_counseling' && <StudentCounselingView user={user} students={students} />}
 
         {viewMode === 'cek_ketidakhadiran' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -2957,6 +2960,106 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
               </div>
             </div>
 
+            {/* Dynamic Quotes System (Morning & Afternoon) */}
+            {(() => {
+              const quotesMorning = [
+                { text: "Setiap pagi adalah lembaran baru untuk mengukir keteladanan. Sentuhlah hati para santri sebelum menyentuh pikiran mereka.", author: "KH. Hasan Abdullah Sahal" },
+                { text: "Keikhlasan seorang pendidik di pagi hari adalah energi kebaikan yang akan menyelimuti seluruh aktivitas siswa sepanjang hari.", author: "Buya Hamka" },
+                { text: "Didiklah anak-anak kita dengan senyuman terbaik hari ini. Ketulusan Anda adalah obat penenang terbaik bagi rindu mereka akan rumah.", author: "KH. Achmad Mustofa Bisri" },
+                { text: "Kunci kesabaran mengasuh santri di awal hari dimulai dengan kelapangan dada dan doa restu yang tulus sebelum langkah pertama mereka.", author: "Dr. KH. Abdullah Syukri Zarkasyi" },
+                { text: "Menjadi wali asuh bukan sekadar menjaga, tapi mentransfer adab dan kasih sayang di setiap fajar yang menyingsing.", author: "Prof. Dr. HM. Quraish Shihab" },
+                { text: "Mengawali hari dengan semangat mengasuh berarti siap menjadi orang tua, sahabat, sekaligus penuntun terbaik bagi masa depan mereka.", author: "KH. Zainuddin MZ" },
+                { text: "Tugas kita di pagi hari bukan membuat mereka sempurna, melainkan menumbuhkan potensi terbaik mereka dengan kelembutan kasih sayang.", author: "Ki Hadjar Dewantara" },
+                { text: "Setiap sapaan hangat di pagi hari dari seorang wali asuh bisa menghapus kegelisahan di hati santri yang sedang berjuang menuntut ilmu.", author: "KH. Hasyim Asy'ari" },
+                { text: "Mulailah hari mengasuh ini dengan rasa syukur. Menjadi jembatan ilmu bagi anak orang lain adalah kemuliaan yang dirindukan para malaikat.", author: "KH. Ahmad Dahlan" },
+                { text: "Kebaikan yang kita tanamkan pada jiwa-jiwa muda di pagi hari akan menjadi benteng kokoh bagi masa depan mereka kelak.", author: "KH. Anwar Zahid" },
+                { text: "Jadikan asrama ini tempat terhangat setelah rumah mereka dengan memulai hari penuh limpahan kasih sayang dan teladan nyata.", author: "KH. Maimun Zubair" },
+                { text: "Sambut fajar dengan tekad kuat menjaga amanah wali murid. Anak-anak asuh kita adalah investasi surga yang paling berharga.", author: "KH. Idham Chalid" },
+                { text: "Langkah kecil kita membimbing santri beribadah di pagi hari adalah anak tangga menuju kesalehan hidup dunia dan akhirat.", author: "KH. Sahal Mahfudh" },
+                { text: "Mengasuh adalah seni menyatukan berbagai karakter anak dengan satu bahasa universal: cinta kasih yang tak bertepi di pagi hari.", author: "KH. Abdul Wahab Hasbullah" },
+                { text: "Tantangan pagi ini adalah ujian cinta kita. Jadilah wali asuh yang selalu dirindukan kehadirannya karena membawa kedamaian.", author: "Buya Yahya" }
+              ];
+
+              const quotesAfternoon = [
+                { text: "Ketika lelah mengasuh menghampiri di sore hari, ingatlah bahwa setiap peluh Anda dicatat sebagai amal jariah yang terus mengalir.", author: "KH. Hasan Abdullah Sahal" },
+                { text: "Evaluasi terbaik petang ini bukanlah seberapa tertib mereka, melainkan seberapa nyaman mereka bersandar dan bercerita tentang harinya kepada Anda.", author: "Buya Hamka" },
+                { text: "Senja di asrama adalah waktu magis untuk mendekatkan jiwa. Luangkan waktu mendengar keresahan santri dengan penuh empati.", author: "KH. Achmad Mustofa Bisri" },
+                { text: "Pastikan sebelum mereka memejamkan mata malam ini, mereka merasakan kehangatan asrama dan tahu bahwa mereka dicintai serta dihargai.", author: "Dr. KH. Abdullah Syukri Zarkasyi" },
+                { text: "Mengasuh di penghujung hari mengajarkan kita arti keikhlasan sejati: merawat titipan ilahi dengan doa malam yang tak terputus.", author: "Prof. Dr. HM. Quraish Shihab" },
+                { text: "Lelah fisik malam ini akan terbayar lunas saat melihat santri-santri asuhan tumbuh menjadi sosok pemuka agama yang berakhlak mulia.", author: "KH. Zainuddin MZ" },
+                { text: "Istirahat sejenak di malam hari, isi kembali energi jiwa Anda. Esok hari anak-anak asrama masih membutuhkan teladan terbaik dari Anda.", author: "Ki Hadjar Dewantara" },
+                { text: "Setiap ucapan penyemangat sebelum tidur yang Anda berikan adalah pelipur lara dari rasa jenuh belajar seharian.", author: "KH. Hasyim Asy'ari" },
+                { text: "Doakan nama-nama mereka dalam sujud malam Anda. Sentuhan doa seorang wali asuh menembus sekat-sekat kerasnya hati santri.", author: "KH. Ahmad Dahlan" },
+                { text: "Asrama yang damai di malam sunyi adalah buah dari kesabaran tanpa batas wali asuh dalam menuntun kedisiplinan berkarakter.", author: "KH. Anwar Zahid" },
+                { text: "Kelembutan malam hari meluluhkan ketegangan siang. Dekati santri yang murung, tunjukkan bahwa Anda selalu ada untuk membimbing.", author: "KH. Maimun Zubair" },
+                { text: "Tidur nyenyak mereka adalah tanda kenyamanan yang berhasil kita suguhkan. Terima kasih atas dedikasi dan kasih sayang Anda seharian ini.", author: "KH. Idham Chalid" },
+                { text: "Satu teguran membimbing di sore hari yang disampaikan dengan penuh kasih jauh lebih membekas daripada amarah di malam hari.", author: "KH. Sahal Mahfudh" },
+                { text: "Mengasuh di malam hari menguji kedalaman sabar kita. Tetaplah tersenyum lembut meski raga terasa penat demi masa depan anak bimbing.", author: "KH. Abdul Wahab Hasbullah" },
+                { text: "Semoga lelah dan kantuk Anda menjaga ketertiban asrama malam ini dikonversi Allah menjadi pengampunan dosa dan maghfirah.", author: "Buya Yahya" }
+              ];
+
+              const currentHour = currentTime.getHours();
+              const currentDay = currentTime.getDate();
+
+              // Morning: 07:00:00 to 14:59:59
+              // Afternoon/Night: 15:00:00 to 06:59:59
+              const isMorningRange = currentHour >= 7 && currentHour < 15;
+              const quotesList = isMorningRange ? quotesMorning : quotesAfternoon;
+              const quoteIndex = (currentDay - 1) % quotesList.length;
+              const selectedQuote = quotesList[quoteIndex];
+
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="bg-gradient-to-br from-slate-50 to-emerald-50/20 dark:from-slate-900/40 dark:to-emerald-950/10 p-5 sm:p-6 rounded-3xl border border-emerald-150/30 dark:border-emerald-500/10 shadow-sm text-left relative overflow-hidden group select-none"
+                >
+                  {/* Decorative background vectors/icons */}
+                  <div className="absolute -top-3 -right-3 text-emerald-500/5 dark:text-emerald-400/5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">
+                    <Quote className="w-24 h-24 rotate-180" />
+                  </div>
+                  
+                  <div className="relative z-10 flex flex-col justify-between h-full gap-4">
+                    {/* Header slot label */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-emerald-100/50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                          {isMorningRange ? (
+                            <Sun className="w-4 h-4 animate-pulse text-amber-500" />
+                          ) : (
+                            <Moon className="w-4 h-4 text-indigo-400 animate-pulse" />
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#1e3a1e] dark:text-emerald-300">
+                            {isMorningRange ? 'Kutipan Pagi Pembimbing' : 'Refleksi Petang Wali Asuh'}
+                          </span>
+                          <span className="text-[8px] block font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mt-0.5 leading-none">
+                            Diperbarui Pukul 07.00 & 15.00 WIB
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-[8px] font-black uppercase bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full tracking-wider border border-emerald-500/10 shadow-sm">
+                        <Sparkles className="w-2.5 h-2.5 text-emerald-500 dark:text-amber-400 animate-pulse" />
+                        <span>Motivasi</span>
+                       </div>
+                    </div>
+
+                    {/* Quote text block */}
+                    <div className="pl-3 border-l-2 border-emerald-400/50">
+                      <p className="text-xs sm:text-sm font-medium italic text-stone-700 dark:text-slate-200 leading-relaxed font-serif tracking-wide">
+                        "{selectedQuote.text}"
+                      </p>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#3e2723] dark:text-emerald-400 block mt-2.5 font-mono">
+                        — {selectedQuote.author}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+
             <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm text-left relative group overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
@@ -3020,7 +3123,8 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                   { id: 'pinjam_hp', label: 'Peminjaman HP', icon: Smartphone, color: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400' },
                   { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' },
                   { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop, color: 'bg-slate-50 text-slate-600 dark:bg-slate-950/40 dark:text-slate-400' },
-                  { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' }
+                  { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' },
+                  { id: 'student_counseling', label: 'Bimbingan Konseling', icon: Contact, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' }
                 ].map((item, index) => {
                   const Icon = item.icon;
                   return (
