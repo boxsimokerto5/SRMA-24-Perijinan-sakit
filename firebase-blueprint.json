@@ -360,9 +360,33 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["tanggal_str", "kelas", "mapel", "guru_uid", "guru_name", "jumlah_hadir", "jumlah_absen", "keterangan", "students", "createdAt"]
+    },
+    "DeveloperFeedback": {
+      "title": "Developer Feedback",
+      "description": "Reports and suggestions sent to developers by users",
+      "type": "object",
+      "properties": {
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["kendala", "saran_pesan"] },
+        "urgency": { "type": "string", "enum": ["low", "medium", "high"] },
+        "status": { "type": "string", "enum": ["pending", "processed", "resolved"] },
+        "reportedByEmail": { "type": "string" },
+        "reportedByName": { "type": "string" },
+        "reportedByUid": { "type": "string" },
+        "reportedByRole": { "type": "string" },
+        "developerNotes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["subject", "message", "type", "urgency", "status", "reportedByEmail", "reportedByName", "reportedByUid", "reportedByRole", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
+    "/developer_feedback/{feedbackId}": {
+      "schema": "DeveloperFeedback",
+      "description": "Bug reports, operational difficulties, and suggestions sent to developers"
+    },
     "/users/{uid}": {
       "schema": "User",
       "description": "User profiles and roles"

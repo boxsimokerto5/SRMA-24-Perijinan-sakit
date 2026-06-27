@@ -22,6 +22,8 @@ import KepalaSekolahView from './components/KepalaSekolahView';
 import GuruMapelView from './components/GuruMapelView';
 import WaliAsramaView from './components/WaliAsramaView';
 import SplashScreen from './components/SplashScreen';
+import WalkieTalkieWidget from './components/WalkieTalkieWidget';
+import DeveloperFeedbackWidget from './components/DeveloperFeedbackWidget';
 import { setupPushNotifications } from './services/notificationService';
 import { Loader2, AlertCircle, Mail, WifiOff } from 'lucide-react';
 
@@ -255,6 +257,8 @@ export default function App() {
         {appUser.role === 'kepala_sekolah' && <KepalaSekolahView user={appUser} activeTab={activeTab} />}
         {appUser.role === 'wali_asrama' && <WaliAsramaView user={appUser} activeTab={activeTab} />}
       </Layout>
+      <WalkieTalkieWidget user={appUser} />
+      <DeveloperFeedbackWidget user={appUser} />
     </ErrorBoundary>
   );
 }

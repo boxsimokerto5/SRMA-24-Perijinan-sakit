@@ -44,6 +44,7 @@ import {
   FileSearch,
   Settings,
   Trash2,
+  Radio,
   Image as LucideImage
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
@@ -453,11 +454,23 @@ export default function KepalaSekolahView({ user, activeTab }: KepalaSekolahView
                           { id: 'announcements', label: 'Pengumuman', icon: Bell },
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
-                          { id: 'profil', label: 'Profil Saya', icon: User }
+                          { id: 'profil', label: 'Profil Saya', icon: User },
+                          { id: 'walkie_talkie', label: 'Walkie Talkie', icon: Radio },
+                          { id: 'developer_feedback', label: 'Lapor & Saran Dev', icon: MessageSquare }
                         ].map((item: any) => (
                           <button
                             key={item.id}
                             onClick={() => {
+                              if (item.id === 'walkie_talkie') {
+                                window.dispatchEvent(new CustomEvent('open-walkie-talkie'));
+                                setShowSidebar(false);
+                                return;
+                              }
+                              if (item.id === 'developer_feedback') {
+                                window.dispatchEvent(new CustomEvent('open-developer-feedback'));
+                                setShowSidebar(false);
+                                return;
+                              }
                               setViewMode(item.id);
                               setShowSidebar(false);
                             }}

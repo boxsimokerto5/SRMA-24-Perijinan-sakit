@@ -43,6 +43,7 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Radio,
   Image as LucideImage
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
@@ -306,11 +307,23 @@ export default function GuruMapelView({ user, activeTab }: GuruMapelViewProps) {
                           { id: 'mading', label: 'Mading Sekolah', icon: BookOpen },
                           { id: 'memorandum', label: 'Memorandum', icon: Mail },
                           { id: 'student_counseling', label: 'Layanan Konseling', icon: BookOpen },
-                          { id: 'profil', label: 'Profil Saya', icon: User }
+                          { id: 'profil', label: 'Profil Saya', icon: User },
+                          { id: 'walkie_talkie', label: 'Walkie Talkie', icon: Radio },
+                          { id: 'developer_feedback', label: 'Lapor & Saran Dev', icon: MessageSquare }
                         ].map((item: any) => (
                           <button
                             key={item.id}
                             onClick={() => {
+                              if (item.id === 'walkie_talkie') {
+                                window.dispatchEvent(new CustomEvent('open-walkie-talkie'));
+                                setShowSidebar(false);
+                                return;
+                              }
+                              if (item.id === 'developer_feedback') {
+                                window.dispatchEvent(new CustomEvent('open-developer-feedback'));
+                                setShowSidebar(false);
+                                return;
+                              }
                               setViewMode(item.id);
                               setShowSidebar(false);
                             }}

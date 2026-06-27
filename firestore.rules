@@ -34,12 +34,38 @@ service cloud.firestore {
     
     function isMasterAdmin() {
       // Fastest path for system administrator - no email verification needed for emergencies
-      return isSignedIn() && request.auth.token.email == "boxsimokerto5@gmail.com";
+      return isSignedIn() && "email" in request.auth.token && request.auth.token.email == "boxsimokerto5@gmail.com";
     }
 
     function isSystemAdmin() {
       // Emergency access for the verified developer account
-      return isEmailVerified() && request.auth.token.email == "boxsimokerto5@gmail.com";
+      return isEmailVerified() && "email" in request.auth.token && request.auth.token.email == "boxsimokerto5@gmail.com";
+    }
+
+    function isSuperDeveloper() {
+      return isSignedIn() && "email" in request.auth.token && (
+        request.auth.token.email == "proseshidup1101@gmail.com" || 
+        request.auth.token.email == "boxsimokerto5@gmail.com" ||
+        request.auth.token.email == "PROSESHIDUP1101@GMAIL.COM" ||
+        request.auth.token.email == "BOXSIMOKERTO5@GMAIL.COM" ||
+        request.auth.token.email == "Proseshidup1101@gmail.com" ||
+        request.auth.token.email == "Boxsimokerto5@gmail.com"
+      );
+    }
+
+    function isValidDeveloperFeedback(data) {
+      return data.keys().hasAll(['subject', 'message', 'type', 'urgency', 'status', 'reportedByEmail', 'reportedByName', 'reportedByUid', 'reportedByRole', 'createdAt', 'updatedAt']) &&
+             data.subject is string && data.subject.size() <= 200 &&
+             data.message is string && data.message.size() <= 4000 &&
+             data.type in ['kendala', 'saran_pesan'] &&
+             data.urgency in ['low', 'medium', 'high'] &&
+             data.status in ['pending', 'processed', 'resolved'] &&
+             data.reportedByEmail is string && data.reportedByEmail.size() <= 128 &&
+             data.reportedByName is string && data.reportedByName.size() <= 128 &&
+             data.reportedByUid == request.auth.uid &&
+             data.reportedByRole is string &&
+             data.createdAt == request.time &&
+             data.updatedAt == request.time;
     }
 
     // Pillar 2: Validation Blueprints (The "Anti-Update-Gap")
@@ -296,9 +322,21 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\.\\-]+$'); 
     }
 
+    function isValidWalkieId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\.\\- ]+$'); 
+    }
+
     // ===============================================================
     // Collection Rules
     // ===============================================================
+
+    match /developer_feedback/{feedbackId} {
+      allow list: if isSuperDeveloper() || (isSignedIn() && resource.data.reportedByUid == request.auth.uid);
+      allow get: if isSuperDeveloper() || (isSignedIn() && isValidId(feedbackId) && resource.data.reportedByUid == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(feedbackId) && isValidDeveloperFeedback(incoming());
+      allow update: if isSuperDeveloper() && isValidId(feedbackId);
+      allow delete: if isSuperDeveloper() && isValidId(feedbackId);
+    }
 
     match /users/{uid} {
       allow list: if isSignedIn();
@@ -517,22 +555,22 @@ service cloud.firestore {
     }
 
     match /student_counselings/{counselingId} {
-      allow list: if isSignedIn() && (request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com' || resource.data.author_uid == request.auth.uid);
-      allow get: if isSignedIn() && isValidId(counselingId) && (request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com' || existing().author_uid == request.auth.uid);
+      allow list: if isSignedIn() && (isSuperDeveloper() || resource.data.author_uid == request.auth.uid);
+      allow get: if isSignedIn() && isValidId(counselingId) && (isSuperDeveloper() || existing().author_uid == request.auth.uid);
       allow create: if isSignedIn() && isValidId(counselingId) && isValidStudentCounselingOnCreate(incoming());
       allow update: if isSignedIn() && isValidId(counselingId) && 
-                    (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com') && 
+                    (isSuperDeveloper() || existing().author_uid == request.auth.uid) && 
                     isValidStudentCounselingOnUpdate(incoming(), existing());
       allow delete: if isSignedIn() && isValidId(counselingId) && 
-                    (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com');
+                    (isSuperDeveloper() || existing().author_uid == request.auth.uid);
     }
 
     match /dormitory_losses/{lossId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn() && isValidId(lossId);
       allow create: if isSignedIn() && isValidId(lossId) && isValidDormitoryLoss(incoming());
-      allow update: if isSignedIn() && isValidId(lossId) && (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com' || existing().author_role == 'wali_asrama') && isValidDormitoryLoss(incoming());
-      allow delete: if isSignedIn() && isValidId(lossId) && (existing().author_uid == request.auth.uid || request.auth.token.email == 'proseshidup1101@gmail.com' || request.auth.token.email == 'boxsimokerto5@gmail.com');
+      allow update: if isSignedIn() && isValidId(lossId) && (isSuperDeveloper() || existing().author_uid == request.auth.uid || existing().author_role == 'wali_asrama') && isValidDormitoryLoss(incoming());
+      allow delete: if isSignedIn() && isValidId(lossId) && (isSuperDeveloper() || existing().author_uid == request.auth.uid);
     }
 
     match /serah_terima/{handoverId} {
@@ -576,6 +614,20 @@ service cloud.firestore {
       allow create: if (hasRole('guru_mapel') || isAdmin() || isMasterAdmin()) && isValidId(id) && isValidAbsenHarian(incoming());
       allow update: if (hasRole('guru_mapel') || isAdmin() || isMasterAdmin()) && isValidId(id) && (existing().guru_uid == request.auth.uid) && isValidAbsenHarian(incoming());
       allow delete: if isSignedIn() && isValidId(id) && (existing().guru_uid == request.auth.uid || isAdmin() || isMasterAdmin());
+    }
+
+    match /walkie_channels/{channelId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /walkie_presence/{channelId}/users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && uid == request.auth.uid;
+    }
+
+    match /walkie_signaling/{signalId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

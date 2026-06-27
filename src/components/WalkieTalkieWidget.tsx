@@ -130,6 +130,7 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
   
   // Real-time audio streams from peers
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [peerStates, setPeerStates] = useState<Map<string, string>>(new Map());
 
   // Refs for WebRTC resources
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -190,9 +191,9 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      // Start with track totally disabled/muted until PTT is pressed
+      // Keep track enabled initially so WebRTC SDP negotiation registers an active media track
       stream.getAudioTracks().forEach(track => {
-        track.enabled = false;
+        track.enabled = true;
       });
       setPermissionGranted(true);
       setErrorMsg(null);
@@ -219,9 +220,9 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      // start with track disabled/muted until PTT is held
+      // Keep track enabled initially so WebRTC SDP negotiation registers an active media track
       stream.getAudioTracks().forEach(track => {
-        track.enabled = false;
+        track.enabled = true;
       });
       setPermissionGranted(true);
       setErrorMsg(null);
@@ -257,6 +258,7 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
 
     // Clear remote streams
     setRemoteStreams(new Map());
+    setPeerStates(new Map());
 
     // Turn off mic track captures
     if (localStreamRef.current) {
@@ -384,6 +386,23 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
             pc.addTrack(track, stream);
           });
 
+          // Set initial connection state to connecting/connecting
+          setPeerStates(prev => {
+            const next = new Map(prev);
+            next.set(peer.uid, 'connecting');
+            return next;
+          });
+
+          // Track connection state changes in real time
+          pc.onconnectionstatechange = () => {
+            console.log(`WebRTC Connection State with ${peer.name}: ${pc.connectionState}`);
+            setPeerStates(prev => {
+              const next = new Map(prev);
+              next.set(peer.uid, pc.connectionState);
+              return next;
+            });
+          };
+
           // Handle incoming track mapping
           pc.ontrack = (event) => {
             console.log(`Received remote audio stream from peer: ${peer.name}`);
@@ -440,10 +459,15 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                 }
               };
 
+              // Temporarily enable track for active SDP generation
+              stream.getAudioTracks().forEach(t => { t.enabled = true; });
+
               // Create and send SDP Offer
               pc.createOffer().then(offer => {
                 return pc.setLocalDescription(offer);
               }).then(() => {
+                // Restore state based on actual speaking state
+                stream.getAudioTracks().forEach(t => { t.enabled = isSpeakingRef.current; });
                 return setDoc(signalDocRef, {
                   offer: pc.localDescription?.sdp
                 }, { merge: true });
@@ -531,6 +555,9 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
               if (docSnap.exists()) {
                 const data = docSnap.data() as SignalingData;
                 if (data.offer && !pc.remoteDescription) {
+                  // Temporarily enable track for active SDP generation
+                  stream.getAudioTracks().forEach(t => { t.enabled = true; });
+
                   pc.setRemoteDescription(new RTCSessionDescription({
                     type: 'offer',
                     sdp: data.offer
@@ -539,6 +566,8 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                   }).then(answer => {
                     return pc.setLocalDescription(answer);
                   }).then(() => {
+                    // Restore state based on actual speaking state
+                    stream.getAudioTracks().forEach(t => { t.enabled = isSpeakingRef.current; });
                     setDoc(signalDocRef, {
                       answer: pc.localDescription?.sdp,
                       receiverName: user.name,
@@ -551,7 +580,11 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                       pc.addIceCandidate(new RTCIceCandidate(cand))
                         .catch(e => console.warn("Error adding buffered caller candidate:", e));
                     }
-                  }).catch(err => console.warn("Failed setting remote offer or creating answer:", err));
+                  }).catch(err => {
+                    // Restore state based on actual speaking state
+                    stream.getAudioTracks().forEach(t => { t.enabled = isSpeakingRef.current; });
+                    console.warn("Failed setting remote offer or creating answer:", err);
+                  });
                 }
                 if (data.candidates_caller) {
                   data.candidates_caller.forEach(cand => {
@@ -588,6 +621,11 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
             signalingSubscribes.current.delete(peerUid);
           }
           setRemoteStreams(prev => {
+            const next = new Map(prev);
+            next.delete(peerUid);
+            return next;
+          });
+          setPeerStates(prev => {
             const next = new Map(prev);
             next.delete(peerUid);
             return next;
@@ -894,73 +932,24 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                 )}
               </div>
 
-              {/* Force request microphone widget */}
-              <div className="mb-4 p-3.5 rounded-2xl bg-[#231412] border border-[#ebdccb]/10 flex flex-col gap-2">
-                <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
-                  <span className="text-[#ebdccb]/80">Status Mikrofon HP/PC</span>
-                  {permissionGranted === true ? (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> AKTIF / SIAP
+              {/* Compact mic authorization helper ONLY if not granted */}
+              {permissionGranted !== true && (
+                <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 text-[10px]">
+                  <div className="flex items-center gap-2 text-amber-200">
+                    <span className="flex h-2 w-2 relative shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                     </span>
-                  ) : permissionGranted === false ? (
-                    <span className="text-red-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" /> DIBLOKIR / ERROR
-                    </span>
-                  ) : (
-                    <span className="text-amber-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> BELUM DIIZINKAN
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-[8px] text-stone-400 uppercase font-bold leading-normal">
-                  Sistem radio memerlukan izin mikrofon browser agar suara Anda dapat didengar oleh wali asuh lainnya.
-                </p>
-
-                <div className="flex gap-2.5 mt-1">
+                    <span className="font-bold tracking-tight">Izin Mikrofon diperlukan untuk bicara</span>
+                  </div>
                   <button
                     onClick={forceRequestMic}
-                    className={`flex-1 py-2 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md active:scale-95 ${
-                      permissionGranted === true
-                        ? 'bg-emerald-550/15 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-555/35'
-                        : 'bg-amber-400 hover:bg-amber-300 text-[#3e2723] animate-bounce'
-                    }`}
+                    className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-[#3e2723] rounded-lg font-black text-[9px] uppercase tracking-wider shrink-0 cursor-pointer active:scale-95 transition-all"
                   >
-                    <Mic className="w-3.5 h-3.5" />
-                    {permissionGranted === true ? 'TES ULANG MIKROFON' : '🔑 IZINKAN MIKROFON'}
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      try {
-                        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                        if (AudioContextClass) {
-                          const testCtx = new AudioContextClass();
-                          await testCtx.resume();
-                          const osc = testCtx.createOscillator();
-                          const gain = testCtx.createGain();
-                          osc.frequency.setValueAtTime(600, testCtx.currentTime);
-                          gain.gain.setValueAtTime(0.05, testCtx.currentTime);
-                          gain.gain.exponentialRampToValueAtTime(0.001, testCtx.currentTime + 0.3);
-                          osc.connect(gain);
-                          gain.connect(testCtx.destination);
-                          osc.start();
-                          osc.stop(testCtx.currentTime + 0.3);
-                          alert("🔊 Suara Beep pengujian berhasil diputar!");
-                        } else {
-                          alert("Browser Anda tidak mendukung Web Audio API.");
-                        }
-                      } catch (e: any) {
-                        alert("⚠️ Gagal memutar suara: " + e.message);
-                      }
-                    }}
-                    className="py-2 px-3 rounded-xl bg-stone-900 border border-stone-800 text-stone-300 hover:text-white font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    TES SUARA BEEP
+                    Aktifkan Mic
                   </button>
                 </div>
-              </div>
+              )}
 
               {errorMsg && (
                 <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-900/30 text-red-300 text-[10px] whitespace-pre-line leading-relaxed italic">
@@ -974,7 +963,7 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                   <div className="space-y-4 pt-1 bg-[#231412]/50 p-4 rounded-2xl border border-[#ebdccb]/10 text-xs text-stone-200">
                     <div className="flex items-center justify-between border-b border-[#ebdccb]/10 pb-2">
                       <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
-                        ⚙️ SETELAN SINYAL & TURN
+                        ⚙️ SETELAN RADIO & TURN
                       </span>
                       <button 
                         type="button" 
@@ -983,6 +972,70 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                       >
                         TUTUP
                       </button>
+                    </div>
+
+                    {/* Integrated Microphone Settings & Diagnostic Screen */}
+                    <div className="p-3.5 rounded-xl bg-[#1a0f0d] border border-stone-850 flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                        <span className="text-[#ebdccb]/85">Status Mikrofon HP/PC</span>
+                        {permissionGranted === true ? (
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> AKTIF / HI-FI
+                          </span>
+                        ) : permissionGranted === false ? (
+                          <span className="text-red-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" /> DIBLOKIR / ERROR
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> SIAP DIAKTIFKAN
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 mt-1">
+                        <button
+                          onClick={forceRequestMic}
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+                            permissionGranted === true
+                              ? 'bg-emerald-550/15 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-555/35'
+                              : 'bg-amber-400 hover:bg-amber-300 text-[#3e2723]'
+                          }`}
+                        >
+                          <Mic className="w-3 h-3" />
+                          {permissionGranted === true ? 'TES ULANG MIC' : '🔑 AKTIFKAN MIC'}
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            try {
+                              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                              if (AudioContextClass) {
+                                const testCtx = new AudioContextClass();
+                                await testCtx.resume();
+                                const osc = testCtx.createOscillator();
+                                const gain = testCtx.createGain();
+                                osc.frequency.setValueAtTime(600, testCtx.currentTime);
+                                gain.gain.setValueAtTime(0.05, testCtx.currentTime);
+                                gain.gain.exponentialRampToValueAtTime(0.001, testCtx.currentTime + 0.3);
+                                osc.connect(gain);
+                                gain.connect(testCtx.destination);
+                                osc.start();
+                                osc.stop(testCtx.currentTime + 0.3);
+                                alert("🔊 Suara Beep pengujian berhasil diputar!");
+                              } else {
+                                alert("Browser Anda tidak mendukung Web Audio API.");
+                              }
+                            } catch (e: any) {
+                              alert("⚠️ Gagal memutar suara: " + e.message);
+                            }
+                          }}
+                          className="py-1.5 px-2.5 rounded-xl bg-stone-900 border border-stone-800 text-stone-300 hover:text-white font-black text-[8px] uppercase tracking-widest flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Volume2 className="w-3 h-3" />
+                          TES BEEP
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2.5">
@@ -1231,9 +1284,25 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                                     {p.name}
                                     {p.uid === user.uid && <span className="text-[8px] font-black text-indigo-400 bg-indigo-500/10 px-1 py-0.5 rounded">SAYA</span>}
                                   </p>
-                                  <p className="text-[8.5px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
-                                    {p.role.replace('_', ' ')}
-                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    <span className="text-[8.5px] text-stone-400 font-bold uppercase tracking-widest leading-none">
+                                      {p.role.replace('_', ' ')}
+                                    </span>
+                                    {p.uid !== user.uid && (
+                                      (() => {
+                                        const state = peerStates.get(p.uid);
+                                        if (state === 'connected') {
+                                          return <span className="text-[7px] font-black text-emerald-400 bg-emerald-950/45 px-1 py-0.5 rounded tracking-wide border border-emerald-500/15 select-none leading-none">🟢 TERSAMBUNG</span>;
+                                        } else if (state === 'connecting') {
+                                          return <span className="text-[7px] font-black text-amber-300 bg-amber-950/45 px-1 py-0.5 rounded tracking-wide border border-amber-500/15 animate-pulse select-none leading-none">🟡 NYAMBUNG</span>;
+                                        } else if (state === 'failed' || state === 'disconnected') {
+                                          return <span className="text-[7px] font-black text-red-400 bg-red-950/45 px-1 py-0.5 rounded tracking-wide border border-red-500/15 select-none leading-none">🔴 TERPUTUS</span>;
+                                        } else {
+                                          return <span className="text-[7px] font-black text-stone-400 bg-stone-900/65 px-1 py-0.5 rounded tracking-wide border border-stone-800 select-none leading-none">⚪ SIAGA</span>;
+                                        }
+                                      })()
+                                    )}
+                                  </div>
                                 </div>
                               </div>
 
@@ -1287,6 +1356,13 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                             e.preventDefault();
                             stopSpeaking();
                           }}
+                          onTouchCancel={(e) => {
+                            e.preventDefault();
+                            stopSpeaking();
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                          }}
                           disabled={isChannelBusy}
                           className={`w-32 h-32 rounded-full border-4 shadow-2xl flex flex-col items-center justify-center transition-all select-none duration-150 outline-none ${
                             isSpeaking 
@@ -1308,22 +1384,28 @@ export default function WalkieTalkieWidget({ user }: WalkieTalkieWidgetProps) {
                           </span>
                         </button>
                       </div>
+                    </div>
 
-                      {/* Small Emergency Toggle alternative */}
-                      <button
-                        onClick={() => {
-                          if (isSpeaking) stopSpeaking();
-                          else if (!isChannelBusy) startSpeaking();
-                        }}
-                        disabled={isChannelBusy}
-                        className={`mt-4 px-4 py-1.5 rounded-full border text-[8.5px] font-black uppercase tracking-widest transition-all ${
-                          isChannelBusy 
-                            ? 'bg-stone-900 border-red-900/30 text-red-500/50 cursor-not-allowed' 
-                            : 'bg-stone-900 border-stone-800 hover:bg-stone-800 text-[#ebdccb]/60 hover:text-stone-200 cursor-pointer'
-                        }`}
-                      >
-                        {isSpeaking ? '🔒 KUNCI MIC: LEPAS' : '🔓 KLIK SEKALI UNTUK ON'}
-                      </button>
+                    {/* Troubleshooting Mobile Phone Audio Box */}
+                    <div className="mt-4 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-[9px] leading-relaxed text-[#ebdccb]/90 space-y-1.5 font-sans">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-black uppercase tracking-wider text-[8.5px]">
+                        <Volume2 className="w-3.5 h-3.5 shrink-0 text-amber-300" />
+                        <span>⚠️ SUARA BELUM TERDENGAR DI LAWAN BICARA?</span>
+                      </div>
+                      <ul className="list-disc pl-4 space-y-1 text-stone-300">
+                        <li>
+                          <strong>Faktor Speaker HP:</strong> Di sebagian HP (iPhone/Android), karena mikrofon sedang aktif, browser secara otomatis mengalihkan keluaran suara ke <strong>speaker atas/telinga (Earpiece)</strong> seperti saat menelepon biasa, bukan speaker multimedia utama.
+                        </li>
+                        <li>
+                          <strong>Solusi Utama:</strong> Tempelkan HP ke telinga Anda untuk mendengarkan, atau sambungkan <strong>Headset/Earphone</strong> agar suara terdengar kencang dan jelas!
+                        </li>
+                        <li>
+                          <strong>Solusi Volume:</strong> Pastikan Anda dan teman Anda menaikkan volume media/pesan suara di HP hingga maksimal saat berbicara.
+                        </li>
+                        <li>
+                          <strong>Cek Status Koneksi:</strong> Pastikan status di bawah nama teman Anda berubah menjadi <span className="text-emerald-400 font-bold">"🟢 TERSAMBUNG"</span> di daftar Anggota di atas. Jika gagal tersambung, coba keluar saluran lalu masuk kembali!
+                        </li>
+                      </ul>
                     </div>
 
                     {/* Exit frequency network action button */}
@@ -1428,6 +1510,11 @@ const AudioPlayer: React.FC<{ stream: MediaStream; muted?: boolean }> = ({ strea
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = muted;
+      if (!muted) {
+        audioRef.current.play().catch(e => {
+          console.warn("Play on unmute failed: ", e);
+        });
+      }
     }
   }, [muted]);
 
@@ -1443,7 +1530,9 @@ const AudioPlayer: React.FC<{ stream: MediaStream; muted?: boolean }> = ({ strea
           console.warn("Audio autoplay was restricted by browser. Waiting for interaction or retrying...", error);
           // Retry on subsequent interaction just in case
           const retryPlay = () => {
-            audioRef.current?.play().catch(e => console.log("Retry play failed:", e));
+            if (audioRef.current) {
+              audioRef.current.play().catch(e => console.log("Retry play failed:", e));
+            }
             window.removeEventListener('click', retryPlay);
           };
           window.addEventListener('click', retryPlay);
@@ -1456,10 +1545,10 @@ const AudioPlayer: React.FC<{ stream: MediaStream; muted?: boolean }> = ({ strea
     <audio 
       ref={audioRef} 
       playsInline
+      autoPlay
       muted={muted}
-      className="hidden" 
+      className="opacity-0 pointer-events-none absolute w-[1px] h-[1px]" 
       controls={false}
-      style={{ display: 'none' }}
     />
   );
 };

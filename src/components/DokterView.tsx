@@ -15,7 +15,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { ClipboardList, Plus, Calendar, User, Activity, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, ChevronDown, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X, Quote, Sparkles, Sun, Moon, Image as LucideImage } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Activity, Radio, Clock, MapPin, Printer, Loader2, Send, MessageSquare, Mail, ShieldCheck, CheckCircle2, BarChart3, Search, ChevronRight, ChevronDown, Check, TrendingUp, Stethoscope, HeartPulse, Building, AlertCircle, Menu, Database, LogOut, GraduationCap, LayoutDashboard, Bell, Info, FileText, BookOpen, X, Quote, Sparkles, Sun, Moon, Image as LucideImage } from 'lucide-react';
 import Logo from './Logo';
 import { format, addDays, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -894,7 +894,8 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
               { id: 'memorandum', label: 'Memo', icon: Mail, color: 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100/50 border border-fuchsia-100' },
               { id: 'agenda', label: 'Agenda', icon: Calendar, color: 'bg-orange-50 text-orange-700 hover:bg-orange-100/50 border border-orange-100' },
               { id: 'mading', label: 'Mading', icon: BookOpen, color: 'bg-sky-50 text-sky-700 hover:bg-sky-100/50 border border-sky-100' },
-              { id: 'profil', label: 'Identitas', icon: User, color: 'bg-stone-100 text-stone-700 hover:bg-stone-200/50 border border-stone-200' }
+              { id: 'profil', label: 'Identitas', icon: User, color: 'bg-stone-100 text-stone-700 hover:bg-stone-200/50 border border-stone-200' },
+              { id: 'walkie_talkie', label: 'Radio HT', icon: Radio, color: 'bg-violet-50 text-violet-700 hover:bg-violet-100/50 border border-violet-100 animate-pulse' }
             ].map((item, index) => {
               const Icon = item.icon;
               const isActive = viewMode === item.id;
@@ -908,7 +909,13 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.02 }}
-                  onClick={() => setViewMode(item.id as any)}
+                  onClick={() => {
+                    if (item.id === 'walkie_talkie') {
+                      window.dispatchEvent(new CustomEvent('open-walkie-talkie'));
+                      return;
+                    }
+                    setViewMode(item.id as any);
+                  }}
                 >
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm ${
                     isActive 
@@ -1310,11 +1317,23 @@ export default function DokterView({ user, activeTab }: DokterViewProps) {
                           { id: 'kartu_siswa', label: 'Database Siswa', icon: User },
                           { id: 'usulan_cek', label: 'Usulan Cek Up', icon: ShieldCheck },
                           { id: 'memorandum', label: 'Memorandum Intern', icon: Mail },
-                          { id: 'profil', label: 'Identitas Dokter', icon: User }
+                          { id: 'profil', label: 'Identitas Dokter', icon: User },
+                          { id: 'walkie_talkie', label: 'Walkie Talkie', icon: Radio },
+                          { id: 'developer_feedback', label: 'Lapor & Saran Dev', icon: MessageSquare }
                         ].map((item) => (
                           <button
                             key={item.id}
                             onClick={() => {
+                              if (item.id === 'walkie_talkie') {
+                                window.dispatchEvent(new CustomEvent('open-walkie-talkie'));
+                                setShowSidebar(false);
+                                return;
+                              }
+                              if (item.id === 'developer_feedback') {
+                                window.dispatchEvent(new CustomEvent('open-developer-feedback'));
+                                setShowSidebar(false);
+                                return;
+                              }
                               setViewMode(item.id as any);
                               setShowSidebar(false);
                             }}

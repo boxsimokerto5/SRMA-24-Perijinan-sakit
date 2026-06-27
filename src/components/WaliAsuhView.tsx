@@ -11,7 +11,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { Home, MessageSquare, Send, Clock, User, Printer, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, ChevronDown, Quote, Sparkles, Image as LucideImage } from 'lucide-react';
+import { Home, MessageSquare, Send, Clock, User, Printer, Radio, Database, Loader2, CheckCircle2, Calendar, Plus, MapPin, ClipboardList, Activity, FileText, Mail, ShieldCheck, Shield, BarChart3, Search, Menu, Smartphone, History, Check, ChevronRight, TrendingUp, Tablet, Bell, Moon, Sun, Star, Settings, CreditCard, LogOut, LayoutDashboard, IdCard, Laptop, Contact, GraduationCap, Info, Users, X, Camera, BookOpen, Wrench, AlertTriangle, ClipboardCheck, Package, Scissors, HeartPulse, ChevronDown, Quote, Sparkles, Image as LucideImage } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, Timestamp, arrayUnion, deleteDoc, getDocs, serverTimestamp, writeBatch, setDoc, or } from 'firebase/firestore';
 import { AppUser, IzinSakit, WALI_KELAS_LIST, LogTindakan, Memorandum, PinjamHP, Siswa, normalizeKelas, LaptopRequest, HPRequest, Announcement, AppNotification, SarprasReport, Ketidakhadiran, parseFirestoreDate, JadwalTausiyah, Agenda } from '../types';
@@ -1630,11 +1630,23 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                           { id: 'permohonan_hp', label: 'Permohonan HP', icon: MessageSquare },
                           { id: 'pinjam_laptop', label: 'Pinjam Laptop', icon: Laptop },
                           { id: 'undi_tausiyah', label: 'Undi Tausiyah', icon: HeartPulse },
-                          { id: 'student_counseling', label: 'Bimbingan Konseling', icon: Contact }
+                          { id: 'student_counseling', label: 'Bimbingan Konseling', icon: Contact },
+                          { id: 'walkie_talkie', label: 'Walkie Talkie', icon: Radio },
+                          { id: 'developer_feedback', label: 'Lapor & Saran Dev', icon: MessageSquare }
                         ].map((item: any) => (
                           <button
                             key={item.id}
                             onClick={() => {
+                              if (item.id === 'walkie_talkie') {
+                                window.dispatchEvent(new CustomEvent('open-walkie-talkie'));
+                                setShowSidebar(false);
+                                return;
+                              }
+                              if (item.id === 'developer_feedback') {
+                                window.dispatchEvent(new CustomEvent('open-developer-feedback'));
+                                setShowSidebar(false);
+                                return;
+                              }
                               setViewMode(item.id);
                               setShowSidebar(false);
                             }}
@@ -1644,7 +1656,7 @@ export default function WaliAsuhView({ user, activeTab }: WaliAsuhViewProps) {
                                 : 'bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white'
                             }`}
                           >
-                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-white' : 'text-slate-600 group-hover:text-emerald-400'}`} />
+                            <item.icon className={`w-5 h-5 ${viewMode === item.id ? 'text-white' : 'text-slate-600'}`} />
                             {item.label}
                           </button>
                         ))}
